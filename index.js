@@ -1,4 +1,4 @@
-import OBR from "https://cdn.jsdelivr.net/npm/@owlbear-rodeo/sdk@1/dist/index.esm.js";
+import OBR from "https://unpkg.com/@owlbear-rodeo/sdk@1/dist/index.esm.js";
 
 // Configuración de páginas de Notion
 // Agrega aquí tus páginas públicas de Notion
@@ -65,52 +65,33 @@ try {
       
       button.addEventListener("click", async () => {
         try {
-          console.log("Abriendo modal con URL:", page.url);
-          console.log("Dimensiones del modal:", {
+          console.log("Abriendo modal con URL de Notion:", page.url);
+          
+          // Crear URL para la página de embed con el parámetro de Notion
+          const embedUrl = `${window.location.origin}/notion-embed.html?url=${encodeURIComponent(page.url)}`;
+          console.log("URL del embed:", embedUrl);
+          
+          // Abrir modal con la página de embed que contiene el iframe
+          const modalResult = await OBR.modal.open({
+            id: `notion-modal-${index}`,
+            url: embedUrl,
             width: Math.min(window.innerWidth * 0.9, 1200),
             height: Math.min(window.innerHeight * 0.9, 800)
           });
           
-          // Intentar abrir en modal primero
-          try {
-            const modalResult = await OBR.modal.open({
-              id: `notion-modal-${index}`,
-              url: page.url,
-              width: Math.min(window.innerWidth * 0.9, 1200),
-              height: Math.min(window.innerHeight * 0.9, 800)
-            });
-            
-            console.log("Modal abierto exitosamente:", modalResult);
-            
-            // Verificar si el modal se cargó correctamente después de un breve delay
-            setTimeout(() => {
-              console.log("Verificando estado del modal después de 2 segundos...");
-            }, 2000);
-            
-          } catch (modalError) {
-            console.warn("Error al abrir modal, intentando alternativa:", modalError);
-            // Si el modal falla, ofrecer abrir en nueva ventana
-            const openInNewWindow = confirm(
-              "No se pudo abrir Notion en el modal (Notion bloquea iframes).\n\n" +
-              "¿Deseas abrirlo en una nueva ventana?"
-            );
-            
-            if (openInNewWindow) {
-              window.open(page.url, '_blank', 'noopener,noreferrer');
-            }
-          }
+          console.log("Modal abierto exitosamente:", modalResult);
         } catch (error) {
-          console.error("Error general al abrir página:", error);
+          console.error("Error al abrir modal:", error);
           console.error("Detalles del error:", {
             message: error.message,
             stack: error.stack,
             name: error.name
           });
           
-          // Ofrecer abrir en nueva ventana como alternativa
+          // Si el modal falla, ofrecer abrir en nueva ventana
           const openInNewWindow = confirm(
             `Error al abrir la página de Notion: ${error.message}\n\n` +
-            "Notion bloquea el embedding en iframes por seguridad.\n\n" +
+            "Notion puede bloquear el embedding en iframes por seguridad.\n\n" +
             "¿Deseas abrirlo en una nueva ventana?"
           );
           
