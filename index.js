@@ -67,8 +67,9 @@ function extractNotionPageId(url) {
 async function fetchNotionBlocks(pageId) {
   try {
     // Usar Netlify Function como proxy para mantener el token seguro
+    // Netlify Functions se exponen en /.netlify/functions/nombre-funcion
     const apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
-      ? `/api/notion-api?pageId=${encodeURIComponent(pageId)}`
+      ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}`
       : `${NOTION_API_BASE}/blocks/${pageId}/children`;
     
     const headers = {
@@ -77,7 +78,7 @@ async function fetchNotionBlocks(pageId) {
     
     // Solo agregar Authorization si no estamos usando el proxy (desarrollo local)
     // En producción, el token está en el servidor (Netlify Function)
-    if (!apiUrl.includes('/api/')) {
+    if (!apiUrl.includes('/.netlify/functions/')) {
       // Para desarrollo local, intentar obtener el token dinámicamente
       try {
         const config = await import("./config.js");
