@@ -5,12 +5,12 @@ import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3.1.0";
 const NOTION_PAGES = [
   {
     name: "Ganar Tiempo",
-    url: "https://solid-jingle-6ee.notion.site/Ganar-Tiempo-2ccd4856c90e80febdfcd5fdfc08d0fd"
+    url: "https://solid-jingle-6ee.notion.site/ebd//2ccd4856c90e80febdfcd5fdfc08d0fd"
   }
   // Agrega más páginas aquí:
   // {
   //   name: "Otra Aventura",
-  //   url: "https://tu-notion.notion.site/Tu-Pagina-..."
+  //   url: "https://tu-notion.notion.site/ebd//tu-id-de-notion"
   // }
 ];
 
@@ -29,6 +29,44 @@ window.addEventListener('unhandledrejection', (event) => {
     console.error('Error de fetch en promesa rechazada:', event.reason);
   }
 });
+
+// Función para mostrar mensaje cuando Notion bloquea el iframe
+function showNotionBlockedMessage(container, url) {
+  container.innerHTML = `
+    <div style="padding: 40px 20px; text-align: center; color: #e0e0e0;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
+      <h2 style="color: #fff; margin-bottom: 12px; font-size: 18px;">Notion bloquea el embedding</h2>
+      <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.5;">
+        Notion no permite que sus páginas se carguen en iframes por razones de seguridad.<br>
+        Puedes abrir la página en una nueva ventana para verla.
+      </p>
+      <button id="open-notion-window" style="
+        background: #4a9eff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 24px;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      ">Abrir en nueva ventana</button>
+    </div>
+  `;
+  
+  const openButton = container.querySelector('#open-notion-window');
+  if (openButton) {
+    openButton.addEventListener('click', () => {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+    openButton.addEventListener('mouseenter', () => {
+      openButton.style.background = '#5aaeff';
+    });
+    openButton.addEventListener('mouseleave', () => {
+      openButton.style.background = '#4a9eff';
+    });
+  }
+}
 
 // Intentar inicializar Owlbear con manejo de errores
 try {
@@ -80,8 +118,24 @@ try {
           backButton.classList.remove("hidden");
           pageTitle.textContent = page.name;
           
-          // Cargar el iframe con la URL de Notion
+          // Intentar cargar el iframe
           notionIframe.src = page.url;
+          
+          // Detectar si el iframe fue bloqueado (después de un breve delay)
+          setTimeout(() => {
+            try {
+              // Intentar acceder al contenido del iframe
+              const iframeDoc = notionIframe.contentDocument || notionIframe.contentWindow?.document;
+              if (!iframeDoc || iframeDoc.body === null) {
+                // El iframe probablemente fue bloqueado
+                showNotionBlockedMessage(notionContainer, page.url);
+              }
+            } catch (e) {
+              // Error de CORS significa que el iframe fue bloqueado
+              console.warn("Notion bloqueó el iframe por CSP:", e);
+              showNotionBlockedMessage(notionContainer, page.url);
+            }
+          }, 1000);
           
           // Configurar el botón de volver (solo una vez)
           if (!backButton.dataset.listenerAdded) {
