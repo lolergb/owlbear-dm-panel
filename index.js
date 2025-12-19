@@ -362,104 +362,27 @@ async function renderTable(tableBlock) {
   }
 }
 
-// Función para mostrar imagen en modal
-function showImageModal(imageUrl, caption) {
-  const modal = document.createElement('div');
-  modal.id = 'image-modal';
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.95);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    cursor: pointer;
-  `;
-  
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = `
-    position: relative;
-    max-width: 100%;
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  `;
-  
-  modalContent.innerHTML = `
-    <img src="${imageUrl}" alt="${caption || ''}" style="
-      max-width: 100%;
-      max-height: calc(100vh - 100px);
-      object-fit: contain;
-      border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    " />
-    ${caption ? `<div style="
-      color: #e0e0e0;
-      font-size: 14px;
-      margin-top: 16px;
-      text-align: center;
-      max-width: 800px;
-      padding: 0 20px;
-    ">${caption}</div>` : ''}
-    <button id="close-image-modal" style="
-      position: absolute;
-      top: -40px;
-      right: 0;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 6px;
-      padding: 8px 16px;
-      color: #fff;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: all 0.2s;
-    ">Cerrar (ESC)</button>
-  `;
-  
-  modal.appendChild(modalContent);
-  document.body.appendChild(modal);
-  
-  // Cerrar al hacer clic fuera de la imagen
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal || e.target.id === 'close-image-modal') {
-      document.body.removeChild(modal);
+// Función para mostrar imagen en modal usando Owlbear SDK
+async function showImageModal(imageUrl, caption) {
+  try {
+    // Construir URL con parámetros
+    const viewerUrl = new URL('image-viewer.html', window.location.origin);
+    viewerUrl.searchParams.set('url', encodeURIComponent(imageUrl));
+    if (caption) {
+      viewerUrl.searchParams.set('caption', encodeURIComponent(caption));
     }
-  });
-  
-  // Cerrar con ESC
-  const handleEsc = (e) => {
-    if (e.key === 'Escape') {
-      document.body.removeChild(modal);
-      document.removeEventListener('keydown', handleEsc);
-    }
-  };
-  document.addEventListener('keydown', handleEsc);
-  
-  // Efecto hover en botón cerrar
-  const closeBtn = modalContent.querySelector('#close-image-modal');
-  if (closeBtn) {
-    closeBtn.addEventListener('mouseenter', () => {
-      closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+    
+    // Abrir modal usando Owlbear SDK (modal grande fuera del popup)
+    await OBR.modal.open({
+      id: 'notion-image-viewer',
+      url: viewerUrl.toString(),
+      height: 800,
+      width: 1200
     });
-    closeBtn.addEventListener('mouseleave', () => {
-      closeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-    });
-  }
-  
-  // Prevenir que el clic en la imagen cierre el modal
-  const img = modalContent.querySelector('img');
-  if (img) {
-    img.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
+  } catch (error) {
+    console.error('Error al abrir modal de Owlbear:', error);
+    // Fallback: abrir en nueva ventana
+    window.open(imageUrl, '_blank', 'noopener,noreferrer');
   }
 }
 

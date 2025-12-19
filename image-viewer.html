@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Imagen</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: #1a1a1a;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .image-container {
+      max-width: 100%;
+      max-height: calc(100vh - 100px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    img {
+      max-width: 100%;
+      max-height: calc(100vh - 150px);
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    .caption {
+      color: #999;
+      font-size: 14px;
+      text-align: center;
+      max-width: 800px;
+      padding: 0 20px;
+    }
+    .close-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #2d2d2d;
+      border: 1px solid #404040;
+      border-radius: 6px;
+      padding: 10px 20px;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .close-button:hover {
+      background: #3d3d3d;
+      border-color: #555;
+    }
+  </style>
+</head>
+<body>
+  <button class="close-button" onclick="window.close()">Cerrar</button>
+  <div class="image-container">
+    <img id="viewer-image" src="" alt="" />
+    <div id="viewer-caption" class="caption" style="display: none;"></div>
+  </div>
+  <script>
+    // Obtener parámetros de la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const imageUrl = urlParams.get('url');
+    const caption = urlParams.get('caption') || '';
+    
+    if (imageUrl) {
+      document.getElementById('viewer-image').src = decodeURIComponent(imageUrl);
+      document.getElementById('viewer-image').alt = caption;
+      
+      if (caption) {
+        const captionDiv = document.getElementById('viewer-caption');
+        captionDiv.textContent = decodeURIComponent(caption);
+        captionDiv.style.display = 'block';
+      }
+    } else {
+      document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">Error: No se proporcionó URL de imagen</div>';
+    }
+    
+    // Cerrar con ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        window.close();
+      }
+    });
+  </script>
+</body>
+</html>
+
