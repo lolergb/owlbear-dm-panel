@@ -1,6 +1,6 @@
 /* Estilos para renderizar contenido de Notion */
 .notion-content {
-  padding: 40px 96px;
+  padding: 0 24px 24px;
   max-width: 900px;
   margin: 0 auto;
   color: #37352f;

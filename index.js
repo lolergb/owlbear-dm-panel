@@ -206,8 +206,8 @@ function renderBlock(block) {
       `;
     
     case 'table':
-      // Las tablas requieren una llamada adicional para obtener las filas
-      return '<div class="notion-table-placeholder">[Tabla - Requiere implementación adicional]</div>';
+      // Las tablas se renderizan de forma especial (ver renderBlocks)
+      return '<div class="notion-table-container" data-table-id="' + block.id + '">Cargando tabla...</div>';
     
     case 'child_database':
       return '<div class="notion-database-placeholder">[Base de datos - Requiere implementación adicional]</div>';
@@ -219,13 +219,14 @@ function renderBlock(block) {
 }
 
 // Función para renderizar todos los bloques
-function renderBlocks(blocks) {
+async function renderBlocks(blocks) {
   let html = '';
   let inList = false;
   let listType = null;
   let listItems = [];
   
-  blocks.forEach((block, index) => {
+  for (let index = 0; index < blocks.length; index++) {
+    const block = blocks[index];
     const type = block.type;
     
     // Manejar listas agrupadas
@@ -252,9 +253,20 @@ function renderBlocks(blocks) {
         listType = null;
       }
       
-      html += renderBlock(block);
+      // Manejar tablas de forma especial
+      if (block.type === 'table') {
+        try {
+          const tableHtml = await renderTable(block);
+          html += tableHtml;
+        } catch (error) {
+          console.error('Error al renderizar tabla:', error);
+          html += '<div class="notion-table-placeholder">[Error al cargar tabla]</div>';
+        }
+      } else {
+        html += renderBlock(block);
+      }
     }
-  });
+  }
   
   // Cerrar lista si queda abierta
   if (inList && listItems.length > 0) {
@@ -262,6 +274,54 @@ function renderBlocks(blocks) {
   }
   
   return html;
+}
+
+// Función para renderizar una tabla completa
+async function renderTable(tableBlock) {
+  try {
+    // Obtener las filas de la tabla
+    const rows = await fetchNotionBlocks(tableBlock.id);
+    
+    if (!rows || rows.length === 0) {
+      return '<div class="notion-table-placeholder">[Tabla vacía]</div>';
+    }
+    
+    // Obtener el número de columnas de la primera fila
+    const firstRow = rows[0];
+    const columnCount = firstRow?.table_row?.cells?.length || 0;
+    
+    if (columnCount === 0) {
+      return '<div class="notion-table-placeholder">[Tabla sin columnas]</div>';
+    }
+    
+    let tableHtml = '<table class="notion-table">';
+    
+    // Renderizar cada fila
+    rows.forEach((rowBlock, rowIndex) => {
+      if (rowBlock.type === 'table_row') {
+        const cells = rowBlock.table_row?.cells || [];
+        tableHtml += '<tr>';
+        
+        // Renderizar cada celda
+        for (let i = 0; i < columnCount; i++) {
+          const cell = cells[i] || [];
+          const cellContent = renderRichText(cell);
+          // La primera fila suele ser el encabezado
+          const isHeader = rowIndex === 0;
+          const tag = isHeader ? 'th' : 'td';
+          tableHtml += `<${tag}>${cellContent || '&nbsp;'}</${tag}>`;
+        }
+        
+        tableHtml += '</tr>';
+      }
+    });
+    
+    tableHtml += '</table>';
+    return tableHtml;
+  } catch (error) {
+    console.error('Error al renderizar tabla:', error);
+    return '<div class="notion-table-placeholder">[Error al cargar tabla: ' + error.message + ']</div>';
+  }
 }
 
 // Función para cargar y renderizar contenido de Notion desde la API
@@ -296,8 +356,8 @@ async function loadNotionContent(url, container) {
       return;
     }
     
-    // Renderizar bloques
-    const html = renderBlocks(blocks);
+    // Renderizar bloques (ahora es async)
+    const html = await renderBlocks(blocks);
     contentDiv.innerHTML = html;
     
   } catch (error) {
