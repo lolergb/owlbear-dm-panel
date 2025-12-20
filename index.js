@@ -132,12 +132,11 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// Sistema de caché para bloques de Notion
+// Sistema de caché para bloques de Notion (persistente, sin expiración automática)
 const CACHE_PREFIX = 'notion-blocks-cache-';
-const CACHE_EXPIRY = 60 * 60 * 1000; // 1 hora en milisegundos
 
 /**
- * Obtener bloques desde el caché
+ * Obtener bloques desde el caché (persistente, sin expiración)
  */
 function getCachedBlocks(pageId) {
   try {
@@ -146,70 +145,42 @@ function getCachedBlocks(pageId) {
     
     if (cached) {
       const data = JSON.parse(cached);
-      const now = Date.now();
-      
-      // Verificar si el caché no ha expirado
-      if (data.timestamp && (now - data.timestamp) < CACHE_EXPIRY) {
+      if (data.blocks) {
         console.log('✅ Bloques obtenidos del caché para:', pageId);
         return data.blocks;
-      } else {
-        // Caché expirado, eliminarlo
-        localStorage.removeItem(cacheKey);
-        console.log('⏰ Caché expirado para:', pageId);
       }
     }
   } catch (e) {
     console.error('Error al leer del caché:', e);
+    // Si hay error al parsear, eliminar la entrada corrupta
+    try {
+      const cacheKey = CACHE_PREFIX + pageId;
+      localStorage.removeItem(cacheKey);
+    } catch (e2) {
+      // Ignorar errores al limpiar
+    }
   }
   return null;
 }
 
 /**
- * Guardar bloques en el caché
+ * Guardar bloques en el caché (persistente, sin expiración)
  */
 function setCachedBlocks(pageId, blocks) {
   try {
     const cacheKey = CACHE_PREFIX + pageId;
     const data = {
-      timestamp: Date.now(),
-      blocks: blocks
+      blocks: blocks,
+      savedAt: new Date().toISOString() // Solo para referencia, no para expiración
     };
     localStorage.setItem(cacheKey, JSON.stringify(data));
     console.log('💾 Bloques guardados en caché para:', pageId);
   } catch (e) {
     console.error('Error al guardar en caché:', e);
-    // Si el localStorage está lleno, limpiar cachés antiguos
+    // Si el localStorage está lleno, informar al usuario
     if (e.name === 'QuotaExceededError') {
-      clearOldCache();
+      console.warn('⚠️ localStorage lleno. Considera limpiar el caché manualmente.');
     }
-  }
-}
-
-/**
- * Limpiar cachés antiguos (más de 24 horas)
- */
-function clearOldCache() {
-  try {
-    const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
-    
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(CACHE_PREFIX)) {
-        try {
-          const data = JSON.parse(localStorage.getItem(key));
-          if (data.timestamp && (now - data.timestamp) > oneDay) {
-            localStorage.removeItem(key);
-            console.log('🗑️ Caché antiguo eliminado:', key);
-          }
-        } catch (e) {
-          // Si hay error al parsear, eliminar la entrada corrupta
-          localStorage.removeItem(key);
-        }
-      }
-    }
-  } catch (e) {
-    console.error('Error al limpiar caché:', e);
   }
 }
 
@@ -227,13 +198,12 @@ function clearAllCache() {
     }
     keysToRemove.forEach(key => localStorage.removeItem(key));
     console.log('🗑️ Caché limpiado:', keysToRemove.length, 'entradas');
+    return keysToRemove.length;
   } catch (e) {
     console.error('Error al limpiar caché:', e);
+    return 0;
   }
 }
-
-// Limpiar cachés antiguos al cargar
-clearOldCache();
 
 // Función para extraer el ID de página desde una URL de Notion
 function extractNotionPageId(url) {
@@ -367,15 +337,21 @@ function renderPageIcon(icon, pageName, pageId) {
   ">${initial}</div>`;
 }
 
-// Función para obtener bloques de una página de Notion (con caché simple)
+// Función para obtener bloques de una página de Notion (con caché persistente)
 async function fetchNotionBlocks(pageId, useCache = true) {
-  // Intentar obtener del caché primero
+  // Estado 2: Si tengo info en caché y se permite usar caché, devolverla sin pedir a la API
   if (useCache) {
     const cachedBlocks = getCachedBlocks(pageId);
-    if (cachedBlocks) {
+    if (cachedBlocks && cachedBlocks.length > 0) {
+      console.log('✅ Estado 2: Usando caché persistente para:', pageId, '-', cachedBlocks.length, 'bloques');
       return cachedBlocks;
     }
+    console.log('⚠️ Estado 1: No hay caché para:', pageId, '- se pedirá a la API');
+  } else {
+    console.log('🔄 Estado 3: Recarga forzada - ignorando caché para:', pageId);
   }
+  
+  // Estado 1: No tengo info o recarga forzada → pedir a la API
   
   try {
     // Usar Netlify Function como proxy para mantener el token seguro
@@ -429,9 +405,12 @@ async function fetchNotionBlocks(pageId, useCache = true) {
     const data = await response.json();
     const blocks = data.results || [];
     
-    // Guardar en caché después de obtener exitosamente
+    // Estado 1: Guardar en caché persistente después de obtener exitosamente (sin expiración)
     if (blocks.length > 0) {
       setCachedBlocks(pageId, blocks);
+      console.log('💾 Estado 1: Bloques guardados en caché persistente para:', pageId);
+    } else {
+      console.warn('⚠️ No se obtuvieron bloques de la API para:', pageId);
     }
     
     return blocks;
