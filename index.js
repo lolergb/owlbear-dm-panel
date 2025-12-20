@@ -11,6 +11,15 @@ import {
   NOTION_PAGES 
 } from "./config.js";
 
+// Variables de color CSS (deben coincidir con las del index.html)
+const CSS_VARS = {
+  bgPrimary: '#ffffff0d',
+  borderPrimary: '#f3e8ff66',
+  bgHover: '#ffffff1a',
+  bgActive: '#bb99ff4d',
+  borderActive: '#bb99ff4d'
+};
+
 // Sistema simple de gestión con JSON (por room)
 const STORAGE_KEY_PREFIX = 'notion-pages-json-';
 const TOKEN_STORAGE_PREFIX = 'notion-user-token-';
@@ -932,8 +941,8 @@ try {
       clearCacheButton.innerHTML = "🗑️";
       clearCacheButton.title = "Limpiar caché";
       clearCacheButton.style.cssText = `
-        background: #2d2d2d;
-        border: 1px solid #404040;
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
         border-radius: 6px;
         padding: 6px 12px;
         color: #e0e0e0;
@@ -953,12 +962,20 @@ try {
         }
       });
       clearCacheButton.addEventListener('mouseenter', () => {
-        clearCacheButton.style.background = '#3d3d3d';
-        clearCacheButton.style.borderColor = '#555';
+        clearCacheButton.style.background = CSS_VARS.bgHover;
+        clearCacheButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       clearCacheButton.addEventListener('mouseleave', () => {
-        clearCacheButton.style.background = '#2d2d2d';
-        clearCacheButton.style.borderColor = '#404040';
+        clearCacheButton.style.background = CSS_VARS.bgPrimary;
+        clearCacheButton.style.borderColor = CSS_VARS.borderPrimary;
+      });
+      clearCacheButton.addEventListener('mousedown', () => {
+        clearCacheButton.style.background = CSS_VARS.bgActive;
+        clearCacheButton.style.borderColor = CSS_VARS.borderActive;
+      });
+      clearCacheButton.addEventListener('mouseup', () => {
+        clearCacheButton.style.background = CSS_VARS.bgHover;
+        clearCacheButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       
       // Botón para editar JSON
@@ -967,8 +984,8 @@ try {
       adminButton.innerHTML = "⚙️";
       adminButton.title = "Editar JSON";
       adminButton.style.cssText = `
-        background: #2d2d2d;
-        border: 1px solid #404040;
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
         border-radius: 6px;
         padding: 6px 12px;
         color: #e0e0e0;
@@ -978,12 +995,20 @@ try {
       `;
       adminButton.addEventListener("click", () => showJSONEditor(pagesConfig, roomId));
       adminButton.addEventListener('mouseenter', () => {
-        adminButton.style.background = '#3d3d3d';
-        adminButton.style.borderColor = '#555';
+        adminButton.style.background = CSS_VARS.bgHover;
+        adminButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       adminButton.addEventListener('mouseleave', () => {
-        adminButton.style.background = '#2d2d2d';
-        adminButton.style.borderColor = '#404040';
+        adminButton.style.background = CSS_VARS.bgPrimary;
+        adminButton.style.borderColor = CSS_VARS.borderPrimary;
+      });
+      adminButton.addEventListener('mousedown', () => {
+        adminButton.style.background = CSS_VARS.bgActive;
+        adminButton.style.borderColor = CSS_VARS.borderActive;
+      });
+      adminButton.addEventListener('mouseup', () => {
+        adminButton.style.background = CSS_VARS.bgHover;
+        adminButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       
       // Botón para configurar token de Notion
@@ -991,8 +1016,8 @@ try {
       tokenButton.innerHTML = "🔑";
       tokenButton.title = hasUserToken(roomId) ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
       tokenButton.style.cssText = `
-        background: ${hasUserToken(roomId) ? '#2d5a2d' : '#2d2d2d'};
-        border: 1px solid ${hasUserToken(roomId) ? '#4a7a4a' : '#404040'};
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
         border-radius: 6px;
         padding: 6px 12px;
         color: #e0e0e0;
@@ -1002,12 +1027,20 @@ try {
       `;
       tokenButton.addEventListener("click", () => showTokenConfig(roomId));
       tokenButton.addEventListener('mouseenter', () => {
-        tokenButton.style.background = hasUserToken(roomId) ? '#3d6a3d' : '#3d3d3d';
-        tokenButton.style.borderColor = hasUserToken(roomId) ? '#5a8a5a' : '#555';
+        tokenButton.style.background = CSS_VARS.bgHover;
+        tokenButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       tokenButton.addEventListener('mouseleave', () => {
-        tokenButton.style.background = hasUserToken(roomId) ? '#2d5a2d' : '#2d2d2d';
-        tokenButton.style.borderColor = hasUserToken(roomId) ? '#4a7a4a' : '#404040';
+        tokenButton.style.background = CSS_VARS.bgPrimary;
+        tokenButton.style.borderColor = CSS_VARS.borderPrimary;
+      });
+      tokenButton.addEventListener('mousedown', () => {
+        tokenButton.style.background = CSS_VARS.bgActive;
+        tokenButton.style.borderColor = CSS_VARS.borderActive;
+      });
+      tokenButton.addEventListener('mouseup', () => {
+        tokenButton.style.background = CSS_VARS.bgHover;
+        tokenButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       
       buttonContainer.appendChild(tokenButton);
@@ -1197,8 +1230,8 @@ async function loadPageContent(url, name) {
     refreshButton.innerHTML = "🔄";
     refreshButton.title = "Recargar contenido";
     refreshButton.style.cssText = `
-      background: #ffffff1a;
-      border: 1px solid #f3e8ff66;
+      background: ${CSS_VARS.bgPrimary};
+      border: 1px solid ${CSS_VARS.borderPrimary};
       border-radius: 8px;
       padding: 8px 12px;
       color: #e0e0e0;
@@ -1216,12 +1249,20 @@ async function loadPageContent(url, name) {
     refreshButton.dataset.pageUrl = url;
     
       refreshButton.addEventListener('mouseenter', () => {
-        refreshButton.style.background = '#ffffff1a';
-        refreshButton.style.borderColor = '#f3e8ff66';
+        refreshButton.style.background = CSS_VARS.bgHover;
+        refreshButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       refreshButton.addEventListener('mouseleave', () => {
-        refreshButton.style.background = '#ffffff1a';
-        refreshButton.style.borderColor = '#f3e8ff66';
+        refreshButton.style.background = CSS_VARS.bgPrimary;
+        refreshButton.style.borderColor = CSS_VARS.borderPrimary;
+      });
+      refreshButton.addEventListener('mousedown', () => {
+        refreshButton.style.background = CSS_VARS.bgActive;
+        refreshButton.style.borderColor = CSS_VARS.borderActive;
+      });
+      refreshButton.addEventListener('mouseup', () => {
+        refreshButton.style.background = CSS_VARS.bgHover;
+        refreshButton.style.borderColor = CSS_VARS.borderPrimary;
       });
     
     refreshButton.addEventListener('click', async () => {
@@ -1299,7 +1340,7 @@ function showTokenConfig(roomId = null) {
     left: 0;
     right: 0;
     bottom: 0;
-    background: #ffffff1a;
+    background: ${CSS_VARS.bgPrimary};
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -1308,8 +1349,8 @@ function showTokenConfig(roomId = null) {
   
   const header = document.createElement('div');
   header.style.cssText = `
-    background: #ffffff1a;
-    border-bottom: 1px solid #404040;
+    background: ${CSS_VARS.bgPrimary};
+    border-bottom: 1px solid ${CSS_VARS.borderPrimary};
     padding: 12px 16px;
     display: flex;
     align-items: center;
@@ -1319,8 +1360,8 @@ function showTokenConfig(roomId = null) {
   header.innerHTML = `
     <div style="display: flex; align-items: center; gap: 12px;">
       <button id="back-from-token" style="
-        background: #2d2d2d;
-        border: 1px solid #404040;
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
         border-radius: 6px;
         padding: 6px 12px;
         color: #e0e0e0;
@@ -1351,7 +1392,7 @@ function showTokenConfig(roomId = null) {
         Configura tu token de Notion para usar tus propias páginas. Cada room tiene su propio token.
       </p>
       
-      <div style="background: #2d2d2d; border: 1px solid #404040; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+      <div style="background: ${CSS_VARS.bgPrimary}; border: 1px solid ${CSS_VARS.borderPrimary}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
         <h3 style="color: #fff; font-size: 14px; font-weight: 600; margin-bottom: 12px;">📝 Cómo obtener tu token:</h3>
         <ol style="color: #ccc; font-size: 13px; line-height: 1.8; margin-left: 20px; padding-left: 0;">
           <li>Ve a <a href="https://www.notion.so/my-integrations" target="_blank" style="color: #4a9eff; text-decoration: none;">notion.so/my-integrations</a></li>
@@ -1366,7 +1407,7 @@ function showTokenConfig(roomId = null) {
           <li><strong>Copia el token:</strong>
             <ul style="margin-top: 8px; margin-left: 20px; padding-left: 0;">
               <li>En la página de la integración, busca <strong>"Internal Integration Token"</strong></li>
-              <li>Clic en <strong>"Mostrar"</strong> y copia el token (empieza con <code style="background: #1a1a1a; padding: 2px 4px; border-radius: 3px;">secret_</code>)</li>
+              <li>Clic en <strong>"Mostrar"</strong> y copia el token (empieza con <code style="background: ${CSS_VARS.bgPrimary}; padding: 2px 4px; border-radius: 3px;">secret_</code>)</li>
             </ul>
           </li>
           <li><strong>Comparte tus páginas:</strong>
@@ -1392,8 +1433,8 @@ function showTokenConfig(roomId = null) {
           style="
             width: 100%;
             padding: 12px;
-            background: #2d2d2d;
-            border: 1px solid #404040;
+            background: ${CSS_VARS.bgPrimary};
+            border: 1px solid ${CSS_VARS.borderPrimary};
             border-radius: 6px;
             color: #fff;
             font-size: 14px;
@@ -1415,10 +1456,10 @@ function showTokenConfig(roomId = null) {
         margin-bottom: 16px;
       "></div>
       
-      <div style="display: flex; gap: 16px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #404040;">
+      <div style="display: flex; gap: 16px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid ${CSS_VARS.borderPrimary};">
         <button id="clear-token" style="
-          background: #2d2d2d;
-          border: 1px solid #404040;
+          background: ${CSS_VARS.bgPrimary};
+          border: 1px solid ${CSS_VARS.borderPrimary};
           border-radius: 6px;
           padding: 10px 20px;
           color: #e0e0e0;
@@ -1463,21 +1504,37 @@ function showTokenConfig(roomId = null) {
   });
   
   clearBtn.addEventListener('mouseenter', () => {
-    clearBtn.style.background = '#3d3d3d';
-    clearBtn.style.borderColor = '#555';
+    clearBtn.style.background = CSS_VARS.bgHover;
+    clearBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   clearBtn.addEventListener('mouseleave', () => {
-    clearBtn.style.background = '#2d2d2d';
-    clearBtn.style.borderColor = '#404040';
+    clearBtn.style.background = CSS_VARS.bgPrimary;
+    clearBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  clearBtn.addEventListener('mousedown', () => {
+    clearBtn.style.background = CSS_VARS.bgActive;
+    clearBtn.style.borderColor = CSS_VARS.borderActive;
+  });
+  clearBtn.addEventListener('mouseup', () => {
+    clearBtn.style.background = CSS_VARS.bgHover;
+    clearBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   
   backBtn.addEventListener('mouseenter', () => {
-    backBtn.style.background = '#3d3d3d';
-    backBtn.style.borderColor = '#555';
+    backBtn.style.background = CSS_VARS.bgHover;
+    backBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   backBtn.addEventListener('mouseleave', () => {
-    backBtn.style.background = '#2d2d2d';
-    backBtn.style.borderColor = '#404040';
+    backBtn.style.background = CSS_VARS.bgPrimary;
+    backBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  backBtn.addEventListener('mousedown', () => {
+    backBtn.style.background = CSS_VARS.bgActive;
+    backBtn.style.borderColor = CSS_VARS.borderActive;
+  });
+  backBtn.addEventListener('mouseup', () => {
+    backBtn.style.background = CSS_VARS.bgHover;
+    backBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   
   // Guardar token
@@ -1549,7 +1606,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
     left: 0;
     right: 0;
     bottom: 0;
-    background: #1a1a1a;
+    background: ${CSS_VARS.bgPrimary};
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -1559,8 +1616,8 @@ function showJSONEditor(pagesConfig, roomId = null) {
   // Header estilo Notion
   const header = document.createElement('div');
   header.style.cssText = `
-    background: #1a1a1a;
-    border-bottom: 1px solid #404040;
+    background: ${CSS_VARS.bgPrimary};
+    border-bottom: 1px solid ${CSS_VARS.borderPrimary};
     padding: 12px 16px;
     display: flex;
     align-items: center;
@@ -1570,8 +1627,8 @@ function showJSONEditor(pagesConfig, roomId = null) {
   header.innerHTML = `
     <div style="display: flex; align-items: center; gap: 12px;">
       <button id="back-from-editor" style="
-        background: #2d2d2d;
-        border: 1px solid #404040;
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
         border-radius: 6px;
         padding: 6px 12px;
         color: #e0e0e0;
@@ -1607,8 +1664,8 @@ function showJSONEditor(pagesConfig, roomId = null) {
     </div>
     <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0;">
       <textarea id="json-textarea" style="
-        background: #2d2d2d;
-        border: 1px solid #404040;
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
         border-radius: 8px;
         padding: 20px;
         color: #e0e0e0;
@@ -1634,8 +1691,8 @@ function showJSONEditor(pagesConfig, roomId = null) {
       "></div>
       <div style="display: flex; gap: 16px; justify-content: flex-end; padding-top: 16px;">
         <button id="reset-json" style="
-          background: #2d2d2d;
-          border: 1px solid #404040;
+          background: ${CSS_VARS.bgPrimary};
+          border: 1px solid ${CSS_VARS.borderPrimary};
           border-radius: 6px;
           padding: 10px 20px;
           color: #e0e0e0;
@@ -1674,12 +1731,20 @@ function showJSONEditor(pagesConfig, roomId = null) {
   const backBtn = header.querySelector('#back-from-editor');
   
   resetBtn.addEventListener('mouseenter', () => {
-    resetBtn.style.background = '#3d3d3d';
-    resetBtn.style.borderColor = '#555';
+    resetBtn.style.background = CSS_VARS.bgHover;
+    resetBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   resetBtn.addEventListener('mouseleave', () => {
-    resetBtn.style.background = '#2d2d2d';
-    resetBtn.style.borderColor = '#404040';
+    resetBtn.style.background = CSS_VARS.bgPrimary;
+    resetBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  resetBtn.addEventListener('mousedown', () => {
+    resetBtn.style.background = CSS_VARS.bgActive;
+    resetBtn.style.borderColor = CSS_VARS.borderActive;
+  });
+  resetBtn.addEventListener('mouseup', () => {
+    resetBtn.style.background = CSS_VARS.bgHover;
+    resetBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   
   saveBtn.addEventListener('mouseenter', () => {
@@ -1690,12 +1755,20 @@ function showJSONEditor(pagesConfig, roomId = null) {
   });
   
   backBtn.addEventListener('mouseenter', () => {
-    backBtn.style.background = '#3d3d3d';
-    backBtn.style.borderColor = '#555';
+    backBtn.style.background = CSS_VARS.bgHover;
+    backBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   backBtn.addEventListener('mouseleave', () => {
-    backBtn.style.background = '#2d2d2d';
-    backBtn.style.borderColor = '#404040';
+    backBtn.style.background = CSS_VARS.bgPrimary;
+    backBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  backBtn.addEventListener('mousedown', () => {
+    backBtn.style.background = CSS_VARS.bgActive;
+    backBtn.style.borderColor = CSS_VARS.borderActive;
+  });
+  backBtn.addEventListener('mouseup', () => {
+    backBtn.style.background = CSS_VARS.bgHover;
+    backBtn.style.borderColor = CSS_VARS.borderPrimary;
   });
   
   // Función para cerrar el editor
@@ -1727,7 +1800,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
       console.log('💾 Llamando a savePagesJSON con roomId:', roomId);
       savePagesJSON(parsed, roomId);
       errorDiv.style.display = 'none';
-      textarea.style.borderColor = '#404040';
+      textarea.style.borderColor = CSS_VARS.borderPrimary;
       
       // Cerrar y recargar
       closeEditor();
@@ -1751,7 +1824,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
       const defaultConfig = getDefaultJSON();
       textarea.value = JSON.stringify(defaultConfig, null, 2);
       errorDiv.style.display = 'none';
-      textarea.style.borderColor = '#404040';
+      textarea.style.borderColor = CSS_VARS.borderPrimary;
     }
   });
   
@@ -1760,7 +1833,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
     try {
       JSON.parse(textarea.value);
       errorDiv.style.display = 'none';
-      textarea.style.borderColor = '#404040';
+      textarea.style.borderColor = CSS_VARS.borderPrimary;
     } catch (e) {
       textarea.style.borderColor = '#ff6b6b';
     }

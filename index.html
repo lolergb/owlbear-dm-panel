@@ -6,6 +6,14 @@
   <title>Notion Embed</title>
   <link rel="stylesheet" href="notion-markdown.css">
   <style>
+    :root {
+      --bg-primary: #ffffff0d;
+      --border-primary: #f3e8ff66;
+      --bg-hover: #ffffff1a;
+      --bg-active: #bb99ff4d;
+      --border-active: #bb99ff4d;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -41,8 +49,8 @@
     }
 
     .page-button {
-      border: 1px solid #f3e8ff66;
-      background-color: #ffffff1a;
+      border: 1px solid var(--border-primary);
+      background-color: var(--bg-primary);
       border-radius: 8px;
       padding: 12px 16px;
       color: #e0e0e0;
@@ -53,11 +61,12 @@
     }
 
     .page-button:hover {
-      background: #ffffff1a;
+      background: var(--bg-hover);
     }
 
     .page-button:active {
-      background-color: #bb99ff4d;
+      background-color: var(--bg-active);
+      border-color: var(--border-active);
     }
 
     .page-name {
@@ -95,8 +104,8 @@
     }
 
     .back-button {
-      border: 1px solid #f3e8ff66;
-      background-color: #ffffff1a;
+      border: 1px solid var(--border-primary);
+      background-color: var(--bg-primary);
       border-radius: 6px;
       padding: 6px 12px;
       color: #e0e0e0;
@@ -106,15 +115,20 @@
     }
 
     .back-button:hover {
-      background: #ffffff1a;
+      background: var(--bg-hover);
+    }
+
+    .back-button:active {
+      background-color: var(--bg-active);
+      border-color: var(--border-active);
     }
 
     .notion-container {
       width: 100%;
       height: calc(100vh - 100px);
       min-height: 500px;
-      border: 1px solid #f3e8ff66;
-      background-color: #ffffff1a;
+      border: 1px solid var(--border-primary);
+      background-color: var(--bg-primary);
       border-radius: 8px;
       overflow-y: auto;
       overflow-x: hidden;
