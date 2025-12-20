@@ -261,8 +261,8 @@ function extractNotionPageId(url) {
   }
 }
 
-// Función para obtener la información de última edición de una página
-async function fetchPageLastEditedTime(pageId) {
+// Función para obtener la información de la página (last_edited_time e icono)
+async function fetchPageInfo(pageId) {
   try {
     const apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
       ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&type=page`
@@ -292,13 +292,83 @@ async function fetchPageLastEditedTime(pageId) {
     
     if (response.ok) {
       const data = await response.json();
-      // La API de Notion devuelve last_edited_time en el objeto de la página
-      return data.last_edited_time || null;
+      return {
+        lastEditedTime: data.last_edited_time || null,
+        icon: data.icon || null
+      };
     }
   } catch (e) {
-    console.warn('No se pudo obtener last_edited_time:', e);
+    console.warn('No se pudo obtener información de la página:', e);
   }
-  return null;
+  return { lastEditedTime: null, icon: null };
+}
+
+// Función para obtener la información de última edición de una página (compatibilidad)
+async function fetchPageLastEditedTime(pageId) {
+  const info = await fetchPageInfo(pageId);
+  return info.lastEditedTime;
+}
+
+// Función para obtener el icono de una página
+async function fetchPageIcon(pageId) {
+  const info = await fetchPageInfo(pageId);
+  return info.icon;
+}
+
+// Función para generar un color aleatorio basado en un string
+function generateColorFromString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Generar colores vibrantes pero no demasiado claros
+  const hue = Math.abs(hash % 360);
+  const saturation = 60 + (Math.abs(hash) % 20); // 60-80%
+  const lightness = 45 + (Math.abs(hash) % 15); // 45-60%
+  
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+// Función para obtener la inicial de un texto
+function getInitial(text) {
+  if (!text || text.length === 0) return '?';
+  // Obtener la primera letra (ignorar emojis y espacios)
+  const match = text.match(/[a-zA-Z0-9]/);
+  return match ? match[0].toUpperCase() : text.charAt(0).toUpperCase();
+}
+
+// Función para renderizar el icono de una página
+function renderPageIcon(icon, pageName, pageId) {
+  if (icon) {
+    if (icon.type === 'emoji') {
+      // Icono emoji
+      return `<span style="font-size: 24px; line-height: 24px; display: inline-block; width: 24px; height: 24px; text-align: center;">${icon.emoji || '📄'}</span>`;
+    } else if (icon.type === 'external' && icon.external) {
+      // Icono externo (URL)
+      return `<img src="${icon.external.url}" alt="${pageName}" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px;" />`;
+    } else if (icon.type === 'file' && icon.file) {
+      // Icono de archivo
+      return `<img src="${icon.file.url}" alt="${pageName}" style="width: 24px; height: 24px; object-fit: cover; border-radius: 4px;" />`;
+    }
+  }
+  
+  // Fallback: círculo con color aleatorio e inicial
+  const color = generateColorFromString(pageId || pageName);
+  const initial = getInitial(pageName);
+  return `<div style="
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background: ${color};
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  ">${initial}</div>`;
 }
 
 // Función para obtener bloques de una página de Notion (con caché inteligente)
@@ -403,7 +473,8 @@ async function fetchNotionBlocks(pageId, useCache = true) {
     
     // Si no encontramos en los bloques, intentar obtener de la página
     if (!lastEditedTime) {
-      lastEditedTime = await fetchPageLastEditedTime(pageId);
+      const pageInfo = await fetchPageInfo(pageId);
+      lastEditedTime = pageInfo.lastEditedTime;
     }
     
     // Guardar en caché después de obtener exitosamente
@@ -987,13 +1058,38 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
     pagesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
     
     // Crear botones para cada página
-    categoryPages.forEach(page => {
+    categoryPages.forEach(async (page) => {
       const button = document.createElement("button");
       button.className = "page-button";
+      
+      // Obtener el icono de la página
+      const pageId = extractNotionPageId(page.url);
+      let iconHtml = renderPageIcon(null, page.name, pageId);
+      
+      // Mostrar placeholder mientras se carga el icono
       button.innerHTML = `
-        <div class="page-name">${page.name}</div>
-        <!--div class="page-url">${page.url}</div-->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          ${iconHtml}
+          <div class="page-name" style="flex: 1; text-align: left;">${page.name}</div>
+        </div>
       `;
+      
+      // Intentar obtener el icono real si hay pageId
+      if (pageId) {
+        try {
+          const icon = await fetchPageIcon(pageId);
+          iconHtml = renderPageIcon(icon, page.name, pageId);
+          // Actualizar el HTML del botón con el icono real
+          button.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+              ${iconHtml}
+              <div class="page-name" style="flex: 1; text-align: left;">${page.name}</div>
+            </div>
+          `;
+        } catch (e) {
+          console.warn('No se pudo obtener el icono para:', page.name, e);
+        }
+      }
       
       button.addEventListener("click", async () => {
         await loadPageContent(page.url, page.name);
