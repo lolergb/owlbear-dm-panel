@@ -13,9 +13,51 @@ import {
 
 // Sistema simple de gestión con JSON (por room)
 const STORAGE_KEY_PREFIX = 'notion-pages-json-';
+const TOKEN_STORAGE_PREFIX = 'notion-user-token-';
 
 function getStorageKey(roomId) {
   return STORAGE_KEY_PREFIX + (roomId || 'default');
+}
+
+function getTokenStorageKey(roomId) {
+  return TOKEN_STORAGE_PREFIX + (roomId || 'default');
+}
+
+// Funciones para gestionar el token del usuario (por room)
+function getUserToken(roomId) {
+  try {
+    const tokenKey = getTokenStorageKey(roomId);
+    const token = localStorage.getItem(tokenKey);
+    if (token && token.trim() !== '') {
+      return token.trim();
+    }
+  } catch (e) {
+    console.error('Error al leer token del usuario:', e);
+  }
+  return null;
+}
+
+function saveUserToken(token, roomId) {
+  try {
+    const tokenKey = getTokenStorageKey(roomId);
+    if (token && token.trim() !== '') {
+      localStorage.setItem(tokenKey, token.trim());
+      console.log('✅ Token del usuario guardado para room:', roomId);
+      return true;
+    } else {
+      // Si el token está vacío, eliminarlo
+      localStorage.removeItem(tokenKey);
+      console.log('🗑️ Token del usuario eliminado para room:', roomId);
+      return true;
+    }
+  } catch (e) {
+    console.error('Error al guardar token del usuario:', e);
+    return false;
+  }
+}
+
+function hasUserToken(roomId) {
+  return getUserToken(roomId) !== null;
 }
 
 // Función para mostrar un ID de room más amigable (solo primeros caracteres)
@@ -230,24 +272,43 @@ function extractNotionPageId(url) {
 // Función para obtener la información de la página (last_edited_time e icono)
 async function fetchPageInfo(pageId) {
   try {
-    const apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
-      ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&type=page`
-      : `${NOTION_API_BASE}/pages/${pageId}`;
+    // Obtener el roomId actual para usar el token del usuario
+    let currentRoomId = null;
+    try {
+      currentRoomId = await OBR.room.getId();
+    } catch (e) {
+      currentRoomId = 'default';
+    }
     
+    const userToken = getUserToken(currentRoomId);
+    
+    let apiUrl;
     const headers = {
       'Content-Type': 'application/json'
     };
     
-    if (!apiUrl.includes('/.netlify/functions/')) {
-      try {
-        const config = await import("./config.js");
-        const localToken = config.NOTION_API_TOKEN;
-        if (localToken && localToken !== 'tu_token_de_notion_aqui') {
-          headers['Authorization'] = `Bearer ${localToken}`;
-          headers['Notion-Version'] = '2022-06-28';
+    if (userToken) {
+      // Usuario tiene su propio token → llamar directamente a la API
+      apiUrl = `${NOTION_API_BASE}/pages/${pageId}`;
+      headers['Authorization'] = `Bearer ${userToken}`;
+      headers['Notion-Version'] = '2022-06-28';
+    } else {
+      // Usar proxy del servidor o token local
+      apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
+        ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&type=page`
+        : `${NOTION_API_BASE}/pages/${pageId}`;
+      
+      if (!apiUrl.includes('/.netlify/functions/')) {
+        try {
+          const config = await import("./config.js");
+          const localToken = config.NOTION_API_TOKEN;
+          if (localToken && localToken !== 'tu_token_de_notion_aqui') {
+            headers['Authorization'] = `Bearer ${localToken}`;
+            headers['Notion-Version'] = '2022-06-28';
+          }
+        } catch (e) {
+          // Ignorar errores de importación
         }
-      } catch (e) {
-        // Ignorar errores de importación
       }
     }
     
@@ -354,34 +415,52 @@ async function fetchNotionBlocks(pageId, useCache = true) {
   // Estado 1: No tengo info o recarga forzada → pedir a la API
   
   try {
-    // Usar Netlify Function como proxy para mantener el token seguro
-    // Netlify Functions se exponen en /.netlify/functions/nombre-funcion
-    const apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
-      ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}`
-      : `${NOTION_API_BASE}/blocks/${pageId}/children`;
+    // Obtener el roomId actual para usar el token del usuario
+    let currentRoomId = null;
+    try {
+      currentRoomId = await OBR.room.getId();
+    } catch (e) {
+      currentRoomId = 'default';
+    }
     
+    // Prioridad: 1) Token del usuario, 2) Token del servidor (Netlify Function), 3) Token local (dev)
+    const userToken = getUserToken(currentRoomId);
+    
+    let apiUrl;
     const headers = {
       'Content-Type': 'application/json'
     };
     
-    // Solo agregar Authorization si no estamos usando el proxy (desarrollo local)
-    // En producción, el token está en el servidor (Netlify Function)
-    if (!apiUrl.includes('/.netlify/functions/')) {
-      // Para desarrollo local, intentar obtener el token dinámicamente
-      try {
-        const config = await import("./config.js");
-        const localToken = config.NOTION_API_TOKEN;
-        if (!localToken || localToken === 'tu_token_de_notion_aqui') {
-          throw new Error('El token de la API de Notion no está configurado. Edita config.js y agrega tu token para desarrollo local.');
-        }
-        headers['Authorization'] = `Bearer ${localToken}`;
-        headers['Notion-Version'] = '2022-06-28';
-      } catch (e) {
-        throw new Error('No se pudo cargar el token. En desarrollo local, asegúrate de que config.js tenga NOTION_API_TOKEN configurado.');
-      }
+    if (userToken) {
+      // Usuario tiene su propio token → llamar directamente a la API de Notion
+      console.log('✅ Usando token del usuario para:', pageId);
+      apiUrl = `${NOTION_API_BASE}/blocks/${pageId}/children`;
+      headers['Authorization'] = `Bearer ${userToken}`;
+      headers['Notion-Version'] = '2022-06-28';
     } else {
-      // En producción, el token está en el servidor (Netlify Function)
-      console.log('✅ Usando Netlify Function como proxy (token seguro en servidor)');
+      // No hay token del usuario → usar proxy del servidor o token local
+      apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
+        ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}`
+        : `${NOTION_API_BASE}/blocks/${pageId}/children`;
+      
+      // Solo agregar Authorization si no estamos usando el proxy (desarrollo local)
+      if (!apiUrl.includes('/.netlify/functions/')) {
+        try {
+          const config = await import("./config.js");
+          const localToken = config.NOTION_API_TOKEN;
+          if (localToken && localToken !== 'tu_token_de_notion_aqui') {
+            headers['Authorization'] = `Bearer ${localToken}`;
+            headers['Notion-Version'] = '2022-06-28';
+            console.log('✅ Usando token local de desarrollo');
+          } else {
+            throw new Error('No hay token configurado. Configura tu token de Notion en la extensión (botón 🔑).');
+          }
+        } catch (e) {
+          throw new Error('No hay token configurado. Ve a Configuración → Token de Notion (botón 🔑) para configurar tu token.');
+        }
+      } else {
+        console.log('✅ Usando Netlify Function como proxy (token del servidor)');
+      }
     }
     
     console.log('🌐 Obteniendo bloques desde la API para:', pageId);
@@ -907,6 +986,31 @@ try {
         adminButton.style.borderColor = '#404040';
       });
       
+      // Botón para configurar token de Notion
+      const tokenButton = document.createElement("button");
+      tokenButton.innerHTML = "🔑";
+      tokenButton.title = hasUserToken(roomId) ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
+      tokenButton.style.cssText = `
+        background: ${hasUserToken(roomId) ? '#2d5a2d' : '#2d2d2d'};
+        border: 1px solid ${hasUserToken(roomId) ? '#4a7a4a' : '#404040'};
+        border-radius: 6px;
+        padding: 6px 12px;
+        color: #e0e0e0;
+        cursor: pointer;
+        font-size: 16px;
+        transition: all 0.2s;
+      `;
+      tokenButton.addEventListener("click", () => showTokenConfig(roomId));
+      tokenButton.addEventListener('mouseenter', () => {
+        tokenButton.style.background = hasUserToken(roomId) ? '#3d6a3d' : '#3d3d3d';
+        tokenButton.style.borderColor = hasUserToken(roomId) ? '#5a8a5a' : '#555';
+      });
+      tokenButton.addEventListener('mouseleave', () => {
+        tokenButton.style.background = hasUserToken(roomId) ? '#2d5a2d' : '#2d2d2d';
+        tokenButton.style.borderColor = hasUserToken(roomId) ? '#4a7a4a' : '#404040';
+      });
+      
+      buttonContainer.appendChild(tokenButton);
       buttonContainer.appendChild(clearCacheButton);
       buttonContainer.appendChild(adminButton);
       header.appendChild(buttonContainer);
@@ -1172,6 +1276,239 @@ async function loadPageContent(url, name) {
       backButton.dataset.listenerAdded = "true";
     }
   }
+}
+
+// Función para mostrar configuración de token
+function showTokenConfig(roomId = null) {
+  const mainContainer = document.querySelector('.container');
+  const pageList = document.getElementById("page-list");
+  const notionContainer = document.getElementById("notion-container");
+  
+  if (mainContainer) mainContainer.classList.add('hidden');
+  if (pageList) pageList.classList.add('hidden');
+  if (notionContainer) notionContainer.classList.add('hidden');
+  
+  const currentToken = getUserToken(roomId) || '';
+  const maskedToken = currentToken ? currentToken.substring(0, 8) + '...' + currentToken.substring(currentToken.length - 4) : '';
+  
+  const tokenContainer = document.createElement('div');
+  tokenContainer.id = 'token-config-container';
+  tokenContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #1a1a1a;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  `;
+  
+  const header = document.createElement('div');
+  header.style.cssText = `
+    background: #1a1a1a;
+    border-bottom: 1px solid #404040;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  `;
+  
+  header.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button id="back-from-token" style="
+        background: #2d2d2d;
+        border: 1px solid #404040;
+        border-radius: 6px;
+        padding: 6px 12px;
+        color: #e0e0e0;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+      ">← Volver</button>
+      <div>
+        <h1 style="color: #fff; font-size: 18px; font-weight: 600; margin: 0;">🔑 Configurar Token de Notion</h1>
+        ${roomId ? `<p style="color: #999; font-size: 11px; margin: 2px 0 0 0;">Room: ${getFriendlyRoomId(roomId)}</p>` : ''}
+      </div>
+    </div>
+  `;
+  
+  const contentArea = document.createElement('div');
+  contentArea.style.cssText = `
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    max-width: 600px;
+    margin: 0 auto;
+    width: 100%;
+  `;
+  
+  contentArea.innerHTML = `
+    <div style="margin-bottom: 24px;">
+      <p style="color: #999; font-size: 14px; margin-bottom: 16px; line-height: 1.6;">
+        Configura tu token de Notion para usar tus propias páginas. Cada room tiene su propio token.
+      </p>
+      
+      <div style="background: #2d2d2d; border: 1px solid #404040; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <h3 style="color: #fff; font-size: 14px; font-weight: 600; margin-bottom: 12px;">📝 Cómo obtener tu token:</h3>
+        <ol style="color: #ccc; font-size: 13px; line-height: 1.8; margin-left: 20px; padding-left: 0;">
+          <li>Ve a <a href="https://www.notion.so/my-integrations" target="_blank" style="color: #4a9eff; text-decoration: none;">notion.so/my-integrations</a></li>
+          <li>Crea una nueva integración o usa una existente</li>
+          <li>Copia el "Internal Integration Token"</li>
+          <li>Pégalo en el campo de abajo</li>
+          <li>Asegúrate de darle acceso a las páginas que quieres usar</li>
+        </ol>
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; color: #fff; font-size: 14px; font-weight: 500; margin-bottom: 8px;">
+          Token de Notion:
+        </label>
+        <input 
+          type="password" 
+          id="token-input" 
+          placeholder="secret_..." 
+          value="${currentToken}"
+          style="
+            width: 100%;
+            padding: 12px;
+            background: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-family: monospace;
+            box-sizing: border-box;
+          "
+        />
+        ${currentToken ? `<p style="color: #888; font-size: 12px; margin-top: 8px;">Token actual: ${maskedToken}</p>` : ''}
+      </div>
+      
+      <div id="token-error" style="
+        display: none;
+        background: #4a2d2d;
+        border: 1px solid #6a4040;
+        border-radius: 6px;
+        padding: 12px;
+        color: #ff6b6b;
+        font-size: 13px;
+        margin-bottom: 16px;
+      "></div>
+      
+      <div style="display: flex; gap: 16px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #404040;">
+        <button id="clear-token" style="
+          background: #2d2d2d;
+          border: 1px solid #404040;
+          border-radius: 6px;
+          padding: 10px 20px;
+          color: #e0e0e0;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: all 0.2s;
+          flex: 1;
+        ">Eliminar Token</button>
+        <button id="save-token" style="
+          background: #4a9eff;
+          border: none;
+          border-radius: 6px;
+          padding: 10px 20px;
+          color: #fff;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          transition: all 0.2s;
+          flex: 1;
+        ">Guardar Token</button>
+      </div>
+    </div>
+  `;
+  
+  tokenContainer.appendChild(header);
+  tokenContainer.appendChild(contentArea);
+  document.body.appendChild(tokenContainer);
+  
+  const tokenInput = contentArea.querySelector('#token-input');
+  const errorDiv = contentArea.querySelector('#token-error');
+  const saveBtn = contentArea.querySelector('#save-token');
+  const clearBtn = contentArea.querySelector('#clear-token');
+  const backBtn = header.querySelector('#back-from-token');
+  
+  // Estilos hover
+  saveBtn.addEventListener('mouseenter', () => {
+    saveBtn.style.background = '#5aaeff';
+  });
+  saveBtn.addEventListener('mouseleave', () => {
+    saveBtn.style.background = '#4a9eff';
+  });
+  
+  clearBtn.addEventListener('mouseenter', () => {
+    clearBtn.style.background = '#3d3d3d';
+    clearBtn.style.borderColor = '#555';
+  });
+  clearBtn.addEventListener('mouseleave', () => {
+    clearBtn.style.background = '#2d2d2d';
+    clearBtn.style.borderColor = '#404040';
+  });
+  
+  backBtn.addEventListener('mouseenter', () => {
+    backBtn.style.background = '#3d3d3d';
+    backBtn.style.borderColor = '#555';
+  });
+  backBtn.addEventListener('mouseleave', () => {
+    backBtn.style.background = '#2d2d2d';
+    backBtn.style.borderColor = '#404040';
+  });
+  
+  // Guardar token
+  saveBtn.addEventListener('click', () => {
+    const token = tokenInput.value.trim();
+    
+    if (!token) {
+      errorDiv.textContent = 'Por favor, ingresa un token de Notion';
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    if (!token.startsWith('secret_')) {
+      errorDiv.textContent = 'El token de Notion debe comenzar con "secret_"';
+      errorDiv.style.display = 'block';
+      return;
+    }
+    
+    if (saveUserToken(token, roomId)) {
+      errorDiv.style.display = 'none';
+      alert('✅ Token guardado exitosamente. Ahora puedes usar tus propias páginas de Notion.');
+      closeTokenConfig();
+      // Recargar la página para aplicar el nuevo token
+      window.location.reload();
+    } else {
+      errorDiv.textContent = 'Error al guardar el token. Revisa la consola para más detalles.';
+      errorDiv.style.display = 'block';
+    }
+  });
+  
+  // Eliminar token
+  clearBtn.addEventListener('click', () => {
+    if (confirm('¿Eliminar el token? Volverás a usar el token del servidor (si está configurado).')) {
+      if (saveUserToken('', roomId)) {
+        alert('Token eliminado. Se usará el token del servidor.');
+        closeTokenConfig();
+        window.location.reload();
+      }
+    }
+  });
+  
+  // Cerrar
+  const closeTokenConfig = () => {
+    document.body.removeChild(tokenContainer);
+    if (mainContainer) mainContainer.classList.remove('hidden');
+    if (pageList) pageList.classList.remove('hidden');
+  };
+  
+  backBtn.addEventListener('click', closeTokenConfig);
 }
 
 // Función para mostrar el editor de JSON

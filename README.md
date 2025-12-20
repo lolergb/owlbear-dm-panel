@@ -1,106 +1,178 @@
 # 📚 Notion Embed para Owlbear Rodeo
 
-Extensión simple para embebber páginas públicas de Notion directamente en Owlbear Rodeo.
+Extensión simple para embebber páginas de Notion directamente en Owlbear Rodeo.
 
 ## ✨ Características
 
 - 🎯 Abre páginas de Notion en modales dentro de Owlbear
-- 📝 Configuración simple: solo agrega URLs en `index.js`
+- 📝 Gestión de páginas por categorías desde la interfaz
 - 🎨 Interfaz limpia y oscura
-- 🔒 Funciona con páginas públicas de Notion
+- 💾 Caché persistente para carga rápida
+- 🏠 Configuración independiente por room de Owlbear
+- 🖼️ Visualización de imágenes en modal a tamaño real
 
-## 🚀 Instalación
+---
 
-### Opción 1: GitHub Pages (Recomendado)
+## 👥 Para DMs (Usuarios Finales)
 
-1. **Crea un repositorio en GitHub** con estos archivos
-2. **Habilita GitHub Pages** en Settings → Pages
-3. **Copia la URL** de tu `manifest.json` (ej: `https://tu-usuario.github.io/owlbear-notion-embed/manifest.json`)
-4. **En Owlbear Rodeo:**
-   - Ve a tu perfil
-   - Clic en "Agregar Extensión"
+**¡Cada usuario usa su propia cuenta de Notion!** Solo necesitas configurar tu token una vez.
+
+### 🚀 Instalación (Una vez)
+
+1. **Obtén la URL de la extensión** del desarrollador
+   - Ejemplo: `https://tu-proyecto.netlify.app/manifest.json`
+
+2. **En Owlbear Rodeo:**
+   - Ve a tu perfil → "Agregar Extensión"
    - Pega la URL del `manifest.json`
+   - Instala
 
-### Opción 2: Alojamiento Local (Desarrollo)
+3. **Configura tu token de Notion:**
+   - Abre la extensión
+   - Clic en **🔑** (arriba a la derecha)
+   - Sigue las instrucciones en pantalla
+   - **¡Listo!** Ya puedes usar tus páginas de Notion
 
-1. **Instala un servidor local:**
-   ```bash
-   # Con Python
-   python -m http.server 8000
-   
-   # O con Node.js
-   npx http-server -p 8000
-   ```
+### 🔑 Obtener tu Token de Notion
 
-2. **Usa la URL local** en Owlbear:
-   - `http://localhost:8000/manifest.json`
+1. Ve a https://www.notion.so/my-integrations
+2. Clic en **"Nueva integración"** o usa una existente
+3. Copia el **"Internal Integration Token"** (empieza con `secret_`)
+4. En la extensión: **🔑** → Pega el token → **Guardar**
+5. **Importante:** Comparte tus páginas con la integración:
+   - En Notion: **Compartir** → **Invitar** → Busca el nombre de tu integración
+   - Dale acceso de lectura
 
-### Opción 3: Otros Servicios
+### 📖 Uso Diario
 
-Puedes alojar en cualquier servicio estático:
-- **Netlify** (gratis)
-- **Vercel** (gratis)
-- **Render** (gratis)
+1. **Abre Owlbear Rodeo** y entra a tu sala de juego
+2. **Abre la extensión** desde el menú de extensiones (icono en la barra superior)
+3. **Verás una lista** de páginas de Notion organizadas por categorías
+4. **Haz clic en una página** para abrirla y ver su contenido
+5. **Usa el botón ← Volver** para regresar a la lista
 
-## ⚙️ Configuración
+### 📝 Gestionar tus páginas
 
-### 1. Configurar el token de la API de Notion
+**Cada room tiene su propia configuración:**
 
-**⚠️ IMPORTANTE: Seguridad del Token**
+1. Clic en el botón **⚙️** (arriba a la derecha)
+2. Se abre un editor JSON donde puedes:
+   - Agregar nuevas páginas
+   - Crear nuevas categorías
+   - Editar nombres y URLs
+   - Eliminar páginas
+3. Clic en **"Guardar"** para aplicar los cambios
+4. Clic en **"Resetear"** si quieres volver a la configuración por defecto
 
-El token de la API de Notion es sensible. Para desarrollo local, usa el archivo `config.js` que está en `.gitignore`.
+**Ejemplo de JSON:**
+```json
+{
+  "categories": [
+    {
+      "name": "Aventuras",
+      "pages": [
+        {
+          "name": "Mi Aventura",
+          "url": "https://tu-notion.notion.site/Mi-Aventura-..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 🔄 Actualizar contenido
+
+- **Recarga automática:** El contenido se cachea para cargar rápido
+- **Botón 🔄:** Fuerza la recarga de una página específica (útil si actualizaste Notion)
+- **Botón 🗑️:** Limpia todo el caché (útil si algo no se actualiza)
+
+### 💡 Consejos
+
+- **Cada usuario tiene su propio token:** Configura tu token una vez y úsalo en todas las rooms
+- **Cada room es independiente:** Las páginas se configuran por room, pero el token es compartido
+- **Token privado:** Tu token se guarda localmente en tu navegador, solo tú lo ves
+- **URLs de Notion:** Puedes usar páginas privadas (no necesitan ser públicas) si las compartes con tu integración
+- **Iconos:** Las páginas muestran su icono de Notion automáticamente
+- **Imágenes:** Haz clic en cualquier imagen para verla a tamaño real
+- **Cambiar token:** Clic en **🔑** → Eliminar Token para volver a usar el token del servidor (si está configurado)
+
+---
+
+---
+
+## 🛠️ Para Desarrolladores (Solo quien despliega)
+
+> **⚠️ Esta sección es SOLO para quien despliega la extensión. Los usuarios finales NO necesitan hacer esto.**
+
+### 🚀 Despliegue en Netlify
+
+1. **Fork/clona este repositorio**
+
+2. **Crea cuenta en Netlify** (gratis)
+
+3. **Conecta tu repositorio:**
+   - "Add new site" → "Import an existing project"
+   - Conecta GitHub/GitLab → Selecciona este repo
+
+4. **Deploy automático:**
+   - Netlify detectará y desplegará automáticamente
+   - **No necesitas configurar token** - cada usuario configurará el suyo
+
+5. **Comparte la URL:**
+   - Ejemplo: `https://tu-proyecto.netlify.app/manifest.json`
+   - Comparte esta URL con los usuarios
+   - **Cada usuario configurará su propio token** desde la interfaz (botón 🔑)
+
+### 🔧 Token Opcional del Servidor (Opcional)
+
+Si quieres que funcione sin que los usuarios configuren nada (páginas compartidas):
+
+1. **En Netlify Dashboard:**
+   - Settings → Environment variables
+   - Agrega: `NOTION_API_TOKEN` = `tu_token_de_notion`
+   - Obtén el token: https://www.notion.so/my-integrations
+
+2. **En Notion:**
+   - Comparte tus páginas con la integración
+   - Los usuarios verán estas páginas sin configurar nada
+
+3. **Los usuarios pueden:**
+   - Usar páginas compartidas (sin token)
+   - O configurar su propio token (🔑) para sus páginas
+
+### 📝 Configurar páginas iniciales (Opcional)
+
+Las páginas se pueden gestionar desde la interfaz, pero puedes configurar páginas iniciales editando `build-config.js`:
+
+```javascript
+export const NOTION_PAGES = [
+  {
+    name: "Mi Aventura",
+    url: "https://tu-notion.notion.site/Mi-Aventura-..."
+  }
+];
+```
+
+### 🔧 Desarrollo Local
 
 1. **Copia el archivo de ejemplo:**
    ```bash
    cp config.example.js config.js
    ```
 
-2. **Edita `config.js`** y agrega tu token de Notion:
+2. **Edita `config.js`** y agrega tu token (solo para desarrollo local):
    ```javascript
    export const NOTION_API_TOKEN = "tu_token_de_notion_aqui";
    ```
 
-3. **Obtén tu token de Notion:**
-   - Ve a https://www.notion.so/my-integrations
-   - Crea una nueva integración o usa una existente
-   - Copia el "Internal Integration Token"
-   - Asegúrate de darle acceso a las páginas/bases de datos que quieres usar
+3. **Servidor local:**
+   ```bash
+   npx http-server -p 8000
+   ```
 
-### 2. Configurar páginas de Notion
-
-Edita el archivo `config.js` y agrega tus páginas en el array `NOTION_PAGES`:
-
-```javascript
-export const NOTION_PAGES = [
-  {
-    name: "Ganar Tiempo",
-    url: "https://solid-jingle-6ee.notion.site/Ganar-Tiempo-..."
-  },
-  {
-    name: "Otra Aventura",
-    url: "https://tu-notion.notion.site/Otra-Pagina-..."
-  }
-];
-```
-
-### 3. Configurar para producción
-
-#### Para Netlify (Recomendado)
-
-1. **Configura la variable de entorno:**
-   - Ve a tu proyecto en Netlify Dashboard
-   - Settings → Environment variables
-   - Agrega: `NOTION_API_TOKEN` con tu token de Notion
-   - Guarda los cambios
-
-2. **El build automático:**
-   - Netlify ejecutará `node build-config.js` automáticamente
-   - Esto generará `config.js` desde la variable de entorno
-   - El token nunca estará en tu código fuente
-
-3. **Verifica el deploy:**
-   - Revisa los logs de build en Netlify
-   - Deberías ver: "✅ config.js generado exitosamente"
+4. **Usa en Owlbear:**
+   - `http://localhost:8000/manifest.json`
 
 #### Para GitHub Pages
 
@@ -197,12 +269,17 @@ Esta extensión usa el SDK oficial de Owlbear Rodeo:
 
 ## 🔐 Seguridad
 
-**IMPORTANTE:** El token de la API de Notion es sensible. 
+**Para Desarrolladores:**
 
+- ✅ El token se almacena en Netlify (variables de entorno)
+- ✅ El token NUNCA se expone al cliente (usa Netlify Functions como proxy)
 - ✅ `config.js` está en `.gitignore` y NO se sube a GitHub
-- ✅ Usa `config.example.js` como plantilla
-- ⚠️ Si usas GitHub Pages, el token estará visible en el código del cliente
-- 🔒 Para producción, considera usar un proxy/backend para ocultar el token
+- ✅ Los usuarios finales nunca ven ni necesitan el token
+
+**Para Usuarios:**
+
+- ✅ No necesitas saber nada sobre tokens
+- ✅ Solo usa la extensión normalmente
 
 ## 🐛 Solución de Problemas
 
