@@ -14,7 +14,7 @@ import {
 // Variables de color CSS (deben coincidir con las del index.html)
 const CSS_VARS = {
   bgPrimary: '#ffffff0d',
-  borderPrimary: '#f3e8ff66',
+  borderPrimary: 'transparent',
   bgHover: '#ffffff1a',
   bgActive: '#bb99ff4d',
   borderActive: '#bb99ff4d'
@@ -761,7 +761,6 @@ function attachImageClickHandlers() {
 // Función para cargar y renderizar contenido de Notion desde la API
 async function loadNotionContent(url, container, forceRefresh = false) {
   const contentDiv = container.querySelector('#notion-content');
-  const iframe = container.querySelector('#notion-iframe');
   
   if (!contentDiv) {
     console.error('No se encontró el contenedor de contenido');
