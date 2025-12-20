@@ -21,9 +21,14 @@ function getStorageKey(roomId) {
 function getPagesJSON(roomId) {
   try {
     const storageKey = getStorageKey(roomId);
+    console.log('🔍 Buscando configuración con clave:', storageKey, 'para roomId:', roomId);
     const stored = localStorage.getItem(storageKey);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      console.log('✅ Configuración encontrada para room:', roomId);
+      return parsed;
+    } else {
+      console.log('⚠️ No se encontró configuración para room:', roomId);
     }
   } catch (e) {
     console.error('Error al leer JSON:', e);
@@ -34,8 +39,18 @@ function getPagesJSON(roomId) {
 function savePagesJSON(json, roomId) {
   try {
     const storageKey = getStorageKey(roomId);
+    console.log('💾 Guardando configuración con clave:', storageKey, 'para roomId:', roomId);
     localStorage.setItem(storageKey, JSON.stringify(json, null, 2));
-    console.log('💾 Configuración guardada para room:', roomId);
+    console.log('✅ Configuración guardada exitosamente para room:', roomId);
+    
+    // Verificar que se guardó correctamente
+    const verify = localStorage.getItem(storageKey);
+    if (verify) {
+      console.log('✅ Verificación: configuración guardada correctamente');
+    } else {
+      console.error('❌ Error: no se pudo verificar la configuración guardada');
+    }
+    
     return true;
   } catch (e) {
     console.error('Error al guardar JSON:', e);
@@ -664,21 +679,34 @@ try {
       let roomId = null;
       try {
         roomId = await OBR.room.getId();
-        console.log('🏠 Room ID:', roomId);
+        console.log('🏠 Room ID obtenido:', roomId);
+        console.log('🏠 Tipo de roomId:', typeof roomId);
+        console.log('🏠 Longitud de roomId:', roomId ? roomId.length : 0);
       } catch (e) {
         console.warn('⚠️ No se pudo obtener el ID de la room, usando "default":', e);
         roomId = 'default';
       }
       
+      // Verificar que roomId no sea null o undefined
+      if (!roomId) {
+        console.warn('⚠️ roomId es null/undefined, usando "default"');
+        roomId = 'default';
+      }
+      
       // Cargar configuración desde JSON (específica para esta room)
+      console.log('🔍 Intentando cargar configuración para room:', roomId);
       let pagesConfig = getPagesJSON(roomId);
       if (!pagesConfig) {
+        console.log('📝 No se encontró configuración, creando una nueva para room:', roomId);
         pagesConfig = getDefaultJSON();
         savePagesJSON(pagesConfig, roomId);
-        console.log('📝 Configuración por defecto creada para room:', roomId);
+        console.log('✅ Configuración por defecto creada para room:', roomId);
+      } else {
+        console.log('✅ Configuración encontrada para room:', roomId);
       }
 
-      console.log('📊 Configuración cargada para room:', roomId, pagesConfig);
+      console.log('📊 Configuración cargada para room:', roomId);
+      console.log('📊 Número de categorías:', pagesConfig?.categories?.length || 0);
       
       const pageList = document.getElementById("page-list");
       const header = document.getElementById("header");
@@ -751,7 +779,7 @@ try {
       header.appendChild(buttonContainer);
 
       // Renderizar páginas agrupadas por categorías
-      renderPagesByCategories(pagesConfig, pageList);
+      renderPagesByCategories(pagesConfig, pageList, roomId);
     } catch (error) {
       console.error('❌ Error dentro de OBR.onReady:', error);
       console.error('Stack:', error.stack);
@@ -1064,6 +1092,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
   // Guardar JSON
   saveBtn.addEventListener('click', () => {
     try {
+      console.log('💾 Guardando JSON para roomId:', roomId);
       const jsonText = textarea.value.trim();
       const parsed = JSON.parse(jsonText);
       
@@ -1072,19 +1101,28 @@ function showJSONEditor(pagesConfig, roomId = null) {
         throw new Error('El JSON debe tener un array "categories"');
       }
       
+      // Verificar que roomId esté disponible
+      if (!roomId) {
+        console.error('❌ ERROR: roomId es null/undefined al guardar');
+        throw new Error('No se pudo identificar la room. Recarga la extensión.');
+      }
+      
       // Guardar (con roomId)
+      console.log('💾 Llamando a savePagesJSON con roomId:', roomId);
       savePagesJSON(parsed, roomId);
       errorDiv.style.display = 'none';
       textarea.style.borderColor = '#404040';
       
       // Cerrar y recargar
       closeEditor();
+      console.log('🔄 Recargando configuración para roomId:', roomId);
       const newConfig = getPagesJSON(roomId) || getDefaultJSON();
       const pageListEl = document.getElementById("page-list");
       if (pageListEl) {
         renderPagesByCategories(newConfig, pageListEl, roomId);
       }
     } catch (e) {
+      console.error('❌ Error al guardar:', e);
       errorDiv.textContent = `Error: ${e.message}`;
       errorDiv.style.display = 'block';
       textarea.style.borderColor = '#ff6b6b';
