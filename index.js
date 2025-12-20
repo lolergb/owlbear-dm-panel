@@ -938,16 +938,23 @@ try {
       
       // Botón para limpiar caché
       const clearCacheButton = document.createElement("button");
-      clearCacheButton.innerHTML = "🗑️";
+      const deleteIcon = document.createElement("img");
+      deleteIcon.src = "img/icon-delete.svg";
+      deleteIcon.alt = "Limpiar caché";
+      deleteIcon.style.cssText = "width: 20px; height: 20px; display: block;";
+      clearCacheButton.appendChild(deleteIcon);
       clearCacheButton.title = "Limpiar caché";
       clearCacheButton.style.cssText = `
-        background: ${CSS_VARS.bgPrimary};
-        border: 1px solid ${CSS_VARS.borderPrimary};
-        border-radius: 6px;
-        padding: 6px 12px;
-        color: #e0e0e0;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        font-size: 16px;
         transition: all 0.2s;
       `;
       clearCacheButton.addEventListener("click", () => {
@@ -963,84 +970,89 @@ try {
       });
       clearCacheButton.addEventListener('mouseenter', () => {
         clearCacheButton.style.background = CSS_VARS.bgHover;
-        clearCacheButton.style.borderColor = CSS_VARS.borderPrimary;
+        clearCacheButton.style.borderRadius = '50%';
       });
       clearCacheButton.addEventListener('mouseleave', () => {
-        clearCacheButton.style.background = CSS_VARS.bgPrimary;
-        clearCacheButton.style.borderColor = CSS_VARS.borderPrimary;
+        clearCacheButton.style.background = 'transparent';
       });
       clearCacheButton.addEventListener('mousedown', () => {
         clearCacheButton.style.background = CSS_VARS.bgActive;
-        clearCacheButton.style.borderColor = CSS_VARS.borderActive;
       });
       clearCacheButton.addEventListener('mouseup', () => {
         clearCacheButton.style.background = CSS_VARS.bgHover;
-        clearCacheButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       
       // Botón para editar JSON
       const adminButton = document.createElement("button");
       adminButton.className = "admin-button";
-      adminButton.innerHTML = "⚙️";
+      const jsonIcon = document.createElement("img");
+      jsonIcon.src = "img/icon-json.svg";
+      jsonIcon.alt = "Editar JSON";
+      jsonIcon.style.cssText = "width: 20px; height: 20px; display: block;";
+      adminButton.appendChild(jsonIcon);
       adminButton.title = "Editar JSON";
       adminButton.style.cssText = `
-        background: ${CSS_VARS.bgPrimary};
-        border: 1px solid ${CSS_VARS.borderPrimary};
-        border-radius: 6px;
-        padding: 6px 12px;
-        color: #e0e0e0;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        font-size: 16px;
         transition: all 0.2s;
       `;
       adminButton.addEventListener("click", () => showJSONEditor(pagesConfig, roomId));
       adminButton.addEventListener('mouseenter', () => {
         adminButton.style.background = CSS_VARS.bgHover;
-        adminButton.style.borderColor = CSS_VARS.borderPrimary;
+        adminButton.style.borderRadius = '50%';
       });
       adminButton.addEventListener('mouseleave', () => {
-        adminButton.style.background = CSS_VARS.bgPrimary;
-        adminButton.style.borderColor = CSS_VARS.borderPrimary;
+        adminButton.style.background = 'transparent';
       });
       adminButton.addEventListener('mousedown', () => {
         adminButton.style.background = CSS_VARS.bgActive;
-        adminButton.style.borderColor = CSS_VARS.borderActive;
       });
       adminButton.addEventListener('mouseup', () => {
         adminButton.style.background = CSS_VARS.bgHover;
-        adminButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       
       // Botón para configurar token de Notion
       const tokenButton = document.createElement("button");
-      tokenButton.innerHTML = "🔑";
+      const keyIcon = document.createElement("img");
+      keyIcon.src = "img/icon-key.svg";
+      keyIcon.alt = "Configurar token";
+      keyIcon.style.cssText = "width: 20px; height: 20px; display: block;";
+      tokenButton.appendChild(keyIcon);
       tokenButton.title = hasUserToken(roomId) ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
       tokenButton.style.cssText = `
-        background: ${CSS_VARS.bgPrimary};
-        border: 1px solid ${CSS_VARS.borderPrimary};
-        border-radius: 6px;
-        padding: 6px 12px;
-        color: #e0e0e0;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        font-size: 16px;
         transition: all 0.2s;
       `;
       tokenButton.addEventListener("click", () => showTokenConfig(roomId));
       tokenButton.addEventListener('mouseenter', () => {
         tokenButton.style.background = CSS_VARS.bgHover;
-        tokenButton.style.borderColor = CSS_VARS.borderPrimary;
+        tokenButton.style.borderRadius = '50%';
       });
       tokenButton.addEventListener('mouseleave', () => {
-        tokenButton.style.background = CSS_VARS.bgPrimary;
-        tokenButton.style.borderColor = CSS_VARS.borderPrimary;
+        tokenButton.style.background = 'transparent';
       });
       tokenButton.addEventListener('mousedown', () => {
         tokenButton.style.background = CSS_VARS.bgActive;
-        tokenButton.style.borderColor = CSS_VARS.borderActive;
       });
       tokenButton.addEventListener('mouseup', () => {
         tokenButton.style.background = CSS_VARS.bgHover;
-        tokenButton.style.borderColor = CSS_VARS.borderPrimary;
       });
       
       buttonContainer.appendChild(tokenButton);
@@ -1227,16 +1239,25 @@ async function loadPageContent(url, name) {
     // Guardar la URL actual en el botón
     refreshButton.dataset.pageUrl = url;
     
-    refreshButton.innerHTML = "🔄";
+    // Limpiar contenido anterior
+    refreshButton.innerHTML = "";
+    const reloadIcon = document.createElement("img");
+    reloadIcon.src = "img/icon-reload.svg";
+    reloadIcon.alt = "Recargar contenido";
+    reloadIcon.style.cssText = "width: 20px; height: 20px; display: block;";
+    refreshButton.appendChild(reloadIcon);
     refreshButton.title = "Recargar contenido";
     refreshButton.style.cssText = `
-      background: ${CSS_VARS.bgPrimary};
-      border: 1px solid ${CSS_VARS.borderPrimary};
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: #e0e0e0;
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      font-size: 16px;
       transition: all 0.2s;
       margin-left: 8px;
     `;
@@ -1248,21 +1269,25 @@ async function loadPageContent(url, name) {
     refreshButton.id = "refresh-page-button";
     refreshButton.dataset.pageUrl = url;
     
+    // Re-agregar el icono después del clone
+    const reloadIconNew = document.createElement("img");
+    reloadIconNew.src = "img/icon-reload.svg";
+    reloadIconNew.alt = "Recargar contenido";
+    reloadIconNew.style.cssText = "width: 20px; height: 20px; display: block;";
+    refreshButton.appendChild(reloadIconNew);
+    
       refreshButton.addEventListener('mouseenter', () => {
         refreshButton.style.background = CSS_VARS.bgHover;
-        refreshButton.style.borderColor = CSS_VARS.borderPrimary;
+        refreshButton.style.borderRadius = '50%';
       });
       refreshButton.addEventListener('mouseleave', () => {
-        refreshButton.style.background = CSS_VARS.bgPrimary;
-        refreshButton.style.borderColor = CSS_VARS.borderPrimary;
+        refreshButton.style.background = 'transparent';
       });
       refreshButton.addEventListener('mousedown', () => {
         refreshButton.style.background = CSS_VARS.bgActive;
-        refreshButton.style.borderColor = CSS_VARS.borderActive;
       });
       refreshButton.addEventListener('mouseup', () => {
         refreshButton.style.background = CSS_VARS.bgHover;
-        refreshButton.style.borderColor = CSS_VARS.borderPrimary;
       });
     
     refreshButton.addEventListener('click', async () => {
