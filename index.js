@@ -885,8 +885,13 @@ try {
       `;
       clearCacheButton.addEventListener("click", () => {
         if (confirm('¿Limpiar todo el caché? Las páginas se recargarán desde la API la próxima vez.')) {
-          clearAllCache();
-          alert('Caché limpiado. Las páginas se recargarán desde la API la próxima vez que las abras.');
+          try {
+            clearAllCache();
+            alert('Caché limpiado. Las páginas se recargarán desde la API la próxima vez que las abras.');
+          } catch (e) {
+            console.error('Error al limpiar caché:', e);
+            alert('Error al limpiar el caché. Revisa la consola para más detalles.');
+          }
         }
       });
       clearCacheButton.addEventListener('mouseenter', () => {
@@ -1082,43 +1087,77 @@ async function loadPageContent(url, name) {
     backButton.classList.remove("hidden");
     pageTitle.textContent = name;
     
-    // Agregar botón de recargar si no existe
+    // Agregar o actualizar botón de recargar
     let refreshButton = document.getElementById("refresh-page-button");
     if (!refreshButton) {
       refreshButton = document.createElement("button");
       refreshButton.id = "refresh-page-button";
-      refreshButton.innerHTML = "🔄";
-      refreshButton.title = "Recargar contenido";
-      refreshButton.style.cssText = `
-        background: #2d2d2d;
-        border: 1px solid #404040;
-        border-radius: 6px;
-        padding: 6px 12px;
-        color: #e0e0e0;
-        cursor: pointer;
-        font-size: 16px;
-        transition: all 0.2s;
-        margin-left: 8px;
-      `;
-      refreshButton.addEventListener('mouseenter', () => {
-        refreshButton.style.background = '#3d3d3d';
-        refreshButton.style.borderColor = '#555';
-      });
-      refreshButton.addEventListener('mouseleave', () => {
-        refreshButton.style.background = '#2d2d2d';
-        refreshButton.style.borderColor = '#404040';
-      });
-      refreshButton.addEventListener('click', async () => {
-        // Limpiar caché de esta página y recargar
-        clearPageCache(url);
-        refreshButton.disabled = true;
-        refreshButton.innerHTML = "⏳";
-        await loadNotionContent(url, notionContainer, true);
-        refreshButton.disabled = false;
-        refreshButton.innerHTML = "🔄";
-      });
       header.appendChild(refreshButton);
     }
+    
+    // Guardar la URL actual en el botón
+    refreshButton.dataset.pageUrl = url;
+    
+    refreshButton.innerHTML = "🔄";
+    refreshButton.title = "Recargar contenido";
+    refreshButton.style.cssText = `
+      background: #2d2d2d;
+      border: 1px solid #404040;
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+      margin-left: 8px;
+    `;
+    
+    // Remover listeners anteriores si existen
+    const newRefreshButton = refreshButton.cloneNode(true);
+    refreshButton.parentNode.replaceChild(newRefreshButton, refreshButton);
+    refreshButton = newRefreshButton;
+    refreshButton.id = "refresh-page-button";
+    refreshButton.dataset.pageUrl = url;
+    
+    refreshButton.addEventListener('mouseenter', () => {
+      refreshButton.style.background = '#3d3d3d';
+      refreshButton.style.borderColor = '#555';
+    });
+    refreshButton.addEventListener('mouseleave', () => {
+      refreshButton.style.background = '#2d2d2d';
+      refreshButton.style.borderColor = '#404040';
+    });
+    
+    refreshButton.addEventListener('click', async () => {
+      // Obtener la URL actual del botón
+      const currentUrl = refreshButton.dataset.pageUrl;
+      if (!currentUrl) {
+        console.error('No se encontró URL en el botón de recargar');
+        return;
+      }
+      
+      // Limpiar caché de esta página y recargar
+      const pageId = extractNotionPageId(currentUrl);
+      if (pageId) {
+        const cacheKey = CACHE_PREFIX + pageId;
+        localStorage.removeItem(cacheKey);
+        console.log('🗑️ Caché limpiado para recarga:', pageId, 'clave:', cacheKey);
+      } else {
+        console.warn('No se pudo extraer pageId de la URL:', currentUrl);
+      }
+      
+      refreshButton.disabled = true;
+      refreshButton.innerHTML = "⏳";
+      try {
+        await loadNotionContent(currentUrl, notionContainer, true);
+      } catch (e) {
+        console.error('Error al recargar:', e);
+      } finally {
+        refreshButton.disabled = false;
+        refreshButton.innerHTML = "🔄";
+      }
+    });
+    
     refreshButton.classList.remove("hidden");
     
     await loadNotionContent(url, notionContainer);
