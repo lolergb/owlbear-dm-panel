@@ -76,7 +76,69 @@ Extensión simple para embebber páginas de Notion directamente en Owlbear Rodeo
 3. Clic en **"Guardar"** para aplicar los cambios
 4. Clic en **"Resetear"** si quieres volver a la configuración por defecto
 
-**Ejemplo de JSON:**
+**Estructura del JSON de configuración:**
+
+```json
+{
+  "categories": [
+    {
+      "name": "Nombre de la categoría",
+      "pages": [
+        {
+          "name": "Nombre de la página",
+          "url": "URL de la página",
+          "selector": "selector-opcional"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Propiedades de configuración:**
+
+#### Categorías (`categories`)
+- **Tipo:** Array de objetos
+- **Requerido:** Sí
+- **Descripción:** Lista de categorías que agrupan las páginas
+
+#### Categoría (`categories[].name`)
+- **Tipo:** String
+- **Requerido:** Sí
+- **Descripción:** Nombre de la categoría (se muestra como título)
+
+#### Páginas (`categories[].pages`)
+- **Tipo:** Array de objetos
+- **Requerido:** Sí
+- **Descripción:** Lista de páginas dentro de la categoría
+
+#### Página (`categories[].pages[].name`)
+- **Tipo:** String
+- **Requerido:** Sí
+- **Descripción:** Nombre que se muestra en el botón de la página
+
+#### Página (`categories[].pages[].url`)
+- **Tipo:** String (URL)
+- **Requerido:** Sí
+- **Descripción:** URL completa de la página
+- **Ejemplos:**
+  - Notion: `https://tu-workspace.notion.site/Titulo-2d0d4856c90e80f6801dcafb6b7366e6`
+  - Notion (www): `https://www.notion.so/Titulo-2d0d4856c90e80f6801dcafb6b7366e6`
+  - Externa: `https://5e.tools/book.html#mm,1`
+
+#### Página (`categories[].pages[].selector`)
+- **Tipo:** String (CSS selector)
+- **Requerido:** No (opcional)
+- **Descripción:** Selector CSS (ID o clase) para cargar solo un elemento específico de la página
+- **Cuándo usarlo:** Solo para URLs que NO son de Notion (URLs externas)
+- **Ejemplos:**
+  - Por ID: `"#main-content"`
+  - Por clase: `".article-body"`
+  - Por selector: `"div.container > section.content"`
+- **Nota:** Si se omite, se carga toda la página. Si se proporciona, solo se muestra el elemento seleccionado (útil para páginas externas donde solo quieres mostrar una sección específica)
+
+**Ejemplo completo con todas las opciones:**
+
 ```json
 {
   "categories": [
@@ -84,14 +146,97 @@ Extensión simple para embebber páginas de Notion directamente en Owlbear Rodeo
       "name": "Aventuras",
       "pages": [
         {
-          "name": "Mi Aventura",
-          "url": "https://tu-notion.notion.site/Mi-Aventura-..."
+          "name": "Mi Primera Aventura",
+          "url": "https://tu-workspace.notion.site/Mi-Primera-Aventura-2d0d4856c90e80f6801dcafb6b7366e6"
+        },
+        {
+          "name": "Encuentros Aleatorios",
+          "url": "https://www.notion.so/Encuentros-Aleatorios-3e1e5967d01e91f7912ec8bf7c8477f8"
+        },
+        {
+          "name": "NPCs Importantes",
+          "url": "https://tu-workspace.notion.site/NPCs-Importantes-4f2f6078e02e02f8023fd9cf8d9589f9"
+        }
+      ]
+    },
+    {
+      "name": "Referencias Externas",
+      "pages": [
+        {
+          "name": "Manual D&D 5e",
+          "url": "https://5e.tools/book.html#mm,1",
+          "selector": "#content"
+        },
+        {
+          "name": "Wiki de Reglas",
+          "url": "https://ejemplo.com/wiki/reglas",
+          "selector": ".main-article"
+        },
+        {
+          "name": "Calculadora de Daño",
+          "url": "https://calculadora.com/damage",
+          "selector": "#calculator-container"
+        },
+        {
+          "name": "Página Completa (sin selector)",
+          "url": "https://ejemplo.com/pagina-completa"
+        }
+      ]
+    },
+    {
+      "name": "Tokens y Mapas",
+      "pages": [
+        {
+          "name": "Colección de Tokens",
+          "url": "https://tu-workspace.notion.site/Tokens-5a3a7189f03e03f9034ge0df0e0690a0"
+        },
+        {
+          "name": "Mapas de Batalla",
+          "url": "https://www.notion.so/Mapas-de-Batalla-6b4b8290g14f14g0145ih1ef1f17a1b1"
+        }
+      ]
+    },
+    {
+      "name": "Notas de Sesión",
+      "pages": [
+        {
+          "name": "Sesión 1 - Introducción",
+          "url": "https://tu-workspace.notion.site/Sesion-1-7c5c93a1h25g25h1256ji2fg2g28b2c2"
+        },
+        {
+          "name": "Sesión 2 - El Bosque",
+          "url": "https://tu-workspace.notion.site/Sesion-2-8d6d04b2i36h36i2367kj3gh3h39c3d3"
         }
       ]
     }
   ]
 }
 ```
+
+**Ejemplo mínimo (una categoría, una página):**
+
+```json
+{
+  "categories": [
+    {
+      "name": "General",
+      "pages": [
+        {
+          "name": "Mi Página",
+          "url": "https://tu-notion.notion.site/Mi-Pagina-2d0d4856c90e80f6801dcafb6b7366e6"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Notas importantes:**
+- Las categorías se ordenan alfabéticamente automáticamente
+- Las páginas dentro de cada categoría también se ordenan alfabéticamente
+- El `selector` solo funciona con URLs externas (no-Notion)
+- Para páginas de Notion, el `selector` se ignora (se usa la API de Notion)
+- Los iconos de las páginas se cargan automáticamente desde Notion
 
 ### 🔄 Actualizar contenido
 

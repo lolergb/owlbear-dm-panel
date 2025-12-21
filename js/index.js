@@ -1381,7 +1381,7 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
       `;
       
       button.addEventListener("click", async () => {
-        await loadPageContent(page.url, page.name);
+        await loadPageContent(page.url, page.name, page.selector || null);
       });
       
       pagesContainer.appendChild(button);
