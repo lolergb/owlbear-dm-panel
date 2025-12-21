@@ -297,3 +297,29 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
+/* Columnas de Notion */
+.notion-content .notion-column-list {
+  display: flex;
+  gap: 24px;
+  margin: 1em 0;
+  flex-wrap: wrap;
+}
+
+.notion-content .notion-column {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Modo oscuro para columnas */
+.notion-container-dark .notion-content .notion-column-list {
+  gap: 24px;
+}
+
+.notion-container-dark .notion-content .notion-column {
+  flex: 1;
+  min-width: 200px;
+}
+

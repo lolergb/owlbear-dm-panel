@@ -684,14 +684,14 @@ function renderBlock(block) {
       return '<div class="notion-database-placeholder">[Base de datos - Requiere implementación adicional]</div>';
     
     case 'column_list':
-      // Columnas: necesitamos obtener los hijos de cada columna
-      console.log('📐 Bloque column_list encontrado (requiere procesamiento especial)');
-      return '<div class="notion-column-list">[Columnas - Requiere implementación adicional]</div>';
+      // Columnas: se procesan en renderBlocks de forma especial
+      // Este caso no debería ejecutarse nunca, pero lo dejamos por seguridad
+      return '<div class="notion-column-list">[Columnas - Procesando...]</div>';
     
     case 'column':
-      // Columna individual
-      console.log('📐 Bloque column encontrado (requiere procesamiento especial)');
-      return '<div class="notion-column">[Columna - Requiere implementación adicional]</div>';
+      // Columnas individuales: se procesan en renderColumnList
+      // Este caso no debería ejecutarse nunca, pero lo dejamos por seguridad
+      return '<div class="notion-column">[Columna - Procesando...]</div>';
     
     case 'to_do':
       const todo = block.to_do;
@@ -714,6 +714,122 @@ function renderBlock(block) {
   }
 }
 
+// Función para obtener bloques hijos de un bloque específico
+async function fetchBlockChildren(blockId, useCache = true) {
+  // Verificar caché primero
+  if (useCache) {
+    const cachedBlocks = getCachedBlocks(blockId);
+    if (cachedBlocks && cachedBlocks.length > 0) {
+      console.log('✅ Usando caché para hijos del bloque:', blockId);
+      return cachedBlocks;
+    }
+  }
+  
+  try {
+    // Obtener el roomId actual para usar el token del usuario
+    let currentRoomId = null;
+    try {
+      currentRoomId = await OBR.room.getId();
+    } catch (e) {
+      currentRoomId = 'default';
+    }
+    
+    const userToken = getUserToken(currentRoomId);
+    
+    let apiUrl;
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (userToken) {
+      apiUrl = `${NOTION_API_BASE}/blocks/${blockId}/children`;
+      headers['Authorization'] = `Bearer ${userToken}`;
+      headers['Notion-Version'] = '2022-06-28';
+    } else {
+      apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
+        ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(blockId)}`
+        : `${NOTION_API_BASE}/blocks/${blockId}/children`;
+      
+      if (!apiUrl.includes('/.netlify/functions/')) {
+        try {
+          const config = await import("../config/config.js");
+          const localToken = config.NOTION_API_TOKEN;
+          if (localToken && localToken !== 'tu_token_de_notion_aqui') {
+            headers['Authorization'] = `Bearer ${localToken}`;
+            headers['Notion-Version'] = '2022-06-28';
+          }
+        } catch (e) {
+          // Sin token local
+        }
+      }
+    }
+    
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error al obtener bloques hijos: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const children = data.results || [];
+    
+    // Guardar en caché
+    if (children.length > 0) {
+      setCachedBlocks(blockId, children);
+    }
+    
+    return children;
+  } catch (error) {
+    console.error('Error al obtener bloques hijos:', error);
+    return [];
+  }
+}
+
+// Función para renderizar todas las columnas de una column_list
+async function renderColumnList(columnListBlock, allBlocks, currentIndex) {
+  console.log('📐 Renderizando column_list:', columnListBlock.id);
+  
+  // Buscar todas las columnas que siguen a este column_list
+  const columns = [];
+  let index = currentIndex + 1;
+  
+  while (index < allBlocks.length) {
+    const block = allBlocks[index];
+    if (block.type === 'column') {
+      columns.push(block);
+      index++;
+    } else {
+      break;
+    }
+  }
+  
+  if (columns.length === 0) {
+    return '<div class="notion-column-list">[Sin columnas]</div>';
+  }
+  
+  console.log(`  Encontradas ${columns.length} columnas`);
+  
+  // Renderizar cada columna con sus bloques hijos
+  const columnHtmls = await Promise.all(columns.map(async (columnBlock) => {
+    let columnContent = '';
+    
+    if (columnBlock.has_children) {
+      console.log(`  Obteniendo hijos de columna: ${columnBlock.id}`);
+      const children = await fetchBlockChildren(columnBlock.id);
+      if (children.length > 0) {
+        columnContent = await renderBlocks(children);
+      }
+    }
+    
+    return `<div class="notion-column">${columnContent}</div>`;
+  }));
+  
+  return `<div class="notion-column-list">${columnHtmls.join('')}</div>`;
+}
+
 // Función para renderizar todos los bloques
 async function renderBlocks(blocks) {
   let html = '';
@@ -721,9 +837,47 @@ async function renderBlocks(blocks) {
   let listType = null;
   let listItems = [];
   
+  console.log('🎨 Iniciando renderizado de', blocks.length, 'bloques');
+  
   for (let index = 0; index < blocks.length; index++) {
     const block = blocks[index];
     const type = block.type;
+    
+    console.log(`  [${index}] Renderizando bloque:`, {
+      type: type,
+      id: block.id,
+      hasChildren: block.has_children || false
+    });
+    
+    // Manejar column_list de forma especial (debe procesarse antes que otros bloques)
+    if (type === 'column_list') {
+      try {
+        const columnListHtml = await renderColumnList(block, blocks, index);
+        html += columnListHtml;
+        // Saltar las columnas que ya procesamos
+        let skipCount = 0;
+        for (let j = index + 1; j < blocks.length; j++) {
+          if (blocks[j].type === 'column') {
+            skipCount++;
+          } else {
+            break;
+          }
+        }
+        index += skipCount; // El for loop incrementará index después, así que esto está bien
+        console.log(`    ✅ Column_list renderizado (${skipCount} columnas)`);
+        continue;
+      } catch (error) {
+        console.error('Error al renderizar column_list:', error);
+        html += '<div class="notion-column-list">[Error al cargar columnas]</div>';
+        continue;
+      }
+    }
+    
+    // Ignorar bloques column individuales (ya se procesaron en column_list)
+    if (type === 'column') {
+      console.log(`    ⏭️ Columna individual ignorada (ya procesada en column_list)`);
+      continue;
+    }
     
     // Manejar listas agrupadas
     if (type === 'bulleted_list_item' || type === 'numbered_list_item') {
@@ -1369,7 +1523,7 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
       
       // Obtener el tipo de link y su icono
       const linkType = getLinkType(page.url);
-      const linkIconHtml = `<img src="img/${linkType.icon}" alt="${linkType.type}" style="width: 16px; height: 16px; opacity: 0.5; flex-shrink: 0;" />`;
+      const linkIconHtml = `<img src="img/${linkType.icon}" alt="${linkType.type}" style="width: 24px; height: 24px; opacity: 0.5; flex-shrink: 0;" />`;
       
       // Mostrar placeholder mientras se carga el icono
       button.innerHTML = `
