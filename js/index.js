@@ -1181,6 +1181,52 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
       }
     }
     
+    // Manejar quotes que tienen hijos (contenido anidado)
+    if (type === 'quote' && block.has_children) {
+      try {
+        const quote = block.quote;
+        const quoteText = renderRichText(quote?.rich_text);
+        
+        console.log(`  📦 Obteniendo hijos del quote...`);
+        const children = await fetchBlockChildren(block.id);
+        console.log(`  📦 Hijos obtenidos: ${children.length}`);
+        
+        let childrenContent = '';
+        if (children.length > 0) {
+          childrenContent = await renderBlocks(children, blockTypes, headingLevelOffset);
+          console.log(`  ✅ Contenido del quote renderizado: ${childrenContent.length} caracteres`);
+        }
+        
+        // Si hay un filtro activo y el quote no coincide con el tipo filtrado,
+        // solo mostrar el contenido de los hijos (sin el quote)
+        if (blockTypes) {
+          const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+          if (!typesArray.includes('quote') && childrenContent.trim()) {
+            // El quote no coincide con el filtro, pero tiene contenido filtrado
+            html += childrenContent;
+            console.log(`    ✅ Quote filtrado, solo mostrando hijos`);
+            continue;
+          }
+        }
+        
+        html += `
+          <div class="notion-quote">
+            ${quoteText}
+            ${childrenContent}
+          </div>
+        `;
+        console.log(`    ✅ Quote con hijos renderizado`);
+        continue;
+      } catch (error) {
+        console.error(`Error al renderizar quote con hijos:`, error);
+        // Fallback: renderizar solo el quote sin hijos
+        const quote = block.quote;
+        const quoteText = renderRichText(quote?.rich_text);
+        html += `<div class="notion-quote">${quoteText}</div>`;
+        continue;
+      }
+    }
+    
     // Manejar listas agrupadas
     if (type === 'bulleted_list_item' || type === 'numbered_list_item') {
       const currentListType = type === 'bulleted_list_item' ? 'ul' : 'ol';
@@ -1387,17 +1433,9 @@ async function loadNotionContent(url, container, forceRefresh = false, blockType
       return;
     }
     
-    // Filtrar bloques por tipo si se especifica
-    let filteredBlocks = blocks;
-    if (blockTypes) {
-      // Normalizar blockTypes a array si es string
-      const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
-      filteredBlocks = blocks.filter(block => typesArray.includes(block.type));
-      console.log(`🔍 Bloques filtrados: ${filteredBlocks.length} de ${blocks.length} (tipos: ${typesArray.join(', ')})`);
-    }
-    
     // Renderizar bloques (ahora es async)
-    const html = await renderBlocks(filteredBlocks, blockTypes, 0);
+    // El filtrado por blockTypes se hace dentro de renderBlocks para mantener bloques con hijos
+    const html = await renderBlocks(blocks, blockTypes, 0);
     contentDiv.innerHTML = html;
     
     // Agregar event listeners a las imágenes para abrirlas en modal
