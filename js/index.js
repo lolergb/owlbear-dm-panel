@@ -632,19 +632,20 @@ function renderBlock(block) {
         });
         
         // Las imágenes de Notion deberían ser accesibles directamente
-        // Si fallan, mostrar un mensaje de error
+        // Si fallan, mostrar un mensaje de error con opción de refrescar
         return `
-          <div class="notion-image">
+          <div class="notion-image" data-block-id="${block.id}">
             <img 
               src="${imageUrl}" 
               alt="${caption || 'Imagen de Notion'}" 
               class="notion-image-clickable" 
               data-image-id="${imageId}" 
               data-image-url="${imageUrl}" 
-              data-image-caption="${caption.replace(/"/g, '&quot;')}" 
+              data-image-caption="${caption.replace(/"/g, '&quot;')}"
+              data-block-id="${block.id}"
               style="cursor: pointer; max-width: 100%; height: auto; display: block; margin: 0 auto;" 
               loading="lazy"
-              onerror="console.error('❌ Error al cargar imagen de Notion:', this.src); const errorDiv = document.createElement('div'); errorDiv.style.cssText = 'padding: 20px; text-align: center; color: #999; background: #f5f5f5; border-radius: 4px;'; errorDiv.innerHTML = '⚠️ No se pudo cargar la imagen<br><small>La URL puede haber expirado</small>'; this.parentElement.replaceChild(errorDiv, this);"
+              onerror="this.style.display='none'; const errorDiv = document.createElement('div'); errorDiv.className='notion-image-error'; errorDiv.style.cssText = 'padding: 20px; text-align: center; color: #999; background: #f5f5f5; border-radius: 4px; margin: 10px 0;'; errorDiv.innerHTML = '⚠️ No se pudo cargar la imagen<br><small>La URL puede haber expirado</small><br><button onclick=\\"refreshImage(this)\\" style=\\"margin-top: 10px; padding: 6px 12px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;\\">🔄 Recargar página</button>'; this.parentElement.appendChild(errorDiv);"
               onload="console.log('✅ Imagen cargada correctamente:', this.src.substring(0, 80));"
             />
             ${caption ? `<div class="notion-image-caption">${caption}</div>` : ''}
@@ -1245,6 +1246,17 @@ async function showImageModal(imageUrl, caption) {
     window.open(imageUrl, '_blank', 'noopener,noreferrer');
   }
 }
+
+// Función global para refrescar la página cuando una imagen falla
+window.refreshImage = function(button) {
+  const refreshButton = document.getElementById("refresh-page-button");
+  if (refreshButton) {
+    refreshButton.click();
+  } else {
+    // Si no hay botón de refresh, recargar la página completa
+    location.reload();
+  }
+};
 
 // Agregar event listeners a las imágenes después de renderizar
 function attachImageClickHandlers() {
