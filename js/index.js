@@ -510,12 +510,35 @@ async function fetchNotionBlocks(pageId, useCache = true) {
     const data = await response.json();
     const blocks = data.results || [];
     
+    // Log detallado de los bloques recibidos
+    console.log('📦 Bloques recibidos de la API:', blocks.length);
+    if (blocks.length > 0) {
+      console.log('📋 Tipos de bloques encontrados:', blocks.map(b => b.type));
+      // Log detallado de cada bloque
+      blocks.forEach((block, index) => {
+        console.log(`  [${index}] Tipo: ${block.type}`, {
+          id: block.id,
+          hasContent: !!block[block.type],
+          content: block[block.type] ? Object.keys(block[block.type]) : []
+        });
+        // Si es una imagen, mostrar más detalles
+        if (block.type === 'image') {
+          console.log('    🖼️ Detalles de imagen:', {
+            hasExternal: !!block.image?.external,
+            hasFile: !!block.image?.file,
+            externalUrl: block.image?.external?.url?.substring(0, 80),
+            fileUrl: block.image?.file?.url?.substring(0, 80)
+          });
+        }
+      });
+    } else {
+      console.warn('⚠️ No se obtuvieron bloques de la API para:', pageId);
+    }
+    
     // Estado 1: Guardar en caché persistente después de obtener exitosamente (sin expiración)
     if (blocks.length > 0) {
       setCachedBlocks(pageId, blocks);
       console.log('💾 Estado 1: Bloques guardados en caché persistente para:', pageId);
-    } else {
-      console.warn('⚠️ No se obtuvieron bloques de la API para:', pageId);
     }
     
     return blocks;
@@ -660,8 +683,33 @@ function renderBlock(block) {
     case 'child_database':
       return '<div class="notion-database-placeholder">[Base de datos - Requiere implementación adicional]</div>';
     
+    case 'column_list':
+      // Columnas: necesitamos obtener los hijos de cada columna
+      console.log('📐 Bloque column_list encontrado (requiere procesamiento especial)');
+      return '<div class="notion-column-list">[Columnas - Requiere implementación adicional]</div>';
+    
+    case 'column':
+      // Columna individual
+      console.log('📐 Bloque column encontrado (requiere procesamiento especial)');
+      return '<div class="notion-column">[Columna - Requiere implementación adicional]</div>';
+    
+    case 'to_do':
+      const todo = block.to_do;
+      const todoText = renderRichText(todo?.rich_text);
+      const checked = todo?.checked ? 'checked' : '';
+      return `<div class="notion-todo"><input type="checkbox" ${checked} disabled> ${todoText}</div>`;
+    
+    case 'toggle':
+      const toggle = block.toggle;
+      const toggleText = renderRichText(toggle?.rich_text);
+      return `<details class="notion-toggle"><summary>${toggleText}</summary></details>`;
+    
     default:
-      console.log('Tipo de bloque no soportado:', type, block);
+      console.warn('⚠️ Tipo de bloque no soportado:', type, {
+        blockId: block.id,
+        blockType: type,
+        blockKeys: Object.keys(block)
+      });
       return '';
   }
 }
@@ -711,7 +759,13 @@ async function renderBlocks(blocks) {
           html += '<div class="notion-table-placeholder">[Error al cargar tabla]</div>';
         }
       } else {
-        html += renderBlock(block);
+        const rendered = renderBlock(block);
+        if (rendered) {
+          html += rendered;
+          console.log(`    ✅ Bloque [${index}] renderizado (${rendered.length} caracteres)`);
+        } else {
+          console.log(`    ⚠️ Bloque [${index}] no devolvió HTML`);
+        }
       }
     }
   }
@@ -721,6 +775,7 @@ async function renderBlocks(blocks) {
     html += `<${listType === 'ul' ? 'ul' : 'ol'} class="notion-${listType === 'ul' ? 'bulleted' : 'numbered'}-list">${listItems.join('')}</${listType === 'ul' ? 'ul' : 'ol'}>`;
   }
   
+  console.log('✅ Renderizado completo. HTML generado:', html.length, 'caracteres');
   return html;
 }
 
@@ -889,8 +944,8 @@ function showNotionBlockedMessage(container, url) {
   container.innerHTML = `
     <div style="padding: 40px 20px; text-align: center; color: #e0e0e0;">
       <div style="font-size: 48px; margin-bottom: 16px;">🔒</div>
-      <h2 style="color: #fff; margin-bottom: 12px; font-size: 18px;">Notion bloquea el embedding</h2>
-      <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.5;">
+      <h2 style="color: #fff; margin-bottom: 12px; font-size: 16px; line-height: 24px; font-family: Roboto, Helvetica, Arial, sans-serif; font-weight: 700;">Notion bloquea el embedding</h2>
+      <p style="color: #999; margin-bottom: 20px; font-size: 14px; line-height: 1.5; font-family: Roboto, Helvetica, Arial, sans-serif; font-weight: 400;">
         Notion no permite que sus páginas se carguen en iframes por razones de seguridad.<br>
         Puedes abrir la página en una nueva ventana para verla.
       </p>
@@ -1685,7 +1740,7 @@ async function loadPageContent(url, name, selector = null) {
         pageList.classList.remove("hidden");
         notionContainer.classList.add("hidden");
         backButton.classList.add("hidden");
-        pageTitle.textContent = "📚 Context";
+        pageTitle.textContent = "Context";
         notionContainer.classList.remove("show-content");
         if (notionContent) {
           notionContent.innerHTML = "";
@@ -1781,8 +1836,8 @@ function showTokenConfig(roomId = null) {
       </p>
       
       <div style="background: ${CSS_VARS.bgPrimary}; border: 1px solid ${CSS_VARS.borderPrimary}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-        <h3 style="color: #fff; font-size: 14px; font-weight: 600; margin-bottom: 12px;">📝 Cómo obtener tu token:</h3>
-        <ol style="color: #ccc; font-size: 13px; line-height: 1.8; margin-left: 20px; padding-left: 0;">
+        <h3 style="color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 12px; font-family: Roboto, Helvetica, Arial, sans-serif;">📝 Cómo obtener tu token:</h3>
+        <ol style="color: #ccc; font-size: 13px; line-height: 1.8; margin-left: 20px; padding-left: 0; font-family: Roboto, Helvetica, Arial, sans-serif; font-weight: 400;">
           <li>Ve a <a href="https://www.notion.so/my-integrations" target="_blank" style="color: #4a9eff; text-decoration: none;">notion.so/my-integrations</a></li>
           <li><strong>Crea una nueva integración:</strong>
             <ul style="margin-top: 8px; margin-left: 20px; padding-left: 0;">
@@ -1810,7 +1865,7 @@ function showTokenConfig(roomId = null) {
       </div>
       
       <div style="margin-bottom: 16px;">
-        <label style="display: block; color: #fff; font-size: 14px; font-weight: 500; margin-bottom: 8px;">
+        <label style="display: block; color: #fff; font-size: 14px; font-weight: 400; margin-bottom: 8px; font-family: Roboto, Helvetica, Arial, sans-serif;">
           Token de Notion:
         </label>
         <input 
@@ -1830,7 +1885,7 @@ function showTokenConfig(roomId = null) {
             box-sizing: border-box;
           "
         />
-        ${currentToken ? `<p style="color: #888; font-size: 12px; margin-top: 8px;">Token actual: ${maskedToken}</p>` : ''}
+        ${currentToken ? `<p style="color: #888; font-size: 12px; margin-top: 8px; font-family: Roboto, Helvetica, Arial, sans-serif; font-weight: 400;">Token actual: ${maskedToken}</p>` : ''}
       </div>
       
       <div id="token-error" style="
@@ -1853,7 +1908,8 @@ function showTokenConfig(roomId = null) {
           color: #e0e0e0;
           cursor: pointer;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 400;
+          font-family: Roboto, Helvetica, Arial, sans-serif;
           transition: all 0.2s;
           flex: 1;
         ">Eliminar Token</button>
@@ -1865,7 +1921,8 @@ function showTokenConfig(roomId = null) {
           color: #fff;
           cursor: pointer;
           font-size: 14px;
-          font-weight: 600;
+          font-weight: 700;
+          font-family: Roboto, Helvetica, Arial, sans-serif;
           transition: all 0.2s;
           flex: 1;
         ">Guardar Token</button>
@@ -2046,7 +2103,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
   
   contentArea.innerHTML = `
     <div style="margin-bottom: 16px;">
-      <p style="color: #999; font-size: 14px; margin-bottom: 12px;">
+      <p style="color: #999; font-size: 14px; margin-bottom: 12px; font-family: Roboto, Helvetica, Arial, sans-serif; font-weight: 400;">
         Edita el JSON para gestionar tus categorías y páginas. La estructura debe tener un array "categories" con objetos que contengan "name" y "pages".
       </p>
     </div>
@@ -2086,7 +2143,8 @@ function showJSONEditor(pagesConfig, roomId = null) {
           color: #e0e0e0;
           cursor: pointer;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 400;
+          font-family: Roboto, Helvetica, Arial, sans-serif;
           transition: all 0.2s;
           flex:1;
         ">Resetear</button>
@@ -2098,7 +2156,8 @@ function showJSONEditor(pagesConfig, roomId = null) {
           color: #fff;
           cursor: pointer;
           font-size: 14px;
-          font-weight: 600;
+          font-weight: 700;
+          font-family: Roboto, Helvetica, Arial, sans-serif;
           transition: all 0.2s;
           flex:1;
         ">Guardar</button>
@@ -2190,11 +2249,12 @@ function showJSONEditor(pagesConfig, roomId = null) {
       errorDiv.style.display = 'none';
       textarea.style.borderColor = CSS_VARS.borderPrimary;
       
-      // Actualizar el textarea con el JSON guardado (formateado)
-      textarea.value = JSON.stringify(parsed, null, 2);
+      // Actualizar el textarea con el JSON guardado (formateado) - NO cerrar el editor
+      const formattedJSON = JSON.stringify(parsed, null, 2);
+      textarea.value = formattedJSON;
+      console.log('✅ Textarea actualizado con el JSON guardado');
       
-      // Cerrar y recargar
-      closeEditor();
+      // Recargar la lista de páginas sin cerrar el editor
       console.log('🔄 Recargando configuración para roomId:', roomId);
       const newConfig = getPagesJSON(roomId) || getDefaultJSON();
       const pageListEl = document.getElementById("page-list");
