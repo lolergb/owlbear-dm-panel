@@ -154,6 +154,20 @@ Extensión simple para embebber páginas de Notion directamente en Owlbear Rodeo
   - Por selector: `"div.container > section.content"`
 - **Nota:** Si se omite, se carga toda la página. Si se proporciona, solo se muestra el elemento seleccionado (útil para páginas externas donde solo quieres mostrar una sección específica)
 
+#### Página (`categories[].pages[].blockTypes`)
+- **Tipo:** String o Array de strings
+- **Requerido:** No (opcional)
+- **Descripción:** Filtro de tipos de bloques para mostrar solo ciertos tipos de contenido en páginas de Notion
+- **Cuándo usarlo:** Solo para URLs de Notion (se ignora en URLs externas)
+- **Ejemplos:**
+  - Un solo tipo: `"quote"` (solo mostrar citas)
+  - Múltiples tipos: `["quote", "callout"]` (solo mostrar citas y callouts)
+- **Tipos de bloques disponibles:**
+  - `paragraph`, `heading_1`, `heading_2`, `heading_3`, `bulleted_list_item`, `numbered_list_item`
+  - `to_do`, `toggle`, `toggle_heading_1`, `toggle_heading_2`, `toggle_heading_3`
+  - `code`, `quote`, `callout`, `divider`, `image`, `table`, `column_list`, `column`
+- **Nota:** Si se omite, se muestran todos los bloques. Si se proporciona, solo se muestran los bloques de los tipos especificados (útil para crear vistas filtradas de una página, por ejemplo, solo las citas o solo los callouts)
+
 **Ejemplo completo con todas las opciones:**
 
 ```json
@@ -265,9 +279,12 @@ Extensión simple para embebber páginas de Notion directamente en Owlbear Rodeo
 - Las subcategorías se muestran con indentación visual para indicar la jerarquía
 - Cada categoría y subcategoría puede colapsarse/expandirse independientemente
 - El `selector` solo funciona con URLs externas (no-Notion)
+- El `blockTypes` solo funciona con URLs de Notion (se ignora en URLs externas)
 - Para páginas de Notion, el `selector` se ignora (se usa la API de Notion)
+- Para URLs externas, el `blockTypes` se ignora (solo aplica a Notion)
 - Los iconos de las páginas se cargan automáticamente desde Notion
 - Puedes anidar subcategorías a cualquier nivel (sin límite de profundidad)
+- Usa `blockTypes` para crear vistas filtradas de una página (ej: solo citas, solo callouts, etc.)
 
 ### 🔄 Actualizar contenido
 

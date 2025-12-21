@@ -1253,7 +1253,7 @@ function attachImageClickHandlers() {
 }
 
 // Función para cargar y renderizar contenido de Notion desde la API
-async function loadNotionContent(url, container, forceRefresh = false) {
+async function loadNotionContent(url, container, forceRefresh = false, blockTypes = null) {
   const contentDiv = container.querySelector('#notion-content');
   
   if (!contentDiv) {
@@ -1293,8 +1293,17 @@ async function loadNotionContent(url, container, forceRefresh = false) {
       return;
     }
     
+    // Filtrar bloques por tipo si se especifica
+    let filteredBlocks = blocks;
+    if (blockTypes) {
+      // Normalizar blockTypes a array si es string
+      const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+      filteredBlocks = blocks.filter(block => typesArray.includes(block.type));
+      console.log(`🔍 Bloques filtrados: ${filteredBlocks.length} de ${blocks.length} (tipos: ${typesArray.join(', ')})`);
+    }
+    
     // Renderizar bloques (ahora es async)
-    const html = await renderBlocks(blocks);
+    const html = await renderBlocks(filteredBlocks);
     contentDiv.innerHTML = html;
     
     // Agregar event listeners a las imágenes para abrirlas en modal
@@ -1757,7 +1766,9 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
       
       // Click handler
       button.addEventListener('click', async () => {
-        await loadPageContent(page.url, page.name, page.selector || '');
+        // Obtener blockTypes del objeto page si existe
+        const blockTypes = page.blockTypes || null;
+        await loadPageContent(page.url, page.name, page.selector || '', blockTypes);
       });
       
       const buttonWrapper = document.createElement('div');
@@ -2166,7 +2177,7 @@ async function loadIframeContent(url, container, selector = null) {
 }
 
 // Función para cargar contenido de una página
-async function loadPageContent(url, name, selector = null) {
+async function loadPageContent(url, name, selector = null, blockTypes = null) {
   const pageList = document.getElementById("page-list");
   const notionContainer = document.getElementById("notion-container");
   const backButton = document.getElementById("back-button");
@@ -2184,6 +2195,9 @@ async function loadPageContent(url, name, selector = null) {
     if (isNotionUrl(url)) {
       // Es una URL de Notion → usar la API
       console.log('📝 URL de Notion detectada, usando API');
+      if (blockTypes) {
+        console.log('🔍 Filtro de tipos de bloques activado:', blockTypes);
+      }
       
       // Agregar o actualizar botón de recargar (solo para Notion)
       let refreshButton = document.getElementById("refresh-page-button");
@@ -2275,7 +2289,9 @@ async function loadPageContent(url, name, selector = null) {
       refreshButton.appendChild(clockIcon);
       try {
         console.log('🔄 Llamando a loadNotionContent con forceRefresh = true');
-        await loadNotionContent(currentUrl, notionContainer, true);
+        // Obtener blockTypes del botón si está disponible
+        const blockTypes = refreshButton.dataset.blockTypes ? JSON.parse(refreshButton.dataset.blockTypes) : null;
+        await loadNotionContent(currentUrl, notionContainer, true, blockTypes);
       } catch (e) {
         console.error('Error al recargar:', e);
       } finally {
@@ -2292,7 +2308,7 @@ async function loadPageContent(url, name, selector = null) {
     
       refreshButton.classList.remove("hidden");
       
-      await loadNotionContent(url, notionContainer);
+      await loadNotionContent(url, notionContainer, false, blockTypes);
     } else {
       // No es una URL de Notion → cargar en iframe
       console.log('🌐 URL genérica detectada, usando iframe');
