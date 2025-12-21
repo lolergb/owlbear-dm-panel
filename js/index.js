@@ -2217,6 +2217,11 @@ function showTokenConfig(roomId = null) {
 
 // Función para mostrar el editor de JSON
 function showJSONEditor(pagesConfig, roomId = null) {
+  // SIEMPRE leer desde localStorage para obtener la versión más actualizada
+  // El parámetro pagesConfig puede estar desactualizado
+  const currentConfig = getPagesJSON(roomId) || pagesConfig || getDefaultJSON();
+  console.log('📖 Abriendo editor JSON - Configuración cargada desde localStorage:', currentConfig);
+  
   // Ocultar el contenedor principal y mostrar el editor
   const mainContainer = document.querySelector('.container');
   const pageList = document.getElementById("page-list");
@@ -2308,7 +2313,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
         overflow-x: auto;
         overflow-y: auto;
         transition: border-color 0.2s;
-      ">${JSON.stringify(pagesConfig, null, 2)}</textarea>
+      ">${JSON.stringify(currentConfig, null, 2)}</textarea>
       <div id="json-error" style="
         color: #ff6b6b;
         font-size: 13px;
@@ -2435,24 +2440,22 @@ function showJSONEditor(pagesConfig, roomId = null) {
       
       // Obtener el JSON guardado desde localStorage para asegurar que coincida exactamente
       console.log('📖 Obteniendo JSON guardado desde localStorage...');
-      // Pequeño delay para asegurar que localStorage se haya actualizado
-      setTimeout(() => {
-        const savedConfig = getPagesJSON(roomId);
-        if (savedConfig) {
-          // Actualizar el textarea con el JSON guardado (formateado) desde localStorage
-          const formattedJSON = JSON.stringify(savedConfig, null, 2);
-          textarea.value = formattedJSON;
-          // Forzar actualización del textarea
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          console.log('✅ Textarea actualizado con el JSON guardado desde localStorage');
-        } else {
-          // Fallback: usar el parsed si no se puede obtener de localStorage
-          const formattedJSON = JSON.stringify(parsed, null, 2);
-          textarea.value = formattedJSON;
-          textarea.dispatchEvent(new Event('input', { bubbles: true }));
-          console.log('⚠️ Usando JSON parsed como fallback');
-        }
-      }, 10);
+      // Leer inmediatamente desde localStorage (es síncrono, no necesita delay)
+      const savedConfig = getPagesJSON(roomId);
+      if (savedConfig) {
+        // Actualizar el textarea con el JSON guardado (formateado) desde localStorage
+        const formattedJSON = JSON.stringify(savedConfig, null, 2);
+        textarea.value = formattedJSON;
+        // Forzar actualización visual del textarea
+        textarea.scrollTop = 0; // Resetear scroll
+        console.log('✅ Textarea actualizado con el JSON guardado desde localStorage');
+      } else {
+        // Fallback: usar el parsed si no se puede obtener de localStorage
+        const formattedJSON = JSON.stringify(parsed, null, 2);
+        textarea.value = formattedJSON;
+        textarea.scrollTop = 0;
+        console.log('⚠️ Usando JSON parsed como fallback');
+      }
       
       // Recargar la lista de páginas sin cerrar el editor
       console.log('🔄 Recargando configuración para roomId:', roomId);
