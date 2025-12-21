@@ -4,6 +4,46 @@ import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3.1.0";
 
 console.log('✅ OBR SDK importado');
 
+// Sistema de logs controlado por variable de entorno de Netlify
+let DEBUG_MODE = false;
+
+// Función para inicializar el modo debug desde Netlify
+async function initDebugMode() {
+  try {
+    // Intentar obtener la variable de entorno desde Netlify Function
+    if (window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')) {
+      const response = await fetch('/.netlify/functions/get-debug-mode');
+      if (response.ok) {
+        const data = await response.json();
+        DEBUG_MODE = data.debug === true;
+        if (DEBUG_MODE) {
+          console.log('🔍 Modo debug activado');
+        }
+      }
+    }
+  } catch (e) {
+    // Si falla, usar false por defecto (logs desactivados)
+    DEBUG_MODE = false;
+  }
+}
+
+// Función wrapper para logs (solo muestra si DEBUG_MODE está activado)
+function log(...args) {
+  if (DEBUG_MODE) {
+    console.log(...args);
+  }
+}
+
+function logError(...args) {
+  // Los errores siempre se muestran
+  console.error(...args);
+}
+
+function logWarn(...args) {
+  // Las advertencias siempre se muestran
+  console.warn(...args);
+}
+
 // Importar configuración
 // Si config.js no existe, copia config.example.js a config.js y completa los datos
 import { 
@@ -28,15 +68,13 @@ function getStorageKey(roomId) {
   return STORAGE_KEY_PREFIX + (roomId || 'default');
 }
 
-function getTokenStorageKey(roomId) {
-  return TOKEN_STORAGE_PREFIX + (roomId || 'default');
-}
+// Token global de la extensión (no por room)
+const GLOBAL_TOKEN_KEY = 'notion-global-token';
 
-// Funciones para gestionar el token del usuario (por room)
-function getUserToken(roomId) {
+// Funciones para gestionar el token del usuario (global para toda la extensión)
+function getUserToken() {
   try {
-    const tokenKey = getTokenStorageKey(roomId);
-    const token = localStorage.getItem(tokenKey);
+    const token = localStorage.getItem(GLOBAL_TOKEN_KEY);
     if (token && token.trim() !== '') {
       return token.trim();
     }
@@ -46,17 +84,16 @@ function getUserToken(roomId) {
   return null;
 }
 
-function saveUserToken(token, roomId) {
+function saveUserToken(token) {
   try {
-    const tokenKey = getTokenStorageKey(roomId);
     if (token && token.trim() !== '') {
-      localStorage.setItem(tokenKey, token.trim());
-      console.log('✅ Token del usuario guardado para room:', roomId);
+      localStorage.setItem(GLOBAL_TOKEN_KEY, token.trim());
+      log('✅ Token del usuario guardado (global para toda la extensión)');
       return true;
     } else {
       // Si el token está vacío, eliminarlo
-      localStorage.removeItem(tokenKey);
-      console.log('🗑️ Token del usuario eliminado para room:', roomId);
+      localStorage.removeItem(GLOBAL_TOKEN_KEY);
+      log('🗑️ Token del usuario eliminado');
       return true;
     }
   } catch (e) {
@@ -65,8 +102,8 @@ function saveUserToken(token, roomId) {
   }
 }
 
-function hasUserToken(roomId) {
-  return getUserToken(roomId) !== null;
+function hasUserToken() {
+  return getUserToken() !== null;
 }
 
 // Función para mostrar un ID de room más amigable (solo primeros caracteres)
@@ -84,14 +121,14 @@ function getFriendlyRoomId(roomId) {
 function getPagesJSON(roomId) {
   try {
     const storageKey = getStorageKey(roomId);
-    console.log('🔍 Buscando configuración con clave:', storageKey, 'para roomId:', roomId);
+    log('🔍 Buscando configuración con clave:', storageKey, 'para roomId:', roomId);
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      console.log('✅ Configuración encontrada para room:', roomId);
+      log('✅ Configuración encontrada para room:', roomId);
       return parsed;
     } else {
-      console.log('⚠️ No se encontró configuración para room:', roomId);
+      log('⚠️ No se encontró configuración para room:', roomId);
     }
   } catch (e) {
     console.error('Error al leer JSON:', e);
@@ -102,9 +139,9 @@ function getPagesJSON(roomId) {
 function savePagesJSON(json, roomId) {
   try {
     const storageKey = getStorageKey(roomId);
-    console.log('💾 Guardando configuración con clave:', storageKey, 'para roomId:', roomId);
+    log('💾 Guardando configuración con clave:', storageKey, 'para roomId:', roomId);
     localStorage.setItem(storageKey, JSON.stringify(json, null, 2));
-    console.log('✅ Configuración guardada exitosamente para room:', roomId);
+    log('✅ Configuración guardada exitosamente para room:', roomId);
     
     // Verificar que se guardó correctamente
     const verify = localStorage.getItem(storageKey);
@@ -121,15 +158,41 @@ function savePagesJSON(json, roomId) {
   }
 }
 
-function getDefaultJSON() {
-  return {
-    categories: [
-      {
-        name: "General",
-        pages: NOTION_PAGES.filter(p => p.url && !p.url.includes('...') && p.url.startsWith('http'))
-      }
-    ]
-  };
+// Función para obtener la configuración por defecto (desde archivo público o fallback)
+async function getDefaultJSON() {
+  try {
+    // Intentar cargar desde archivo público
+    const response = await fetch('/default-config.json');
+    if (response.ok) {
+      const config = await response.json();
+      log('✅ Configuración por defecto cargada desde default-config.json');
+      return config;
+    }
+  } catch (e) {
+    log('⚠️ No se pudo cargar default-config.json, usando fallback');
+  }
+  
+  // Fallback: usar NOTION_PAGES del config.js si está disponible
+  try {
+    return {
+      categories: [
+        {
+          name: "General",
+          pages: NOTION_PAGES ? NOTION_PAGES.filter(p => p.url && !p.url.includes('...') && p.url.startsWith('http')) : []
+        }
+      ]
+    };
+  } catch (e) {
+    // Último fallback: configuración vacía
+    return {
+      categories: [
+        {
+          name: "General",
+          pages: []
+        }
+      ]
+    };
+  }
 }
 
 // Función para obtener todas las configuraciones de rooms (para debugging)
@@ -306,7 +369,7 @@ async function fetchPageInfo(pageId) {
       currentRoomId = 'default';
     }
     
-    const userToken = getUserToken(currentRoomId);
+    const userToken = getUserToken();
     
     let apiUrl;
     const headers = {
@@ -319,23 +382,7 @@ async function fetchPageInfo(pageId) {
       headers['Authorization'] = `Bearer ${userToken}`;
       headers['Notion-Version'] = '2022-06-28';
     } else {
-      // Usar proxy del servidor o token local
-      apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
-        ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&type=page`
-        : `${NOTION_API_BASE}/pages/${pageId}`;
-      
-      if (!apiUrl.includes('/.netlify/functions/')) {
-        try {
-          const config = await import("../config/config.js");
-          const localToken = config.NOTION_API_TOKEN;
-          if (localToken && localToken !== 'tu_token_de_notion_aqui') {
-            headers['Authorization'] = `Bearer ${localToken}`;
-            headers['Notion-Version'] = '2022-06-28';
-          }
-        } catch (e) {
-          // Ignorar errores de importación
-        }
-      }
+      throw new Error('No hay token configurado. Configura tu token de Notion en la extensión (botón 🔑).');
     }
     
     const response = await fetch(apiUrl, {
@@ -438,7 +485,7 @@ async function fetchNotionBlocks(pageId, useCache = true) {
     }
     
     // Prioridad: 1) Token del usuario, 2) Token del servidor (Netlify Function), 3) Token local (dev)
-    const userToken = getUserToken(currentRoomId);
+    const userToken = getUserToken();
     
     let apiUrl;
     const headers = {
@@ -452,29 +499,8 @@ async function fetchNotionBlocks(pageId, useCache = true) {
       headers['Authorization'] = `Bearer ${userToken}`;
       headers['Notion-Version'] = '2022-06-28';
     } else {
-      // No hay token del usuario → usar proxy del servidor o token local
-      apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
-        ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}`
-        : `${NOTION_API_BASE}/blocks/${pageId}/children`;
-      
-      // Solo agregar Authorization si no estamos usando el proxy (desarrollo local)
-      if (!apiUrl.includes('/.netlify/functions/')) {
-        try {
-          const config = await import("../config/config.js");
-          const localToken = config.NOTION_API_TOKEN;
-          if (localToken && localToken !== 'tu_token_de_notion_aqui') {
-            headers['Authorization'] = `Bearer ${localToken}`;
-            headers['Notion-Version'] = '2022-06-28';
-            console.log('✅ Usando token local de desarrollo');
-          } else {
-            throw new Error('No hay token configurado. Configura tu token de Notion en la extensión (botón 🔑).');
-          }
-        } catch (e) {
-          throw new Error('No hay token configurado. Ve a Configuración → Token de Notion (botón 🔑) para configurar tu token.');
-        }
-      } else {
-        console.log('✅ Usando Netlify Function como proxy (token del servidor)');
-      }
+      // No hay token del usuario → mostrar error
+      throw new Error('No hay token configurado. Ve a Configuración → Token de Notion (botón 🔑) para configurar tu token.');
     }
     
     console.log('🌐 Obteniendo bloques desde la API para:', pageId);
@@ -728,7 +754,7 @@ async function fetchBlockChildren(blockId, useCache = true) {
       currentRoomId = 'default';
     }
     
-    const userToken = getUserToken(currentRoomId);
+    const userToken = getUserToken();
     
     let apiUrl;
     const headers = {
@@ -740,22 +766,7 @@ async function fetchBlockChildren(blockId, useCache = true) {
       headers['Authorization'] = `Bearer ${userToken}`;
       headers['Notion-Version'] = '2022-06-28';
     } else {
-      apiUrl = window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')
-        ? `/.netlify/functions/notion-api?pageId=${encodeURIComponent(blockId)}`
-        : `${NOTION_API_BASE}/blocks/${blockId}/children`;
-      
-      if (!apiUrl.includes('/.netlify/functions/')) {
-        try {
-          const config = await import("../config/config.js");
-          const localToken = config.NOTION_API_TOKEN;
-          if (localToken && localToken !== 'tu_token_de_notion_aqui') {
-            headers['Authorization'] = `Bearer ${localToken}`;
-            headers['Notion-Version'] = '2022-06-28';
-          }
-        } catch (e) {
-          // Sin token local
-        }
-      }
+      throw new Error('No hay token configurado. Configura tu token de Notion en la extensión (botón 🔑).');
     }
     
     const response = await fetch(apiUrl, {
@@ -1570,6 +1581,9 @@ function showNotionBlockedMessage(container, url) {
 // Intentar inicializar Owlbear con manejo de errores
 console.log('🔄 Intentando inicializar Owlbear SDK...');
 
+// Inicializar modo debug al cargar
+initDebugMode();
+
 try {
   OBR.onReady(async () => {
     try {
@@ -1623,15 +1637,15 @@ try {
       console.log('✅ Room ID final que se usará:', roomId);
       
       // Cargar configuración desde JSON (específica para esta room)
-      console.log('🔍 Intentando cargar configuración para room:', roomId);
+      log('🔍 Intentando cargar configuración para room:', roomId);
       let pagesConfig = getPagesJSON(roomId);
       if (!pagesConfig) {
-        console.log('📝 No se encontró configuración, creando una nueva para room:', roomId);
-        pagesConfig = getDefaultJSON();
+        log('📝 No se encontró configuración, creando una nueva para room:', roomId);
+        pagesConfig = await getDefaultJSON();
         savePagesJSON(pagesConfig, roomId);
-        console.log('✅ Configuración por defecto creada para room:', roomId);
+        log('✅ Configuración por defecto creada para room:', roomId);
       } else {
-        console.log('✅ Configuración encontrada para room:', roomId);
+        log('✅ Configuración encontrada para room:', roomId);
       }
 
       console.log('📊 Configuración cargada para room:', roomId);
@@ -1678,7 +1692,7 @@ try {
       jsonIcon.className = "icon-button-icon";
       adminButton.appendChild(jsonIcon);
       adminButton.title = "Editar JSON";
-      adminButton.addEventListener("click", () => showJSONEditor(pagesConfig, roomId));
+      adminButton.addEventListener("click", async () => await showJSONEditor(pagesConfig, roomId));
       
       // Botón para configurar token de Notion
       const tokenButton = document.createElement("button");
@@ -1688,8 +1702,8 @@ try {
       keyIcon.alt = "Configurar token";
       keyIcon.className = "icon-button-icon";
       tokenButton.appendChild(keyIcon);
-      tokenButton.title = hasUserToken(roomId) ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
-      tokenButton.addEventListener("click", () => showTokenConfig(roomId));
+      tokenButton.title = hasUserToken() ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
+      tokenButton.addEventListener("click", () => showTokenConfig());
       
       buttonContainer.appendChild(tokenButton);
       buttonContainer.appendChild(clearCacheButton);
@@ -2281,7 +2295,7 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
 }
 
 // Función para mostrar configuración de token
-function showTokenConfig(roomId = null) {
+function showTokenConfig() {
   const mainContainer = document.querySelector('.container');
   const pageList = document.getElementById("page-list");
   const notionContainer = document.getElementById("notion-container");
@@ -2290,7 +2304,7 @@ function showTokenConfig(roomId = null) {
   if (pageList) pageList.classList.add('hidden');
   if (notionContainer) notionContainer.classList.add('hidden');
   
-  const currentToken = getUserToken(roomId) || '';
+  const currentToken = getUserToken() || '';
   const maskedToken = currentToken ? currentToken.substring(0, 8) + '...' + currentToken.substring(currentToken.length - 4) : '';
   
   const tokenContainer = document.createElement('div');
@@ -2350,7 +2364,7 @@ function showTokenConfig(roomId = null) {
   contentArea.innerHTML = `
     <div style="margin-bottom: 24px;">
       <p style="color: #999; font-size: 14px; margin-bottom: 16px; line-height: 1.6;">
-        Configura tu token de Notion para usar tus propias páginas. Cada room tiene su propio token.
+        Configura tu token de Notion para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms).
       </p>
       
       <div style="background: ${CSS_VARS.bgPrimary}; border: 1px solid ${CSS_VARS.borderPrimary}; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
@@ -2516,7 +2530,7 @@ function showTokenConfig(roomId = null) {
       return;
     }
     
-    if (saveUserToken(token, roomId)) {
+    if (saveUserToken(token)) {
       errorDiv.style.display = 'none';
       alert('✅ Token guardado exitosamente. Ahora puedes usar tus propias páginas de Notion.');
       closeTokenConfig();
@@ -2531,7 +2545,7 @@ function showTokenConfig(roomId = null) {
   // Eliminar token
   clearBtn.addEventListener('click', () => {
     if (confirm('¿Eliminar el token? Volverás a usar el token del servidor (si está configurado).')) {
-      if (saveUserToken('', roomId)) {
+      if (saveUserToken('')) {
         alert('Token eliminado. Se usará el token del servidor.');
         closeTokenConfig();
         window.location.reload();
@@ -2550,10 +2564,10 @@ function showTokenConfig(roomId = null) {
 }
 
 // Función para mostrar el editor de JSON
-function showJSONEditor(pagesConfig, roomId = null) {
+async function showJSONEditor(pagesConfig, roomId = null) {
   // SIEMPRE leer desde localStorage para obtener la versión más actualizada
   // El parámetro pagesConfig puede estar desactualizado
-  const currentConfig = getPagesJSON(roomId) || pagesConfig || getDefaultJSON();
+  const currentConfig = getPagesJSON(roomId) || pagesConfig || await getDefaultJSON();
   console.log('📖 Abriendo editor JSON - Configuración cargada desde localStorage:', currentConfig);
   
   // Ocultar el contenedor principal y mostrar el editor
@@ -2793,7 +2807,7 @@ function showJSONEditor(pagesConfig, roomId = null) {
       
       // Recargar la lista de páginas sin cerrar el editor
       console.log('🔄 Recargando configuración para roomId:', roomId);
-      const newConfig = getPagesJSON(roomId) || getDefaultJSON();
+      const newConfig = getPagesJSON(roomId) || await getDefaultJSON();
       const pageListEl = document.getElementById("page-list");
       if (pageListEl) {
         renderPagesByCategories(newConfig, pageListEl, roomId);
@@ -2807,9 +2821,9 @@ function showJSONEditor(pagesConfig, roomId = null) {
   });
   
   // Resetear JSON
-  resetBtn.addEventListener('click', () => {
+  resetBtn.addEventListener('click', async () => {
     if (confirm('¿Resetear al JSON por defecto? Se perderán todos los cambios para esta room.')) {
-      const defaultConfig = getDefaultJSON();
+      const defaultConfig = await getDefaultJSON();
       textarea.value = JSON.stringify(defaultConfig, null, 2);
       errorDiv.style.display = 'none';
       textarea.style.borderColor = CSS_VARS.borderPrimary;
