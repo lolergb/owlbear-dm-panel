@@ -822,6 +822,16 @@ async function renderToggle(toggleBlock, blockTypes = null, headingLevelOffset =
     console.log(`  ℹ️ Toggle sin hijos`);
   }
   
+  // Si hay un filtro activo y el toggle no coincide con el tipo filtrado,
+  // solo devolver el contenido de los hijos (sin el contenedor del toggle)
+  if (blockTypes) {
+    const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+    if (!typesArray.includes('toggle') && toggleContent.trim()) {
+      // El toggle no coincide con el filtro, pero tiene contenido filtrado
+      return toggleContent;
+    }
+  }
+  
   return `
     <details class="notion-toggle">
       <summary class="notion-toggle-summary">${toggleText}</summary>
@@ -854,6 +864,17 @@ async function renderToggleHeading(toggleHeadingBlock, headingLevel, blockTypes 
     }
   } else {
     console.log(`  ℹ️ Toggle heading sin hijos`);
+  }
+  
+  // Si hay un filtro activo y el toggle_heading no coincide con el tipo filtrado,
+  // solo devolver el contenido de los hijos (sin el contenedor del toggle)
+  if (blockTypes) {
+    const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+    const toggleHeadingType = `toggle_heading_${headingLevel}`;
+    if (!typesArray.includes(toggleHeadingType) && !typesArray.includes('heading_1') && !typesArray.includes('heading_2') && !typesArray.includes('heading_3') && toggleContent.trim()) {
+      // El toggle heading no coincide con el filtro, pero tiene contenido filtrado
+      return toggleContent;
+    }
   }
   
   // Renderizar el heading dentro del summary (ajustar nivel con offset)
@@ -935,10 +956,23 @@ async function renderColumnList(columnListBlock, allBlocks, currentIndex, blockT
       console.log(`    ℹ️ Columna sin hijos`);
     }
     
+    // Si hay un filtro activo y la columna no tiene contenido filtrado, no mostrar la columna
+    if (blockTypes && !columnContent.trim()) {
+      return '';
+    }
+    
     return `<div class="notion-column">${columnContent}</div>`;
   }));
   
-  return `<div class="notion-column-list">${columnHtmls.join('')}</div>`;
+  // Filtrar columnas vacías
+  const validColumnHtmls = columnHtmls.filter(html => html.trim());
+  
+  // Si hay un filtro activo y no hay columnas con contenido, no mostrar el column_list
+  if (blockTypes && validColumnHtmls.length === 0) {
+    return '';
+  }
+  
+  return `<div class="notion-column-list">${validColumnHtmls.join('')}</div>`;
 }
 
 // Función para renderizar todos los bloques
@@ -951,12 +985,21 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
   console.log('🎨 Iniciando renderizado de', blocks.length, 'bloques', blockTypes ? `(filtro: ${Array.isArray(blockTypes) ? blockTypes.join(', ') : blockTypes})` : '');
   
   // Filtrar bloques por tipo si se especifica
+  // IMPORTANTE: Si un bloque tiene hijos, NO lo filtramos aunque no coincida con el tipo,
+  // porque sus hijos podrían ser del tipo filtrado
   let filteredBlocks = blocks;
   if (blockTypes) {
     const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
-    filteredBlocks = blocks.filter(block => typesArray.includes(block.type));
+    // Mantener bloques que:
+    // 1. Coinciden con el tipo filtrado, O
+    // 2. Tienen hijos (para buscar recursivamente dentro de ellos)
+    filteredBlocks = blocks.filter(block => {
+      const matchesType = typesArray.includes(block.type);
+      const hasChildren = block.has_children || false;
+      return matchesType || hasChildren;
+    });
     if (filteredBlocks.length !== blocks.length) {
-      console.log(`  🔍 Filtrados: ${filteredBlocks.length} de ${blocks.length} bloques`);
+      console.log(`  🔍 Filtrados: ${filteredBlocks.length} de ${blocks.length} bloques (manteniendo bloques con hijos para búsqueda recursiva)`);
     }
   }
   
@@ -1056,6 +1099,18 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
           console.log(`  ✅ Contenido del heading renderizado: ${childrenContent.length} caracteres`);
         }
         
+        // Si hay un filtro activo y el heading no coincide con el tipo filtrado,
+        // solo mostrar el contenido de los hijos (sin el heading)
+        if (blockTypes) {
+          const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+          if (!typesArray.includes(type) && childrenContent.trim()) {
+            // El heading no coincide con el filtro, pero tiene contenido filtrado
+            html += childrenContent;
+            console.log(`    ✅ Heading ${baseHeadingLevel} filtrado, solo mostrando hijos`);
+            continue;
+          }
+        }
+        
         html += `<${headingTag}>${headingText}</${headingTag}>${childrenContent}`;
         console.log(`    ✅ Heading ${baseHeadingLevel} (${headingTag}) con hijos renderizado`);
         continue;
@@ -1085,6 +1140,18 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
         if (children.length > 0) {
           childrenContent = await renderBlocks(children, blockTypes, headingLevelOffset);
           console.log(`  ✅ Contenido del callout renderizado: ${childrenContent.length} caracteres`);
+        }
+        
+        // Si hay un filtro activo y el callout no coincide con el tipo filtrado,
+        // solo mostrar el contenido de los hijos (sin el callout)
+        if (blockTypes) {
+          const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+          if (!typesArray.includes('callout') && childrenContent.trim()) {
+            // El callout no coincide con el filtro, pero tiene contenido filtrado
+            html += childrenContent;
+            console.log(`    ✅ Callout filtrado, solo mostrando hijos`);
+            continue;
+          }
         }
         
         html += `
