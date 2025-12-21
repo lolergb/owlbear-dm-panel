@@ -2346,7 +2346,6 @@ function showTokenConfig() {
       ">← Volver</button>
       <div>
         <h1 style="font-family: Roboto, Helvetica, Arial, sans-serif; color: #fff; font-size: 18px; line-height: 24px; font-weight: 700; margin: 0;">🔑 Configurar Token de Notion</h1>
-        ${roomId ? `<p style="color: #999; font-size: 11px; margin: 2px 0 0 0;">Room: ${getFriendlyRoomId(roomId)}</p>` : ''}
       </div>
     </div>
   `;
