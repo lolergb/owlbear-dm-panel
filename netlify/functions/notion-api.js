@@ -10,7 +10,7 @@ exports.handler = async (event, context) => {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Notion-Token',
         'Access-Control-Allow-Methods': 'GET, OPTIONS'
       },
       body: ''
@@ -28,18 +28,23 @@ exports.handler = async (event, context) => {
     };
   }
 
-  // Obtener el token de las variables de entorno
-  const NOTION_API_TOKEN = process.env.NOTION_API_TOKEN;
+  // Obtener el token del usuario desde los query parameters o headers
+  // Si no hay token del usuario, usar el token de las variables de entorno (fallback)
+  const { pageId, type, token } = event.queryStringParameters || {};
+  const userToken = token || event.headers['x-notion-token'];
+  const NOTION_API_TOKEN = userToken || process.env.NOTION_API_TOKEN;
   
   if (!NOTION_API_TOKEN) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'NOTION_API_TOKEN not configured' })
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'No token provided. Configure your Notion token in the extension.' })
     };
   }
 
   // Obtener el pageId y type de los query parameters
-  const { pageId, type } = event.queryStringParameters || {};
   
   if (!pageId) {
     return {
@@ -83,7 +88,7 @@ exports.handler = async (event, context) => {
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Notion-Token',
         'Access-Control-Allow-Methods': 'GET, OPTIONS'
       },
       body: JSON.stringify(data)

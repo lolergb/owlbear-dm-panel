@@ -377,10 +377,8 @@ async function fetchPageInfo(pageId) {
     };
     
     if (userToken) {
-      // Usuario tiene su propio token → llamar directamente a la API
-      apiUrl = `${NOTION_API_BASE}/pages/${pageId}`;
-      headers['Authorization'] = `Bearer ${userToken}`;
-      headers['Notion-Version'] = '2022-06-28';
+      // Usar proxy de Netlify Function para evitar CORS
+      apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&type=page&token=${encodeURIComponent(userToken)}`;
     } else {
       throw new Error('No hay token configurado. Configura tu token de Notion en la extensión (botón 🔑).');
     }
@@ -493,17 +491,16 @@ async function fetchNotionBlocks(pageId, useCache = true) {
     };
     
     if (userToken) {
-      // Usuario tiene su propio token → llamar directamente a la API de Notion
-      console.log('✅ Usando token del usuario para:', pageId);
-      apiUrl = `${NOTION_API_BASE}/blocks/${pageId}/children`;
-      headers['Authorization'] = `Bearer ${userToken}`;
-      headers['Notion-Version'] = '2022-06-28';
+      // Usuario tiene su propio token → usar proxy de Netlify Function para evitar CORS
+      log('✅ Usando token del usuario para:', pageId);
+      // Usar el proxy de Netlify Function y pasar el token como parámetro
+      apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(userToken)}`;
     } else {
       // No hay token del usuario → mostrar error
       throw new Error('No hay token configurado. Ve a Configuración → Token de Notion (botón 🔑) para configurar tu token.');
     }
     
-    console.log('🌐 Obteniendo bloques desde la API para:', pageId);
+    log('🌐 Obteniendo bloques desde la API para:', pageId);
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: headers
@@ -762,9 +759,8 @@ async function fetchBlockChildren(blockId, useCache = true) {
     };
     
     if (userToken) {
-      apiUrl = `${NOTION_API_BASE}/blocks/${blockId}/children`;
-      headers['Authorization'] = `Bearer ${userToken}`;
-      headers['Notion-Version'] = '2022-06-28';
+      // Usar proxy de Netlify Function para evitar CORS
+      apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(blockId)}&token=${encodeURIComponent(userToken)}`;
     } else {
       throw new Error('No hay token configurado. Configura tu token de Notion en la extensión (botón 🔑).');
     }
