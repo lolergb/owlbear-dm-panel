@@ -2114,8 +2114,13 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
       header.appendChild(refreshButton);
     }
     
-    // Guardar la URL actual en el botón
+    // Guardar la URL actual y blockTypes en el botón
     refreshButton.dataset.pageUrl = url;
+    if (blockTypes) {
+      refreshButton.dataset.blockTypes = JSON.stringify(blockTypes);
+    } else {
+      delete refreshButton.dataset.blockTypes;
+    }
     
     // Limpiar contenido anterior
     refreshButton.innerHTML = "";
@@ -2146,6 +2151,11 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     refreshButton = newRefreshButton;
     refreshButton.id = "refresh-page-button";
     refreshButton.dataset.pageUrl = url;
+    if (blockTypes) {
+      refreshButton.dataset.blockTypes = JSON.stringify(blockTypes);
+    } else {
+      delete refreshButton.dataset.blockTypes;
+    }
     
       refreshButton.addEventListener('mouseenter', () => {
         refreshButton.style.background = CSS_VARS.bgHover;
