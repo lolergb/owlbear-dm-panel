@@ -1142,23 +1142,30 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
           console.log(`  ✅ Contenido del callout renderizado: ${childrenContent.length} caracteres`);
         }
         
-        // Si hay un filtro activo y el callout no coincide con el tipo filtrado,
-        // solo mostrar el contenido de los hijos (sin el callout)
+        // Si hay un filtro activo, verificar si el callout debe mostrarse
         if (blockTypes) {
           const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
-          if (!typesArray.includes('callout')) {
+          const calloutInFilter = typesArray.includes('callout');
+          
+          if (!calloutInFilter) {
+            // El callout no está en el filtro, solo mostrar hijos si tienen contenido filtrado
             if (childrenContent.trim()) {
-              // El callout no coincide con el filtro, pero tiene contenido filtrado
               html += childrenContent;
               console.log(`    ✅ Callout filtrado, solo mostrando hijos`);
             } else {
-              // El callout no coincide con el filtro y no tiene contenido filtrado
               console.log(`    ⏭️ Callout filtrado, sin contenido que mostrar`);
             }
             continue;
+          } else {
+            // El callout SÍ está en el filtro, pero si no tiene contenido filtrado en hijos, no mostrarlo
+            if (!childrenContent.trim()) {
+              console.log(`    ⏭️ Callout en filtro pero sin contenido filtrado en hijos`);
+              continue;
+            }
           }
         }
         
+        // Renderizar el callout completo (solo llega aquí si pasa todas las verificaciones)
         html += `
           <div class="notion-callout">
             <div class="notion-callout-icon">${icon}</div>
@@ -1172,7 +1179,14 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
         continue;
       } catch (error) {
         console.error(`Error al renderizar callout con hijos:`, error);
-        // Fallback: renderizar solo el callout sin hijos
+        // Fallback: renderizar solo el callout sin hijos, pero solo si está en el filtro
+        if (blockTypes) {
+          const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+          if (!typesArray.includes('callout')) {
+            console.log(`    ⏭️ Callout filtrado (error en renderizado), no se muestra`);
+            continue;
+          }
+        }
         const callout = block.callout;
         const icon = callout?.icon?.emoji || '💡';
         const calloutText = renderRichText(callout?.rich_text);
@@ -1183,6 +1197,17 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
           </div>
         `;
         continue;
+      }
+    }
+    
+    // Manejar callouts sin hijos (deben ser filtrados si no coinciden con el filtro)
+    if (type === 'callout' && !block.has_children) {
+      if (blockTypes) {
+        const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+        if (!typesArray.includes('callout')) {
+          console.log(`    ⏭️ Callout sin hijos filtrado, no se muestra`);
+          continue;
+        }
       }
     }
     
