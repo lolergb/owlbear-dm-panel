@@ -1017,18 +1017,33 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
     if (type === 'column_list') {
       try {
         const columnListHtml = await renderColumnList(block, filteredBlocks, index, blockTypes, headingLevelOffset);
-        html += columnListHtml;
-        // Saltar las columnas que ya procesamos
-        let skipCount = 0;
-        for (let j = index + 1; j < filteredBlocks.length; j++) {
-          if (filteredBlocks[j].type === 'column') {
-            skipCount++;
-          } else {
-            break;
+        // Solo agregar al HTML si hay contenido (renderColumnList devuelve '' si no hay contenido filtrado)
+        if (columnListHtml.trim()) {
+          html += columnListHtml;
+          // Saltar las columnas que ya procesamos
+          let skipCount = 0;
+          for (let j = index + 1; j < filteredBlocks.length; j++) {
+            if (filteredBlocks[j].type === 'column') {
+              skipCount++;
+            } else {
+              break;
+            }
           }
+          index += skipCount; // El for loop incrementará index después, así que esto está bien
+          console.log(`    ✅ Column_list renderizado (${skipCount} columnas)`);
+        } else {
+          console.log(`    ⏭️ Column_list filtrado, sin contenido que mostrar`);
+          // Saltar las columnas de todas formas
+          let skipCount = 0;
+          for (let j = index + 1; j < filteredBlocks.length; j++) {
+            if (filteredBlocks[j].type === 'column') {
+              skipCount++;
+            } else {
+              break;
+            }
+          }
+          index += skipCount;
         }
-        index += skipCount; // El for loop incrementará index después, así que esto está bien
-        console.log(`    ✅ Column_list renderizado (${skipCount} columnas)`);
         continue;
       } catch (error) {
         console.error('Error al renderizar column_list:', error);
@@ -1304,7 +1319,7 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
         if (blockTypes) {
           const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
           if (!typesArray.includes(type)) {
-            console.log(`    ⏭️ Bloque [${index}] de tipo ${type} filtrado, no se muestra`);
+            console.log(`    ⏭️ Bloque [${index}] de tipo ${type} filtrado (filtro: ${typesArray.join(', ')}), no se muestra`);
             continue;
           }
         }
