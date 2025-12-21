@@ -631,10 +631,7 @@ function renderBlock(block) {
               data-image-url="${imageUrl}" 
               data-image-caption="${caption.replace(/"/g, '&quot;')}"
               data-block-id="${block.id}"
-              class="notion-image-clickable"
               loading="lazy"
-              onerror="this.style.display='none'; const errorDiv = document.createElement('div'); errorDiv.className='notion-image-error'; errorDiv.innerHTML = '⚠️ No se pudo cargar la imagen<br><small>La URL puede haber expirado</small><br><button onclick=\\"refreshImage(this)\\" class=\\"notion-image-error-button\\">🔄 Recargar página</button>'; this.parentElement.appendChild(errorDiv);"
-              onload="console.log('✅ Imagen cargada correctamente:', this.src.substring(0, 80));"
             />
             ${caption ? `<div class="notion-image-caption">${caption}</div>` : ''}
           </div>
@@ -1262,6 +1259,15 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
     
     // Manejar listas agrupadas
     if (type === 'bulleted_list_item' || type === 'numbered_list_item') {
+      // Verificar si el bloque de lista coincide con el filtro
+      if (blockTypes) {
+        const typesArray = Array.isArray(blockTypes) ? blockTypes : [blockTypes];
+        if (!typesArray.includes(type)) {
+          console.log(`    ⏭️ Bloque de lista [${index}] de tipo ${type} filtrado, no se muestra`);
+          continue;
+        }
+      }
+      
       const currentListType = type === 'bulleted_list_item' ? 'ul' : 'ol';
       
       if (!inList || listType !== currentListType) {
@@ -1424,10 +1430,34 @@ window.refreshImage = function(button) {
 function attachImageClickHandlers() {
   const images = document.querySelectorAll('.notion-image-clickable');
   images.forEach(img => {
+    // Click handler para abrir modal
     img.addEventListener('click', () => {
       const imageUrl = img.getAttribute('data-image-url');
       const caption = img.getAttribute('data-image-caption') || '';
       showImageModal(imageUrl, caption);
+    });
+    
+    // Error handler para mostrar mensaje de error
+    img.addEventListener('error', function() {
+      this.style.display = 'none';
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'notion-image-error';
+      errorDiv.innerHTML = '⚠️ No se pudo cargar la imagen<br><small>La URL puede haber expirado</small><br><button class="notion-image-error-button">🔄 Recargar página</button>';
+      
+      // Agregar event listener al botón de recargar
+      const refreshButton = errorDiv.querySelector('button');
+      if (refreshButton) {
+        refreshButton.addEventListener('click', () => {
+          refreshImage(refreshButton);
+        });
+      }
+      
+      this.parentElement.appendChild(errorDiv);
+    });
+    
+    // Load handler para logging
+    img.addEventListener('load', function() {
+      console.log('✅ Imagen cargada correctamente:', this.src.substring(0, 80));
     });
     
     // Efecto hover para indicar que es clicable
