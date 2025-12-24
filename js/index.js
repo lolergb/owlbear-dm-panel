@@ -1852,6 +1852,9 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   categoryDiv.className = 'category-group';
   categoryDiv.dataset.categoryName = category.name;
   categoryDiv.dataset.level = Math.min(level, 5);
+  categoryDiv.draggable = true;
+  categoryDiv.dataset.categoryPath = JSON.stringify(categoryPath);
+  categoryDiv.dataset.dragType = 'category';
   
   // Contenedor del título con botón de colapsar
   const titleContainer = document.createElement('div');
@@ -1999,10 +2002,12 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       
       const button = document.createElement('button');
       button.className = 'page-button';
+      button.draggable = true;
       button.dataset.url = page.url;
       button.dataset.selector = page.selector || '';
       button.dataset.pageIndex = index;
       button.dataset.categoryPath = JSON.stringify(categoryPath);
+      button.dataset.dragType = 'page';
       button.style.cssText = `
         width: 100%;
         margin-bottom: 8px;
@@ -2103,6 +2108,9 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       
       pagesContainer.appendChild(button);
       
+      // Configurar drag and drop para esta página
+      setupDragAndDrop(button, roomId);
+      
       buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml, pageContextMenuButton });
     });
     
@@ -2144,7 +2152,15 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         });
       }
     
-    contentContainer.appendChild(pagesContainer);
+      contentContainer.appendChild(pagesContainer);
+      
+      // Configurar drag and drop para las páginas después de renderizarlas
+      setTimeout(() => {
+        const pageButtons = pagesContainer.querySelectorAll('.page-button');
+        pageButtons.forEach(button => {
+          setupDragAndDrop(button, roomId);
+        });
+      }, 0);
   }
   
   // Manejar colapso/expansión
@@ -2223,6 +2239,221 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   
   categoryDiv.appendChild(contentContainer);
   parentElement.appendChild(categoryDiv);
+  
+  // Configurar drag and drop para esta categoría
+  setupDragAndDrop(categoryDiv, roomId);
+}
+
+// Función para configurar drag and drop en un elemento
+function setupDragAndDrop(element, roomId) {
+  let dragIndicator = null;
+  let draggedElement = null;
+  let draggedPath = null;
+  let draggedType = null;
+  let draggedIndex = null;
+  
+  // Crear línea indicadora
+  const createIndicator = () => {
+    if (dragIndicator) return;
+    dragIndicator = document.createElement('div');
+    dragIndicator.className = 'drag-indicator';
+    dragIndicator.style.cssText = `
+      height: 2px;
+      background: #4a9eff;
+      margin: 2px 0;
+      border-radius: 1px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      position: relative;
+      z-index: 1000;
+    `;
+  };
+  
+  // Drag start
+  element.addEventListener('dragstart', (e) => {
+    draggedElement = element;
+    draggedType = element.dataset.dragType;
+    draggedPath = JSON.parse(element.dataset.categoryPath || '[]');
+    
+    // Obtener el índice del elemento
+    const parent = element.parentElement;
+    const siblings = Array.from(parent.children).filter(child => {
+      if (draggedType === 'category') {
+        return child.classList.contains('category-group');
+      } else {
+        return child.classList.contains('page-button');
+      }
+    });
+    draggedIndex = siblings.indexOf(element);
+    
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Necesario para Firefox
+    
+    // Estilo visual durante el drag
+    element.style.opacity = '0.5';
+    
+    createIndicator();
+  });
+  
+  // Drag end
+  element.addEventListener('dragend', (e) => {
+    // Restaurar estilo
+    if (draggedElement) {
+      draggedElement.style.opacity = '';
+    }
+    
+    // Remover indicador
+    if (dragIndicator && dragIndicator.parentElement) {
+      dragIndicator.parentElement.removeChild(dragIndicator);
+      dragIndicator = null;
+    }
+    
+    // Limpiar clases de drag-over
+    document.querySelectorAll('.drag-over').forEach(el => {
+      el.classList.remove('drag-over');
+    });
+    
+    draggedElement = null;
+    draggedPath = null;
+    draggedType = null;
+    draggedIndex = null;
+  });
+  
+  // Drag over - mostrar indicador
+  element.addEventListener('dragover', (e) => {
+    if (!draggedElement || draggedElement === element) return;
+    
+    const currentType = element.dataset.dragType;
+    const currentPath = JSON.parse(element.dataset.categoryPath || '[]');
+    
+    // Solo permitir mover en el mismo nivel
+    const draggedParentPath = draggedPath.slice(0, -2);
+    const currentParentPath = currentPath.slice(0, -2);
+    
+    if (JSON.stringify(draggedParentPath) !== JSON.stringify(currentParentPath)) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Solo permitir mover elementos del mismo tipo
+    if (draggedType !== currentType) {
+      e.preventDefault();
+      return;
+    }
+    
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Determinar si insertar antes o después
+    const parent = element.parentElement;
+    const siblings = Array.from(parent.children).filter(child => {
+      if (draggedType === 'category') {
+        return child.classList.contains('category-group');
+      } else {
+        return child.classList.contains('page-button');
+      }
+    });
+    
+    const currentIndex = siblings.indexOf(element);
+    const draggedIndexInSiblings = siblings.indexOf(draggedElement);
+    const insertBefore = currentIndex < draggedIndexInSiblings || (currentIndex === draggedIndexInSiblings && currentIndex === 0);
+    
+    // Remover indicador anterior si existe
+    if (dragIndicator && dragIndicator.parentElement) {
+      dragIndicator.parentElement.removeChild(dragIndicator);
+    }
+    
+    createIndicator();
+    
+    // Insertar indicador
+    if (insertBefore) {
+      parent.insertBefore(dragIndicator, element);
+    } else {
+      const nextSibling = element.nextElementSibling;
+      if (nextSibling) {
+        parent.insertBefore(dragIndicator, nextSibling);
+      } else {
+        parent.appendChild(dragIndicator);
+      }
+    }
+    
+    dragIndicator.style.opacity = '1';
+  });
+  
+  // Drag leave
+  element.addEventListener('dragleave', (e) => {
+    // Solo ocultar si realmente salimos del elemento (no solo entramos a un hijo)
+    if (!element.contains(e.relatedTarget)) {
+      if (dragIndicator) {
+        dragIndicator.style.opacity = '0';
+      }
+    }
+  });
+  
+  // Drop
+  element.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedElement || draggedElement === element) return;
+    
+    const currentType = element.dataset.dragType;
+    const currentPath = JSON.parse(element.dataset.categoryPath || '[]');
+    
+    // Verificar que sea el mismo nivel y tipo
+    const draggedParentPath = draggedPath.slice(0, -2);
+    const currentParentPath = currentPath.slice(0, -2);
+    
+    if (JSON.stringify(draggedParentPath) !== JSON.stringify(currentParentPath) || draggedType !== currentType) {
+      return;
+    }
+    
+    // Obtener configuración actual
+    const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+    
+    // Obtener el contenedor padre
+    const parent = navigateConfigPath(config, draggedParentPath);
+    if (!parent) return;
+    
+    // Determinar índices
+    const parentContainer = element.parentElement;
+    const siblings = Array.from(parentContainer.children).filter(child => {
+      if (draggedType === 'category') {
+        return child.classList.contains('category-group');
+      } else {
+        return child.classList.contains('page-button');
+      }
+    });
+    
+    const currentIndex = siblings.indexOf(element);
+    const draggedIndexInSiblings = siblings.indexOf(draggedElement);
+    
+    // Determinar nueva posición
+    let newIndex = currentIndex;
+    if (draggedIndexInSiblings < currentIndex) {
+      newIndex = currentIndex;
+    } else {
+      newIndex = currentIndex + 1;
+    }
+    
+    // Mover en el JSON
+    const key = draggedType === 'category' ? 'categories' : 'pages';
+    if (!parent[key]) return;
+    
+    const item = parent[key][draggedIndexInSiblings];
+    parent[key].splice(draggedIndexInSiblings, 1);
+    parent[key].splice(newIndex > draggedIndexInSiblings ? newIndex - 1 : newIndex, 0, item);
+    
+    // Guardar configuración
+    savePagesJSON(config, roomId);
+    
+    // Recargar vista
+    const pageList = document.getElementById("page-list");
+    if (pageList) {
+      renderPagesByCategories(config, pageList, roomId);
+    }
+  });
 }
 
 // Función auxiliar para navegar por el path en la configuración

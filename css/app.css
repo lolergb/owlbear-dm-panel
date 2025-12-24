@@ -173,6 +173,22 @@ h1#page-title {
   margin-bottom: 0px;
 }
 
+.category-group[draggable="true"] {
+  cursor: grab;
+}
+
+.category-group[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.category-group[draggable="true"] {
+  cursor: grab;
+}
+
+.category-group[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 .category-title-container {
   display: flex;
   align-items: center;
