@@ -2327,13 +2327,14 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
   
   // Agregar selector de categoría si hay categorías disponibles
   if (categoryOptions.length > 0) {
+    const defaultValue = pageCategoryPathValue || categoryOptions[0].value;
     fields.push({
       name: 'category',
       label: 'Categoría',
       type: 'select',
       required: true,
       options: categoryOptions,
-      value: pageCategoryPathValue || categoryOptions[0].value
+      value: defaultValue
     });
   }
   
@@ -3453,9 +3454,19 @@ function showModalForm(title, fields, onSubmit, onCancel) {
                 font-family: Roboto, Helvetica, Arial, sans-serif;
               "
             >
-              ${(field.options || []).map(opt => `
-                <option value="${opt.value}" ${(field.value === opt.value) ? 'selected' : ''}>${opt.label}</option>
-              `).join('')}
+              ${(field.options || []).map(opt => {
+                // Escapar el valor para HTML (especialmente importante para JSON con corchetes y comillas)
+                // Usar HTML entities para todos los caracteres especiales
+                const optValue = String(opt.value)
+                  .replace(/&/g, '&amp;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#39;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+                const fieldValue = String(field.value || '');
+                const isSelected = fieldValue === String(opt.value);
+                return `<option value="${optValue}" ${isSelected ? 'selected' : ''}>${opt.label}</option>`;
+              }).join('')}
             </select>
           ` : `
             <input 
@@ -3530,14 +3541,22 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     fields.forEach(field => {
       const input = modal.querySelector(`#field-${field.name}`);
       if (input) {
-        // Para selects, obtener el valor directamente
+        // Para selects, obtener el valor directamente sin trim
         if (field.type === 'select') {
-          formData[field.name] = input.value || '';
+          const selectedIndex = input.selectedIndex;
+          if (selectedIndex >= 0 && input.options[selectedIndex]) {
+            // Obtener el valor del option seleccionado
+            const selectedOption = input.options[selectedIndex];
+            formData[field.name] = selectedOption.getAttribute('value') || selectedOption.value || '';
+          } else {
+            formData[field.name] = '';
+          }
         } else {
           formData[field.name] = input.value.trim();
         }
       }
     });
+    console.log('📝 Datos del formulario:', formData); // Debug
     if (onSubmit) onSubmit(formData);
     close();
   });
