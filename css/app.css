@@ -1,36 +1,4 @@
-/* Fuentes Roboto (mismo estilo que Owlbear) */
-@font-face {
-  font-family: Roboto;
-  src: url(https://www.owlbear.rodeo/assets/Roboto-Light-y85UWPYz.ttf) format("truetype");
-  font-style: normal;
-  font-weight: 300;
-}
-
-@font-face {
-  font-family: Roboto;
-  src: url(https://www.owlbear.rodeo/assets/Roboto-Regular-BHeBnKzs.ttf) format("truetype");
-  font-style: normal;
-  font-weight: 400;
-}
-
-@font-face {
-  font-family: Roboto;
-  src: url(https://www.owlbear.rodeo/assets/Roboto-Medium-CFKDKRMh.ttf) format("truetype");
-  font-style: normal;
-  font-weight: 500;
-}
-
-@font-face {
-  font-family: Roboto;
-  src: url(https://www.owlbear.rodeo/assets/Roboto-Bold-BKtbn9Wi.ttf) format("truetype");
-  font-style: normal;
-  font-weight: 700;
-}
-
-@font-face {
-  font-family: Permanent Marker;
-  src: url(https://www.owlbear.rodeo/assets/PermanentMarker-ClowKQab.ttf) format("truetype");
-}
+/* Fuentes cargadas desde Google Fonts */
 
 /* Variables CSS */
 :root {

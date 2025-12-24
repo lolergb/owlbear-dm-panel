@@ -1714,29 +1714,6 @@ try {
           }
         }
       });
-      // Botón para editar JSON (editor visual)
-      const visualEditorButton = document.createElement("button");
-      visualEditorButton.className = "icon-button admin-button";
-      const visualIcon = document.createElement("img");
-      visualIcon.src = "img/icon-json.svg";
-      visualIcon.alt = "Editor Visual";
-      visualIcon.className = "icon-button-icon";
-      visualEditorButton.appendChild(visualIcon);
-      visualEditorButton.title = "Editor Visual";
-      visualEditorButton.addEventListener("click", async () => await showVisualEditor(pagesConfig, roomId));
-      
-      // Botón para editar JSON (editor de texto)
-      const jsonEditorButton = document.createElement("button");
-      jsonEditorButton.className = "icon-button";
-      const jsonIcon = document.createElement("img");
-      jsonIcon.src = "img/icon-json.svg";
-      jsonIcon.alt = "Editar JSON";
-      jsonIcon.className = "icon-button-icon";
-      jsonEditorButton.appendChild(jsonIcon);
-      jsonEditorButton.title = "Editar JSON";
-      jsonEditorButton.style.opacity = "0.7";
-      jsonEditorButton.addEventListener("click", async () => await showJSONEditor(pagesConfig, roomId));
-      
       // Botón para configurar token de Notion
       const tokenButton = document.createElement("button");
       tokenButton.className = "icon-button";
@@ -1781,8 +1758,6 @@ try {
       buttonContainer.appendChild(addButton);
       buttonContainer.appendChild(tokenButton);
       buttonContainer.appendChild(clearCacheButton);
-      buttonContainer.appendChild(visualEditorButton);
-      buttonContainer.appendChild(jsonEditorButton);
       header.appendChild(buttonContainer);
 
       // Renderizar páginas agrupadas por categorías
@@ -1942,15 +1917,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
           await deleteCategoryFromPageList(category, categoryPath, roomId);
         }
       },
-      { separator: true },
-      { 
-        icon: '📝', 
-        text: 'Editar JSON', 
-        action: async () => {
-          const config = getPagesJSON(roomId) || await getDefaultJSON();
-          await showJSONEditor(config, roomId);
-        }
-      }
     ];
     createContextMenu(menuItems, { x: rect.right, y: rect.top });
   });
@@ -2105,13 +2071,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
             }
           },
           { separator: true },
-          { 
-            icon: '📝', 
-            text: 'Editar JSON', 
-            action: async () => {
-              await showJSONEditor(config, roomId);
-            }
-          }
         ];
         createContextMenu(menuItems, { x: rect.right, y: rect.top });
       });
@@ -2249,10 +2208,9 @@ function setupDragAndDrop(element, type, path, roomId) {
         return;
       }
       
-      // Permitir drop en cualquier elemento del mismo tipo (cualquier nivel)
-      if (dragData.type === type) {
-        e.dataTransfer.dropEffect = 'move';
-        element.classList.add('dragover-target');
+      // Permitir drop en cualquier elemento (cualquier tipo y nivel)
+      e.dataTransfer.dropEffect = 'move';
+      element.classList.add('dragover-target');
         
         // Mostrar indicador visual de dónde se insertará
         const rect = element.getBoundingClientRect();
@@ -2295,8 +2253,7 @@ function setupDragAndDrop(element, type, path, roomId) {
       const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
       if (!dragData || JSON.stringify(dragData.path) === JSON.stringify(path)) return;
       
-      // Solo permitir mover elementos del mismo tipo
-      if (dragData.type !== type) return;
+      // Permitir mover cualquier elemento a cualquier nivel
       
       const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
       
@@ -3476,6 +3433,8 @@ function showTokenConfig() {
   const errorDiv = contentArea.querySelector('#token-error');
   const saveBtn = contentArea.querySelector('#save-token');
   const clearBtn = contentArea.querySelector('#clear-token');
+  const clearCacheBtn = contentArea.querySelector('#clear-cache-btn');
+  const downloadJsonBtn = contentArea.querySelector('#download-json-btn');
   const backBtn = header.querySelector('#back-from-token');
   
   // Estilos hover
@@ -3561,6 +3520,68 @@ function showTokenConfig() {
   };
   
   backBtn.addEventListener('click', closeTokenConfig);
+  
+  // Limpiar toda la cache
+  clearCacheBtn.addEventListener('mouseenter', () => {
+    clearCacheBtn.style.background = CSS_VARS.bgHover;
+    clearCacheBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  clearCacheBtn.addEventListener('mouseleave', () => {
+    clearCacheBtn.style.background = CSS_VARS.bgPrimary;
+    clearCacheBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  clearCacheBtn.addEventListener('mousedown', () => {
+    clearCacheBtn.style.background = CSS_VARS.bgActive;
+    clearCacheBtn.style.borderColor = CSS_VARS.borderActive;
+  });
+  clearCacheBtn.addEventListener('mouseup', () => {
+    clearCacheBtn.style.background = CSS_VARS.bgHover;
+    clearCacheBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  clearCacheBtn.addEventListener('click', () => {
+    if (confirm('¿Limpiar toda la caché? Esto eliminará todas las páginas en caché.')) {
+      const cleared = clearAllCache();
+      alert(`✅ Caché limpiada: ${cleared} entradas eliminadas`);
+    }
+  });
+  
+  // Descargar JSON
+  downloadJsonBtn.addEventListener('mouseenter', () => {
+    downloadJsonBtn.style.background = CSS_VARS.bgHover;
+    downloadJsonBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  downloadJsonBtn.addEventListener('mouseleave', () => {
+    downloadJsonBtn.style.background = CSS_VARS.bgPrimary;
+    downloadJsonBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  downloadJsonBtn.addEventListener('mousedown', () => {
+    downloadJsonBtn.style.background = CSS_VARS.bgActive;
+    downloadJsonBtn.style.borderColor = CSS_VARS.borderActive;
+  });
+  downloadJsonBtn.addEventListener('mouseup', () => {
+    downloadJsonBtn.style.background = CSS_VARS.bgHover;
+    downloadJsonBtn.style.borderColor = CSS_VARS.borderPrimary;
+  });
+  downloadJsonBtn.addEventListener('click', async () => {
+    try {
+      const roomId = await OBR.room.getId();
+      const config = getPagesJSON(roomId) || await getDefaultJSON();
+      const jsonStr = JSON.stringify(config, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `notion-pages-config-${roomId ? getFriendlyRoomId(roomId) : 'default'}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      alert('✅ JSON descargado exitosamente');
+    } catch (e) {
+      console.error('Error al descargar JSON:', e);
+      alert('❌ Error al descargar JSON: ' + e.message);
+    }
+  });
 }
 
 // ============================================
@@ -3865,292 +3886,6 @@ function showModalForm(title, fields, onSubmit, onCancel) {
 }
 
 // Función para mostrar el editor de JSON
-async function showJSONEditor(pagesConfig, roomId = null) {
-  // SIEMPRE leer desde localStorage para obtener la versión más actualizada
-  // El parámetro pagesConfig puede estar desactualizado
-  const currentConfig = getPagesJSON(roomId) || pagesConfig || await getDefaultJSON();
-  console.log('📖 Abriendo editor JSON - Configuración cargada desde localStorage:', currentConfig);
-  
-  // Ocultar el contenedor principal y mostrar el editor
-  const mainContainer = document.querySelector('.container');
-  const pageList = document.getElementById("page-list");
-  const notionContainer = document.getElementById("notion-container");
-  
-  if (mainContainer) mainContainer.classList.add('hidden');
-  if (pageList) pageList.classList.add('hidden');
-  if (notionContainer) notionContainer.classList.add('hidden');
-  
-  // Crear contenedor del editor (estilo Notion)
-  const editorContainer = document.createElement('div');
-  editorContainer.id = 'json-editor-container';
-  editorContainer.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: ${CSS_VARS.bgPrimary};
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    font-family: Roboto, Helvetica, Arial, sans-serif;
-  `;
-  
-  // Header estilo Notion
-  const header = document.createElement('div');
-  header.style.cssText = `
-    background: ${CSS_VARS.bgPrimary};
-    border-bottom: 1px solid ${CSS_VARS.borderPrimary};
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  `;
-  
-  header.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <button id="back-from-editor" style="
-        background: ${CSS_VARS.bgPrimary};
-        border: 1px solid ${CSS_VARS.borderPrimary};
-        border-radius: 6px;
-        padding: 6px 12px;
-        color: #e0e0e0;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.2s;
-      ">← Volver</button>
-      <div>
-        <h1 style="font-family: Roboto, Helvetica, Arial, sans-serif; color: #fff; font-size: 18px; line-height: 24px; font-weight: 700; margin: 0;">📝 Editar Configuración</h1>
-        ${roomId ? `<p style="color: #999; font-size: 11px; margin: 2px 0 0 0;">Room: ${getFriendlyRoomId(roomId)}</p>` : ''}
-      </div>
-    </div>
-  `;
-  
-  // Área de contenido
-  const contentArea = document.createElement('div');
-  contentArea.style.cssText = `
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 24px;
-    max-width: 900px;
-    margin: 0 auto;
-    width: 100%;
-    overflow: hidden;
-  `;
-  
-  contentArea.innerHTML = `
-    <div style="margin-bottom: 16px;">
-      <p style="color: #999; font-size: 14px; margin-bottom: 12px; font-family: Roboto, Helvetica, Arial, sans-serif; font-weight: 400;">
-        Edita el JSON para gestionar tus categorías y páginas. La estructura debe tener un array "categories" con objetos que contengan "name" y "pages".
-      </p>
-    </div>
-    <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0;">
-      <textarea id="json-textarea" style="
-        background: ${CSS_VARS.bgPrimary};
-        border: 1px solid ${CSS_VARS.borderPrimary};
-        border-radius: 8px;
-        padding: 20px;
-        color: #e0e0e0;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-        font-size: 13px;
-        line-height: 1.6;
-        flex: 1;
-        resize: none;
-        white-space: pre;
-        overflow-wrap: normal;
-        overflow-x: auto;
-        overflow-y: auto;
-        transition: border-color 0.2s;
-      ">${JSON.stringify(currentConfig, null, 2)}</textarea>
-      <div id="json-error" style="
-        color: #ff6b6b;
-        font-size: 13px;
-        display: none;
-        padding: 12px 16px;
-        background: rgba(255, 107, 107, 0.1);
-        border: 1px solid rgba(255, 107, 107, 0.3);
-        border-radius: 6px;
-      "></div>
-      <div style="display: flex; gap: 16px; justify-content: flex-end; padding-top: 16px;">
-        <button id="reset-json" style="
-          background: ${CSS_VARS.bgPrimary};
-          border: 1px solid ${CSS_VARS.borderPrimary};
-          border-radius: 6px;
-          padding: 10px 20px;
-          color: #e0e0e0;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 400;
-          font-family: Roboto, Helvetica, Arial, sans-serif;
-          transition: all 0.2s;
-          flex:1;
-        ">Resetear</button>
-        <button id="save-json" style="
-          background: #4a9eff;
-          border: none;
-          border-radius: 6px;
-          padding: 10px 24px;
-          color: #fff;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 700;
-          font-family: Roboto, Helvetica, Arial, sans-serif;
-          transition: all 0.2s;
-          flex:1;
-        ">Guardar</button>
-      </div>
-    </div>
-  `;
-  
-  editorContainer.appendChild(header);
-  editorContainer.appendChild(contentArea);
-  document.body.appendChild(editorContainer);
-  
-  const textarea = contentArea.querySelector('#json-textarea');
-  const errorDiv = contentArea.querySelector('#json-error');
-  
-  // Estilos hover para botones
-  const resetBtn = contentArea.querySelector('#reset-json');
-  const saveBtn = contentArea.querySelector('#save-json');
-  const backBtn = header.querySelector('#back-from-editor');
-  
-  resetBtn.addEventListener('mouseenter', () => {
-    resetBtn.style.background = CSS_VARS.bgHover;
-    resetBtn.style.borderColor = CSS_VARS.borderPrimary;
-  });
-  resetBtn.addEventListener('mouseleave', () => {
-    resetBtn.style.background = CSS_VARS.bgPrimary;
-    resetBtn.style.borderColor = CSS_VARS.borderPrimary;
-  });
-  resetBtn.addEventListener('mousedown', () => {
-    resetBtn.style.background = CSS_VARS.bgActive;
-    resetBtn.style.borderColor = CSS_VARS.borderActive;
-  });
-  resetBtn.addEventListener('mouseup', () => {
-    resetBtn.style.background = CSS_VARS.bgHover;
-    resetBtn.style.borderColor = CSS_VARS.borderPrimary;
-  });
-  
-  saveBtn.addEventListener('mouseenter', () => {
-    saveBtn.style.background = '#5aaeff';
-  });
-  saveBtn.addEventListener('mouseleave', () => {
-    saveBtn.style.background = '#4a9eff';
-  });
-  
-  backBtn.addEventListener('mouseenter', () => {
-    backBtn.style.background = CSS_VARS.bgHover;
-    backBtn.style.borderColor = CSS_VARS.borderPrimary;
-  });
-  backBtn.addEventListener('mouseleave', () => {
-    backBtn.style.background = CSS_VARS.bgPrimary;
-    backBtn.style.borderColor = CSS_VARS.borderPrimary;
-  });
-  backBtn.addEventListener('mousedown', () => {
-    backBtn.style.background = CSS_VARS.bgActive;
-    backBtn.style.borderColor = CSS_VARS.borderActive;
-  });
-  backBtn.addEventListener('mouseup', () => {
-    backBtn.style.background = CSS_VARS.bgHover;
-    backBtn.style.borderColor = CSS_VARS.borderPrimary;
-  });
-  
-  // Función para cerrar el editor
-  const closeEditor = () => {
-    document.body.removeChild(editorContainer);
-    if (mainContainer) mainContainer.classList.remove('hidden');
-    if (pageList) pageList.classList.remove('hidden');
-  };
-  
-  // Guardar JSON
-  saveBtn.addEventListener('click', async () => {
-    try {
-      console.log('💾 Guardando JSON para roomId:', roomId);
-      const jsonText = textarea.value.trim();
-      const parsed = JSON.parse(jsonText);
-      
-      // Validar estructura básica
-      if (!parsed.categories || !Array.isArray(parsed.categories)) {
-        throw new Error('El JSON debe tener un array "categories"');
-      }
-      
-      // Verificar que roomId esté disponible
-      if (!roomId) {
-        console.error('❌ ERROR: roomId es null/undefined al guardar');
-        throw new Error('No se pudo identificar la room. Recarga la extensión.');
-      }
-      
-      // Guardar (con roomId)
-      console.log('💾 Llamando a savePagesJSON con roomId:', roomId);
-      savePagesJSON(parsed, roomId);
-      errorDiv.style.display = 'none';
-      textarea.style.borderColor = CSS_VARS.borderPrimary;
-      
-      // Obtener el JSON guardado desde localStorage para asegurar que coincida exactamente
-      console.log('📖 Obteniendo JSON guardado desde localStorage...');
-      // Leer inmediatamente desde localStorage (es síncrono, no necesita delay)
-      const savedConfig = getPagesJSON(roomId);
-      if (savedConfig) {
-        // Actualizar el textarea con el JSON guardado (formateado) desde localStorage
-        const formattedJSON = JSON.stringify(savedConfig, null, 2);
-        textarea.value = formattedJSON;
-        // Forzar actualización visual del textarea
-        textarea.scrollTop = 0; // Resetear scroll
-        console.log('✅ Textarea actualizado con el JSON guardado desde localStorage');
-      } else {
-        // Fallback: usar el parsed si no se puede obtener de localStorage
-        const formattedJSON = JSON.stringify(parsed, null, 2);
-        textarea.value = formattedJSON;
-        textarea.scrollTop = 0;
-        console.log('⚠️ Usando JSON parsed como fallback');
-      }
-      
-      // Recargar la lista de páginas sin cerrar el editor
-      console.log('🔄 Recargando configuración para roomId:', roomId);
-      const savedConfigForList = getPagesJSON(roomId);
-      const newConfig = savedConfigForList || await getDefaultJSON();
-      const pageListEl = document.getElementById("page-list");
-      if (pageListEl) {
-        renderPagesByCategories(newConfig, pageListEl, roomId);
-      }
-    } catch (e) {
-      console.error('❌ Error al guardar:', e);
-      errorDiv.textContent = `Error: ${e.message}`;
-      errorDiv.style.display = 'block';
-      textarea.style.borderColor = '#ff6b6b';
-    }
-  });
-  
-  // Resetear JSON
-  resetBtn.addEventListener('click', async () => {
-    if (confirm('¿Resetear al JSON por defecto? Se perderán todos los cambios para esta room.')) {
-      const defaultConfig = await getDefaultJSON();
-      textarea.value = JSON.stringify(defaultConfig, null, 2);
-      errorDiv.style.display = 'none';
-      textarea.style.borderColor = CSS_VARS.borderPrimary;
-    }
-  });
-  
-  // Validar JSON en tiempo real
-  textarea.addEventListener('input', () => {
-    try {
-      JSON.parse(textarea.value);
-      errorDiv.style.display = 'none';
-      textarea.style.borderColor = CSS_VARS.borderPrimary;
-    } catch (e) {
-      textarea.style.borderColor = '#ff6b6b';
-    }
-  });
-  
-  // Volver
-  backBtn.addEventListener('click', closeEditor);
-  
-  // Auto-focus
-  textarea.focus();
-  // Scroll al inicio
-  textarea.scrollTop = 0;
-}
 
 // Función para mostrar el editor visual tipo Notion
 async function showVisualEditor(pagesConfig, roomId = null) {
