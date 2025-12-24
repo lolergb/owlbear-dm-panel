@@ -2201,29 +2201,56 @@ function setupDragAndDrop(element, type, path, roomId) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', JSON.stringify({ type, path }));
     element.style.opacity = '0.5';
+    element.classList.add('dragging');
   });
   
   element.addEventListener('dragend', (e) => {
     element.style.opacity = '1';
+    element.classList.remove('dragging');
+    // Limpiar todos los estilos de drag
+    document.querySelectorAll('.dragover-target').forEach(el => {
+      el.classList.remove('dragover-target');
+      el.style.background = '';
+      el.style.borderTop = '';
+      el.style.borderBottom = '';
+    });
   });
   
   element.addEventListener('dragover', (e) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
     
-    // Solo permitir drop en elementos del mismo tipo y mismo nivel
     const dragDataStr = e.dataTransfer.getData('text/plain');
     if (!dragDataStr) return;
     
     try {
       const dragData = JSON.parse(dragDataStr);
-      // Solo permitir reordenar dentro del mismo contenedor padre
-      const dragParentPath = dragData.path.slice(0, -2);
-      const dropParentPath = path.slice(0, -2);
       
-      if (JSON.stringify(dragParentPath) === JSON.stringify(dropParentPath) && dragData.type === type) {
-        element.style.background = 'rgba(74, 158, 255, 0.2)';
-        element.style.cursor = 'move';
+      // No permitir drop sobre sí mismo
+      if (JSON.stringify(dragData.path) === JSON.stringify(path)) {
+        e.dataTransfer.dropEffect = 'none';
+        return;
+      }
+      
+      // Permitir drop en cualquier elemento del mismo tipo (cualquier nivel)
+      if (dragData.type === type) {
+        e.dataTransfer.dropEffect = 'move';
+        element.classList.add('dragover-target');
+        
+        // Mostrar indicador visual de dónde se insertará
+        const rect = element.getBoundingClientRect();
+        const mouseY = e.clientY;
+        const elementCenterY = rect.top + rect.height / 2;
+        
+        if (mouseY < elementCenterY) {
+          // Insertar antes
+          element.style.borderTop = '2px solid #4a9eff';
+          element.style.borderBottom = '';
+        } else {
+          // Insertar después
+          element.style.borderBottom = '2px solid #4a9eff';
+          element.style.borderTop = '';
+        }
+        element.style.background = 'rgba(74, 158, 255, 0.1)';
       } else {
         e.dataTransfer.dropEffect = 'none';
       }
@@ -2233,26 +2260,25 @@ function setupDragAndDrop(element, type, path, roomId) {
   });
   
   element.addEventListener('dragleave', (e) => {
+    element.classList.remove('dragover-target');
     element.style.background = '';
-    element.style.cursor = '';
+    element.style.borderTop = '';
+    element.style.borderBottom = '';
   });
   
   element.addEventListener('drop', async (e) => {
     e.preventDefault();
+    element.classList.remove('dragover-target');
     element.style.background = '';
-    element.style.cursor = '';
+    element.style.borderTop = '';
+    element.style.borderBottom = '';
     
     try {
       const dragData = JSON.parse(e.dataTransfer.getData('text/plain'));
       if (!dragData || JSON.stringify(dragData.path) === JSON.stringify(path)) return;
       
-      // Solo permitir reordenar dentro del mismo contenedor padre
-      const dragParentPath = dragData.path.slice(0, -2);
-      const dropParentPath = path.slice(0, -2);
-      
-      if (JSON.stringify(dragParentPath) !== JSON.stringify(dropParentPath) || dragData.type !== type) {
-        return;
-      }
+      // Solo permitir mover elementos del mismo tipo
+      if (dragData.type !== type) return;
       
       const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
       
@@ -2261,27 +2287,54 @@ function setupDragAndDrop(element, type, path, roomId) {
       const sourceIndex = dragData.path[dragData.path.length - 1];
       const sourceParent = navigateConfigPath(config, dragData.path.slice(0, -2));
       
-      if (!sourceParent || !sourceParent[sourceKey]) return;
+      if (!sourceParent || !sourceParent[sourceKey] || !sourceParent[sourceKey][sourceIndex]) {
+        console.error('No se pudo encontrar el elemento origen');
+        return;
+      }
       
       const item = sourceParent[sourceKey][sourceIndex];
       
-      // Obtener el índice de destino
+      // Obtener el contenedor y índice de destino
       const targetKey = path[path.length - 2];
       const targetIndex = path[path.length - 1];
+      const targetParent = navigateConfigPath(config, path.slice(0, -2));
       
-      // Remover del origen
-      sourceParent[sourceKey].splice(sourceIndex, 1);
-      
-      // Calcular el nuevo índice (ajustar si se movió hacia abajo)
-      let newIndex = targetIndex;
-      if (sourceIndex < targetIndex) {
-        newIndex = targetIndex; // Insertar después
-      } else {
-        newIndex = targetIndex + 1; // Insertar después del elemento objetivo
+      if (!targetParent || !targetParent[targetKey]) {
+        console.error('No se pudo encontrar el contenedor destino');
+        return;
       }
       
+      // Determinar si insertar antes o después basado en la posición del mouse
+      const rect = element.getBoundingClientRect();
+      const mouseY = e.clientY;
+      const elementCenterY = rect.top + rect.height / 2;
+      const insertAfter = mouseY > elementCenterY;
+      
+      // Si es el mismo contenedor, ajustar el índice
+      const isSameContainer = JSON.stringify(dragData.path.slice(0, -2)) === JSON.stringify(path.slice(0, -2));
+      
+      // Remover del origen primero
+      sourceParent[sourceKey].splice(sourceIndex, 1);
+      
+      // Calcular el nuevo índice
+      let newIndex;
+      if (isSameContainer) {
+        // Mismo contenedor: ajustar índice considerando que ya removimos el elemento
+        if (sourceIndex < targetIndex) {
+          newIndex = insertAfter ? targetIndex : targetIndex;
+        } else {
+          newIndex = insertAfter ? targetIndex + 1 : targetIndex;
+        }
+      } else {
+        // Diferente contenedor: insertar en la posición calculada
+        newIndex = insertAfter ? targetIndex + 1 : targetIndex;
+      }
+      
+      // Asegurar que el índice no sea negativo
+      newIndex = Math.max(0, newIndex);
+      
       // Insertar en la nueva posición
-      sourceParent[sourceKey].splice(newIndex, 0, item);
+      targetParent[targetKey].splice(newIndex, 0, item);
       
       savePagesJSON(config, roomId);
       
@@ -2292,6 +2345,7 @@ function setupDragAndDrop(element, type, path, roomId) {
       }
     } catch (error) {
       console.error('Error al reordenar:', error);
+      alert('Error al reordenar el elemento. Por favor, intenta de nuevo.');
     }
   });
 }
