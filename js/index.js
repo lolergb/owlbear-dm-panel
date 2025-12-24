@@ -1792,8 +1792,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   const hasPages = category.pages && category.pages.length > 0;
   const hasSubcategories = category.categories && category.categories.length > 0;
   
-  if (!hasPages && !hasSubcategories) return;
-  
   // Filtrar páginas válidas (mantener el orden original)
   const categoryPages = hasPages ? category.pages
     .filter(page => 
@@ -1802,8 +1800,9 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       page.url.startsWith('http')
     ) : [];
   
-  // Si no tiene páginas válidas ni subcategorías, no renderizar
-  if (categoryPages.length === 0 && !hasSubcategories) return;
+  // Renderizar la categoría incluso si está vacía (para poder agregar contenido)
+  // Solo no renderizar si no tiene nombre
+  if (!category.name) return;
   
   // Calcular indentación basada en el nivel
   const indent = level * 16; // 16px por nivel
@@ -1913,6 +1912,8 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   // Contenedor de contenido (páginas y subcategorías)
   const contentContainer = document.createElement('div');
   contentContainer.className = 'category-content';
+  // Mostrar el contenido si no está colapsado Y si tiene contenido o si está vacía (para poder agregar)
+  const hasContent = hasSubcategories || categoryPages.length > 0;
   contentContainer.style.display = isCollapsed ? 'none' : 'block';
   
   // Renderizar subcategorías primero (si existen)
@@ -1924,7 +1925,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   }
   
   // Contenedor de páginas de la categoría
-  if (categoryPages.length > 0) {
+  if (categoryPages.length > 0 || !hasContent) {
     const pagesContainer = document.createElement('div');
     pagesContainer.className = 'category-pages';
     
@@ -2091,17 +2092,25 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   }
   
   // Manejar colapso/expansión
-  titleContainer.addEventListener('click', (e) => {
-    // No colapsar si se hace click en el menú contextual
-    if (e.target.closest('.category-context-menu-button')) {
-      return;
-    }
-    const newIsCollapsed = contentContainer.style.display === 'none';
-    contentContainer.style.display = newIsCollapsed ? 'block' : 'none';
-    collapseIcon.src = newIsCollapsed ? 'img/folder-open.svg' : 'img/folder-close.svg';
-    collapseIcon.alt = newIsCollapsed ? 'Colapsar' : 'Expandir';
-    localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
-  });
+  // Solo permitir colapsar si tiene contenido
+  const hasContent = hasSubcategories || categoryPages.length > 0;
+  if (hasContent) {
+    titleContainer.addEventListener('click', (e) => {
+      // No colapsar si se hace click en el menú contextual
+      if (e.target.closest('.category-context-menu-button')) {
+        return;
+      }
+      const newIsCollapsed = contentContainer.style.display === 'none';
+      contentContainer.style.display = newIsCollapsed ? 'block' : 'none';
+      collapseIcon.src = newIsCollapsed ? 'img/folder-open.svg' : 'img/folder-close.svg';
+      collapseIcon.alt = newIsCollapsed ? 'Colapsar' : 'Expandir';
+      localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
+    });
+  } else {
+    // Si no tiene contenido, mostrar la carpeta como abierta (sin funcionalidad de colapsar)
+    collapseIcon.src = 'img/folder-open.svg';
+    collapseIcon.alt = 'Categoría vacía';
+  }
   
   categoryDiv.appendChild(contentContainer);
   parentElement.appendChild(categoryDiv);
