@@ -2271,27 +2271,35 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
       currentCategory.name = data.name;
       
       // Si se cambió la categoría padre, mover la categoría
-      if (data.parentCategory && data.parentCategory.trim()) {
-        try {
-          const newParentPath = JSON.parse(data.parentCategory);
-          const newParent = navigateConfigPath(config, newParentPath);
-          
-          if (newParent) {
-            // Remover de la ubicación actual
-            parent[key].splice(index, 1);
+      if (data.parentCategory !== undefined) {
+        if (data.parentCategory && data.parentCategory.trim() && data.parentCategory !== 'undefined') {
+          try {
+            const newParentPath = JSON.parse(data.parentCategory);
             
-            // Agregar a la nueva ubicación
-            if (!newParent.categories) newParent.categories = [];
-            newParent.categories.push(currentCategory);
+            // Verificar que el path es válido
+            if (Array.isArray(newParentPath) && newParentPath.length > 0) {
+              const newParent = navigateConfigPath(config, newParentPath);
+              
+              if (newParent && JSON.stringify(newParentPath) !== JSON.stringify(parentPath)) {
+                // Remover de la ubicación actual
+                parent[key].splice(index, 1);
+                
+                // Agregar a la nueva ubicación
+                if (!newParent.categories) newParent.categories = [];
+                newParent.categories.push(currentCategory);
+              }
+            }
+          } catch (e) {
+            console.error('Error al mover categoría:', e);
+            console.error('Valor de parentCategory:', data.parentCategory);
+            alert('Error al cambiar la categoría padre. La categoría se actualizó pero permanece en su ubicación actual.');
           }
-        } catch (e) {
-          console.error('Error al mover categoría:', e);
+        } else if (data.parentCategory === '' && parentPath.length > 0) {
+          // Mover a raíz
+          parent[key].splice(index, 1);
+          if (!config.categories) config.categories = [];
+          config.categories.push(currentCategory);
         }
-      } else if (data.parentCategory === '' && parentPath.length > 0) {
-        // Mover a raíz
-        parent[key].splice(index, 1);
-        if (!config.categories) config.categories = [];
-        config.categories.push(currentCategory);
       }
       
       savePagesJSON(config, roomId);
@@ -2372,21 +2380,27 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
       }
       
       // Si se cambió la categoría, mover la página
-      if (data.category && data.category.trim()) {
+      if (data.category && data.category.trim() && data.category !== 'undefined') {
         try {
           const newCategoryPath = JSON.parse(data.category);
-          const newParent = navigateConfigPath(config, newCategoryPath);
           
-          if (newParent && JSON.stringify(newCategoryPath) !== JSON.stringify(pageCategoryPath)) {
-            // Remover de la ubicación actual
-            parent.pages.splice(pageIndex, 1);
+          // Verificar que el path es válido
+          if (Array.isArray(newCategoryPath) && newCategoryPath.length > 0) {
+            const newParent = navigateConfigPath(config, newCategoryPath);
             
-            // Agregar a la nueva ubicación
-            if (!newParent.pages) newParent.pages = [];
-            newParent.pages.push(currentPage);
+            if (newParent && JSON.stringify(newCategoryPath) !== JSON.stringify(pageCategoryPath)) {
+              // Remover de la ubicación actual
+              parent.pages.splice(pageIndex, 1);
+              
+              // Agregar a la nueva ubicación
+              if (!newParent.pages) newParent.pages = [];
+              newParent.pages.push(currentPage);
+            }
           }
         } catch (e) {
           console.error('Error al mover página:', e);
+          console.error('Valor de category:', data.category);
+          alert('Error al cambiar la categoría. La página se actualizó pero permanece en su categoría actual.');
         }
       }
       
@@ -3515,7 +3529,14 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     const formData = {};
     fields.forEach(field => {
       const input = modal.querySelector(`#field-${field.name}`);
-      formData[field.name] = input.value.trim();
+      if (input) {
+        // Para selects, obtener el valor directamente
+        if (field.type === 'select') {
+          formData[field.name] = input.value || '';
+        } else {
+          formData[field.name] = input.value.trim();
+        }
+      }
     });
     if (onSubmit) onSubmit(formData);
     close();
