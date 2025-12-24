@@ -1735,7 +1735,7 @@ try {
       }
 
       console.log('📊 Configuración cargada para room:', roomId);
-      console.log('📊 Número de categorías:', pagesConfig?.categories?.length || 0);
+      console.log('📊 Número de carpetas:', pagesConfig?.categories?.length || 0);
       
       const pageList = document.getElementById("page-list");
       const header = document.getElementById("header");
@@ -1760,7 +1760,7 @@ try {
       tokenButton.title = hasUserToken() ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
       tokenButton.addEventListener("click", () => showTokenConfig());
       
-      // Botón para agregar (categoría o página)
+      // Botón para agregar (carpeta o página)
       const addButton = document.createElement("button");
       addButton.className = "icon-button";
       const addIcon = document.createElement("img");
@@ -1768,13 +1768,13 @@ try {
       addIcon.alt = "Agregar";
       addIcon.className = "icon-button-icon";
       addButton.appendChild(addIcon);
-      addButton.title = "Agregar categoría o página";
+      addButton.title = "Agregar carpeta o página";
       addButton.addEventListener("click", async (e) => {
         const rect = addButton.getBoundingClientRect();
         const menuItems = [
           { 
             icon: 'img/folder-close.svg', 
-            text: 'Agregar categoría', 
+            text: 'Agregar carpeta', 
             action: async () => {
               await addCategoryToPageList([], roomId);
             }
@@ -1794,7 +1794,7 @@ try {
       buttonContainer.appendChild(addButton);
       header.appendChild(buttonContainer);
 
-      // Renderizar páginas agrupadas por categorías
+      // Renderizar páginas agrupadas por carpetas
       renderPagesByCategories(pagesConfig, pageList, roomId);
     } catch (error) {
       console.error('❌ Error dentro de OBR.onReady:', error);
@@ -1826,9 +1826,9 @@ try {
   }
 }
 
-// Función recursiva para renderizar una categoría (puede tener subcategorías)
+// Función recursiva para renderizar una carpeta (puede tener subcarpetas)
 function renderCategory(category, parentElement, level = 0, roomId = null, categoryPath = []) {
-  // Verificar si la categoría tiene contenido (páginas o subcategorías)
+  // Verificar si la carpeta tiene contenido (páginas o subcarpetas)
   const hasPages = category.pages && category.pages.length > 0;
   const hasSubcategories = category.categories && category.categories.length > 0;
   
@@ -1840,14 +1840,14 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       page.url.startsWith('http')
     ) : [];
   
-  // Renderizar la categoría incluso si está vacía (para poder agregar contenido)
+  // Renderizar la carpeta incluso si está vacía (para poder agregar contenido)
   // Solo no renderizar si no tiene nombre
   if (!category.name) return;
   
   // Calcular indentación basada en el nivel
   const indent = level * 16; // 16px por nivel
   
-  // Crear contenedor de categoría
+  // Crear contenedor de carpeta
   const categoryDiv = document.createElement('div');
   categoryDiv.className = 'category-group';
   categoryDiv.dataset.categoryName = category.name;
@@ -1875,13 +1875,13 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   collapseIcon.alt = isCollapsed ? 'Expandir' : 'Colapsar';
   collapseButton.appendChild(collapseIcon);
   
-  // Título de categoría (anidamiento de heading según el nivel)
+  // Título de carpeta (anidamiento de heading según el nivel)
   const headingLevel = Math.min(level + 2, 6); // nivel 0 = h2, nivel 1 = h3, ..., máximo h6
   const categoryTitle = document.createElement(`h${headingLevel}`);
   categoryTitle.className = 'category-title';
   categoryTitle.textContent = category.name;
   
-  // Botón de menú contextual para categorías
+  // Botón de menú contextual para carpetas
   const contextMenuButton = document.createElement('button');
   contextMenuButton.className = 'category-context-menu-button icon-button';
   contextMenuButton.style.cssText = `
@@ -1912,7 +1912,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     }
   });
   
-  // Menú contextual para categorías
+  // Menú contextual para carpetas
   contextMenuButton.addEventListener('click', async (e) => {
     e.stopPropagation();
     const rect = contextMenuButton.getBoundingClientRect();
@@ -1928,7 +1928,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     const menuItems = [
       { 
         icon: 'img/folder-close.svg', 
-        text: 'Agregar categoría', 
+        text: 'Agregar carpeta', 
         action: async () => {
           await addCategoryToPageList(categoryPath, roomId);
         }
@@ -1991,14 +1991,14 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   titleContainer.appendChild(contextMenuButton);
   categoryDiv.appendChild(titleContainer);
   
-  // Contenedor de contenido (páginas y subcategorías)
+  // Contenedor de contenido (páginas y subcarpetas)
   const contentContainer = document.createElement('div');
   contentContainer.className = 'category-content';
   // Mostrar el contenido si no está colapsado Y si tiene contenido o si está vacía (para poder agregar)
   const hasContent = hasSubcategories || categoryPages.length > 0;
   contentContainer.style.display = isCollapsed ? 'none' : 'block';
   
-  // Renderizar subcategorías primero (si existen)
+  // Renderizar subcarpetas primero (si existen)
   if (hasSubcategories) {
     category.categories.forEach((subcategory, index) => {
       const subcategoryPath = [...categoryPath, 'categories', index];
@@ -2006,11 +2006,11 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     });
   }
   
-  // Contenedor de páginas de la categoría
+  // Contenedor de páginas de la carpeta
   // Siempre crear el contenedor si hay páginas válidas
-  // O si la categoría está completamente vacía (sin páginas ni subcategorías)
-  // Esto asegura que las categorías vacías anidadas se muestren correctamente
-  // PERO no crear el contenedor si solo tiene subcategorías (sin páginas)
+  // O si la carpeta está completamente vacía (sin páginas ni subcarpetas)
+  // Esto asegura que las carpetas vacías anidadas se muestren correctamente
+  // PERO no crear el contenedor si solo tiene subcarpetas (sin páginas)
   if (categoryPages.length > 0 || (!hasPages && !hasSubcategories)) {
     const pagesContainer = document.createElement('div');
     pagesContainer.className = 'category-pages';
@@ -2086,7 +2086,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         e.stopPropagation();
         const rect = pageContextMenuButton.getBoundingClientRect();
         const config = getPagesJSON(roomId) || await getDefaultJSON();
-        // Obtener el path de la categoría padre para agregar páginas en la misma categoría
+        // Obtener el path de la carpeta padre para agregar páginas en la misma carpeta
         const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
         
         // Obtener información para determinar si se puede mover arriba/abajo
@@ -2285,14 +2285,14 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   } else {
     // Si no tiene contenido, mostrar la carpeta como abierta (sin funcionalidad de colapsar)
     collapseIcon.src = 'img/folder-open.svg';
-    collapseIcon.alt = 'Categoría vacía';
+    collapseIcon.alt = 'Carpeta vacía';
   }
   
   categoryDiv.appendChild(contentContainer);
   parentElement.appendChild(categoryDiv);
 }
 
-// Función para mover categoría arriba
+// Función para mover carpeta arriba
 async function moveCategoryUp(category, categoryPath, roomId) {
   const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
   const parentPath = categoryPath.slice(0, -2);
@@ -2317,7 +2317,7 @@ async function moveCategoryUp(category, categoryPath, roomId) {
   }
 }
 
-// Función para mover categoría abajo
+// Función para mover carpeta abajo
 async function moveCategoryDown(category, categoryPath, roomId) {
   const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
   const parentPath = categoryPath.slice(0, -2);
@@ -2405,14 +2405,14 @@ function navigateConfigPath(config, path) {
   return target;
 }
 
-// Función para agregar categoría desde la vista de page-list
+// Función para agregar carpeta desde la vista de page-list
 async function addCategoryToPageList(categoryPath, roomId) {
   const currentConfig = getPagesJSON(roomId) || await getDefaultJSON();
   
   showModalForm(
-    'Agregar Categoría',
+    'Agregar Carpeta',
     [
-      { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Nombre de la categoría' }
+      { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Nombre de la carpeta' }
     ],
     async (data) => {
       const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
@@ -2442,7 +2442,7 @@ async function addCategoryToPageList(categoryPath, roomId) {
   );
 }
 
-// Función para editar categoría desde la vista de page-list
+// Función para editar carpeta desde la vista de page-list
 async function editCategoryFromPageList(category, categoryPath, roomId) {
   const currentConfig = getPagesJSON(roomId) || await getDefaultJSON();
   const categoryOptions = getCategoryOptions(currentConfig);
@@ -2467,26 +2467,26 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
   }
   
   const fields = [
-    { name: 'name', label: 'Nombre', type: 'text', required: true, value: category.name, placeholder: 'Nombre de la categoría' }
+    { name: 'name', label: 'Nombre', type: 'text', required: true, value: category.name, placeholder: 'Nombre de la carpeta' }
   ];
   
-  // Agregar selector de categoría padre si hay categorías disponibles
+  // Agregar selector de carpeta padre si hay carpetas disponibles
   if (categoryOptions.length > 0) {
     fields.push({
       name: 'parentCategory',
-      label: 'Categoría padre',
+      label: 'Carpeta padre',
       type: 'select',
       required: false,
       options: [
-        { value: '', label: 'Raíz (sin categoría padre)' },
+        { value: '', label: 'Raíz (sin carpeta padre)' },
         ...categoryOptions.filter(opt => {
-          // Excluir la categoría actual y sus hijos
+          // Excluir la carpeta actual y sus hijos
           const optPath = JSON.parse(opt.value);
-          // No permitir seleccionar la categoría actual como padre
+          // No permitir seleccionar la carpeta actual como padre
           if (JSON.stringify(optPath) === JSON.stringify(categoryPath)) {
             return false;
           }
-          // No permitir seleccionar una categoría que contiene a esta como padre
+          // No permitir seleccionar una carpeta que contiene a esta como padre
           // (evitar crear ciclos)
           if (categoryPath.length > 0 && optPath.length < categoryPath.length) {
             // Verificar si optPath es un prefijo de categoryPath
@@ -2503,26 +2503,26 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
   }
   
   showModalForm(
-    'Editar Categoría',
+    'Editar Carpeta',
     fields,
     async (data) => {
       const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
       
-      // Obtener la categoría actual
+      // Obtener la carpeta actual
       const key = categoryPath[categoryPath.length - 2];
       const index = categoryPath[categoryPath.length - 1];
       const parent = navigateConfigPath(config, parentPath);
       const currentCategory = parent && parent[key] ? parent[key][index] : null;
       
       if (!currentCategory) {
-        alert('Error: No se pudo encontrar la categoría a editar');
+        alert('Error: No se pudo encontrar la carpeta a editar');
         return;
       }
       
       // Actualizar nombre
       currentCategory.name = data.name;
       
-      // Si se cambió la categoría padre, mover la categoría
+      // Si se cambió la carpeta padre, mover la carpeta
       if (data.parentCategory !== undefined) {
         if (data.parentCategory && data.parentCategory.trim() && data.parentCategory !== 'undefined') {
           try {
@@ -2542,9 +2542,9 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
               }
             }
           } catch (e) {
-            console.error('Error al mover categoría:', e);
+            console.error('Error al mover carpeta:', e);
             console.error('Valor de parentCategory:', data.parentCategory);
-            alert('Error al cambiar la categoría padre. La categoría se actualizó pero permanece en su ubicación actual.');
+            alert('Error al cambiar la carpeta padre. La carpeta se actualizó pero permanece en su ubicación actual.');
           }
         } else if (data.parentCategory === '' && parentPath.length > 0) {
           // Mover a raíz
@@ -2577,12 +2577,12 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
     { name: 'url', label: 'URL', type: 'url', required: true, value: page.url, placeholder: 'https://...' }
   ];
   
-  // Agregar selector de categoría si hay categorías disponibles
+  // Agregar selector de carpeta si hay carpetas disponibles
   if (categoryOptions.length > 0) {
     const defaultValue = pageCategoryPathValue || categoryOptions[0].value;
     fields.push({
       name: 'category',
-      label: 'Categoría',
+      label: 'Carpeta',
       type: 'select',
       required: true,
       options: categoryOptions,
@@ -2632,7 +2632,7 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
         delete currentPage.blockTypes;
       }
       
-      // Si se cambió la categoría, mover la página
+      // Si se cambió la carpeta, mover la página
       if (data.category && data.category.trim() && data.category !== 'undefined') {
         try {
           const newCategoryPath = JSON.parse(data.category);
@@ -2653,7 +2653,7 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
         } catch (e) {
           console.error('Error al mover página:', e);
           console.error('Valor de category:', data.category);
-          alert('Error al cambiar la categoría. La página se actualizó pero permanece en su categoría actual.');
+          alert('Error al cambiar la carpeta. La página se actualizó pero permanece en su carpeta actual.');
         }
       }
       
@@ -2668,9 +2668,9 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
   );
 }
 
-// Función para eliminar categoría desde la vista de page-list
+// Función para eliminar carpeta desde la vista de page-list
 async function deleteCategoryFromPageList(category, categoryPath, roomId) {
-  if (!confirm(`¿Eliminar la categoría "${category.name}" y todo su contenido?`)) {
+  if (!confirm(`¿Eliminar la carpeta "${category.name}" y todo su contenido?`)) {
     return;
   }
   
@@ -2683,20 +2683,20 @@ async function deleteCategoryFromPageList(category, categoryPath, roomId) {
       if (index !== -1) {
         config.categories.splice(index, 1);
       } else {
-        console.error('No se encontró la categoría en el nivel raíz');
-        alert('Error: No se pudo encontrar la categoría a eliminar');
+        console.error('No se encontró la carpeta en el nivel raíz');
+        alert('Error: No se pudo encontrar la carpeta a eliminar');
         return;
       }
     } else {
-      // Eliminar de una categoría padre
+      // Eliminar de una carpeta padre
       const key = categoryPath[categoryPath.length - 2];
       const index = categoryPath[categoryPath.length - 1];
       const parent = navigateConfigPath(config, categoryPath.slice(0, -2));
       if (parent && parent[key] && parent[key][index]) {
         parent[key].splice(index, 1);
       } else {
-        console.error('No se encontró la categoría en el path:', categoryPath);
-        alert('Error: No se pudo encontrar la categoría a eliminar');
+        console.error('No se encontró la carpeta en el path:', categoryPath);
+        alert('Error: No se pudo encontrar la carpeta a eliminar');
         return;
       }
     }
@@ -2709,8 +2709,8 @@ async function deleteCategoryFromPageList(category, categoryPath, roomId) {
       renderPagesByCategories(config, pageList, roomId);
     }
   } catch (error) {
-    console.error('Error al eliminar categoría:', error);
-    alert('Error al eliminar la categoría: ' + error.message);
+    console.error('Error al eliminar carpeta:', error);
+    alert('Error al eliminar la carpeta: ' + error.message);
   }
 }
 
@@ -2753,7 +2753,7 @@ async function deletePageFromPageList(page, pageCategoryPath, roomId) {
   }
 }
 
-// Función auxiliar para obtener todas las categorías como opciones
+// Función auxiliar para obtener todas las carpetas como opciones
 function getCategoryOptions(config, currentPath = [], level = 0) {
   const options = [];
   if (!config.categories) return options;
@@ -2767,7 +2767,7 @@ function getCategoryOptions(config, currentPath = [], level = 0) {
       label: `${indent}${category.name}`
     });
     
-    // Agregar subcategorías recursivamente
+    // Agregar subcarpetas recursivamente
     if (category.categories && category.categories.length > 0) {
       const subOptions = getCategoryOptions({ categories: category.categories }, fullPath, level + 1);
       options.push(...subOptions);
@@ -2777,7 +2777,7 @@ function getCategoryOptions(config, currentPath = [], level = 0) {
   return options;
 }
 
-// Función para agregar página desde la vista de page-list con selector de categoría
+// Función para agregar página desde la vista de page-list con selector de carpeta
 async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId) {
   const currentConfig = getPagesJSON(roomId) || await getDefaultJSON();
   const categoryOptions = getCategoryOptions(currentConfig);
@@ -2788,12 +2788,12 @@ async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId
     { name: 'url', label: 'URL', type: 'url', required: true, placeholder: 'https://...' }
   ];
   
-  // Agregar selector de categoría si hay categorías disponibles
+  // Agregar selector de carpeta si hay carpetas disponibles
   if (categoryOptions.length > 0) {
     const defaultCategoryValue = defaultCategoryPath.length > 0 ? JSON.stringify(defaultCategoryPath) : categoryOptions[0].value;
     fields.push({
       name: 'category',
-      label: 'Categoría',
+      label: 'Carpeta',
       type: 'select',
       required: true,
       options: categoryOptions,
@@ -2822,26 +2822,26 @@ async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId
           : data.blockTypes.trim();
       }
       
-      // Determinar el path de la categoría
+      // Determinar el path de la carpeta
       let targetCategoryPath = defaultCategoryPath;
       if (data.category && data.category.trim()) {
         try {
           targetCategoryPath = JSON.parse(data.category);
         } catch (e) {
-          console.error('Error al parsear categoría:', e);
+          console.error('Error al parsear carpeta:', e);
           console.error('Valor recibido:', data.category);
         }
       }
       
       if (targetCategoryPath.length === 0) {
-        // Si no hay categorías, crear una
+        // Si no hay carpetas, crear una
         if (!config.categories || config.categories.length === 0) {
           config.categories = [{ name: 'General', pages: [], categories: [] }];
         }
         if (!config.categories[0].pages) config.categories[0].pages = [];
         config.categories[0].pages.unshift(newPage); // Agregar al final
       } else {
-        // Agregar dentro de la categoría seleccionada
+        // Agregar dentro de la carpeta seleccionada
         const parent = navigateConfigPath(config, targetCategoryPath);
         if (parent) {
           if (!parent.pages) parent.pages = [];
@@ -2871,7 +2871,7 @@ async function addPageToPageList(categoryPath, roomId) {
   }
 }
 
-// Función simple para agregar página en una categoría específica (sin selector)
+// Función simple para agregar página en una carpeta específica (sin selector)
 async function addPageToPageListSimple(categoryPath, roomId) {
   const currentConfig = getPagesJSON(roomId) || await getDefaultJSON();
   
@@ -2897,7 +2897,7 @@ async function addPageToPageListSimple(categoryPath, roomId) {
       }
       
       if (categoryPath.length === 0) {
-        // Si no hay categorías, crear una
+        // Si no hay carpetas, crear una
         if (!config.categories || config.categories.length === 0) {
           config.categories = [{ name: 'General', pages: [], categories: [] }];
         }
@@ -2923,7 +2923,7 @@ async function addPageToPageListSimple(categoryPath, roomId) {
   );
 }
 
-// Función para renderizar páginas agrupadas por categorías
+// Función para renderizar páginas agrupadas por carpetas
 function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
   // Mostrar loading
   pageList.innerHTML = '<div class="loading-state" style="text-align: center; padding: 40px; color: #999;"><div style="font-size: 24px; margin-bottom: 12px;">⏳</div><div>Cargando páginas...</div></div>';
@@ -2948,11 +2948,11 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
           font-size: 14px;
           font-weight: 600;
           transition: all 0.2s;
-        ">➕ Agregar primera categoría</button>
+        ">➕ Agregar primera carpeta</button>
       `;
       pageList.appendChild(emptyState);
       
-      // Botón para agregar primera categoría
+      // Botón para agregar primera carpeta
       const addFirstCategoryBtn = emptyState.querySelector('#add-first-category');
       if (addFirstCategoryBtn) {
         addFirstCategoryBtn.addEventListener('click', async () => {
@@ -3952,6 +3952,15 @@ function createContextMenu(items, position, onClose) {
     font-size: 14px;
   `;
 
+  // Cerrar al hacer click fuera
+  const closeMenu = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.remove();
+      document.removeEventListener('click', closeMenu);
+      if (onClose) onClose();
+    }
+  };
+
   items.forEach((item, index) => {
     if (item.separator) {
       const separator = document.createElement('div');
@@ -4023,15 +4032,6 @@ function createContextMenu(items, position, onClose) {
 
     menu.appendChild(menuItem);
   });
-
-  // Cerrar al hacer click fuera
-  const closeMenu = (e) => {
-    if (!menu.contains(e.target)) {
-      menu.remove();
-      document.removeEventListener('click', closeMenu);
-      if (onClose) onClose();
-    }
-  };
 
   // Usar setTimeout para evitar que el click que abrió el menú lo cierre inmediatamente
   setTimeout(() => {
@@ -4378,7 +4378,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
       margin-bottom: 2px;
     `;
 
-    // Toggle para categorías con hijos
+    // Toggle para carpetas con hijos
     if (isCategory && hasChildren) {
       const toggle = document.createElement('button');
       toggle.className = 'editor-toggle';
@@ -4526,7 +4526,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
 
       if (isCategory) {
         menuItems.push(
-          { icon: '➕', text: 'Agregar categoría', action: () => addCategory(path) },
+          { icon: '➕', text: 'Agregar carpeta', action: () => addCategory(path) },
           { icon: '➕', text: 'Agregar página', action: () => addPage(path) },
           { separator: true },
           { icon: '✏️', text: 'Editar', action: () => editCategory(item, path) },
@@ -4555,7 +4555,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
     `;
 
     if (isCategory && hasChildren) {
-      // Renderizar subcategorías primero
+      // Renderizar subcarpetas primero
       if (item.categories && item.categories.length > 0) {
         item.categories.forEach((subcat, index) => {
           const newPath = path.length > 0 ? [...path, 'categories', index] : ['categories', index];
@@ -4614,9 +4614,9 @@ async function showVisualEditor(pagesConfig, roomId = null) {
   // Funciones CRUD
   const addCategory = (parentPath = []) => {
     showModalForm(
-      'Agregar Categoría',
+      'Agregar Carpeta',
       [
-        { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Nombre de la categoría' }
+        { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Nombre de la carpeta' }
       ],
       (data) => {
         const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
@@ -4627,7 +4627,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
           if (!config.categories) config.categories = [];
           config.categories.push(newCategory);
         } else {
-          // Agregar dentro de una categoría
+          // Agregar dentro de una carpeta
           const parent = navigatePath(config, parentPath);
           if (parent) {
             if (!parent.categories) parent.categories = [];
@@ -4664,14 +4664,14 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         }
         
         if (parentPath.length === 0) {
-          // Si no hay categorías, crear una
+          // Si no hay carpetas, crear una
           if (!config.categories || config.categories.length === 0) {
             config.categories = [{ name: 'General', pages: [], categories: [] }];
           }
           if (!config.categories[0].pages) config.categories[0].pages = [];
           config.categories[0].pages.push(newPage);
         } else {
-          // Agregar dentro de una categoría
+          // Agregar dentro de una carpeta
           const parent = navigatePath(config, parentPath);
           if (parent) {
             if (!parent.pages) parent.pages = [];
@@ -4687,7 +4687,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
 
   const editCategory = (category, path) => {
     showModalForm(
-      'Editar Categoría',
+      'Editar Carpeta',
       [
         { name: 'name', label: 'Nombre', type: 'text', required: true, value: category.name }
       ],
@@ -4738,7 +4738,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
   };
 
   const deleteCategory = (path) => {
-    if (!confirm('¿Eliminar esta categoría y todo su contenido?')) return;
+    if (!confirm('¿Eliminar esta carpeta y todo su contenido?')) return;
     const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
     const key = path[path.length - 2];
     const index = path[path.length - 1];
@@ -4768,7 +4768,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
     const config = getPagesJSON(roomId) || currentConfig;
     contentArea.innerHTML = '';
 
-    // Renderizar categorías
+    // Renderizar carpetas
     if (config.categories && config.categories.length > 0) {
       config.categories.forEach((category, index) => {
         renderEditorItem(category, contentArea, 0, ['categories', index], false);
@@ -4781,8 +4781,8 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         color: #666;
       `;
       emptyState.innerHTML = `
-        <p style="margin-bottom: 12px;">No hay categorías</p>
-        <p style="font-size: 12px; color: #555;">Haz clic en el botón + para agregar una categoría</p>
+        <p style="margin-bottom: 12px;">No hay carpetas</p>
+        <p style="font-size: 12px; color: #555;">Haz clic en el botón + para agregar una carpeta</p>
       `;
       contentArea.appendChild(emptyState);
     }
