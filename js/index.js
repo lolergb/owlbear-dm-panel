@@ -1669,76 +1669,66 @@ try {
       
       // Cargar configuración desde JSON (específica para esta room)
       log('🔍 Intentando cargar configuración para room:', roomId);
-      let pagesConfig = getPagesJSON(roomId);
       
-      // Si no se encuentra configuración para este roomId, buscar cualquier configuración guardada
-      if (!pagesConfig) {
-        log('⚠️ No se encontró configuración para roomId:', roomId);
-        const allConfigs = getAllRoomConfigs();
-        const configKeys = Object.keys(allConfigs);
-        
-        if (configKeys.length > 0) {
-          // Usar la configuración más reciente (la última en el objeto, que suele ser la más reciente)
-          // O mejor, usar la primera que encontremos que tenga contenido válido
-          let foundConfig = null;
-          for (const key of configKeys) {
-            const config = allConfigs[key];
-            if (config && config.categories && config.categories.length > 0) {
-              foundConfig = config;
-              log('📋 Usando configuración guardada de roomId:', key);
-              break;
-            }
-          }
+      // Obtener todas las configuraciones guardadas
+      const allConfigs = getAllRoomConfigs();
+      const configKeys = Object.keys(allConfigs);
+      
+      // Función para contar el contenido de una configuración
+      const countContent = (config) => {
+        if (!config || !config.categories) return 0;
+        const countRecursive = (cats) => {
+          if (!cats) return 0;
+          return cats.reduce((total, cat) => {
+            const pages = (cat.pages && cat.pages.length) || 0;
+            const subcats = (cat.categories && cat.categories.length) || 0;
+            return total + pages + subcats + (subcats > 0 ? countRecursive(cat.categories) : 0);
+          }, 0);
+        };
+        return countRecursive(config.categories);
+      };
+      
+      // Buscar la configuración con más contenido (evitar las por defecto vacías)
+      let bestConfig = null;
+      let bestConfigKey = null;
+      let maxContent = 0;
+      
+      // Verificar todas las configuraciones, incluso la del roomId actual
+      for (const key of configKeys) {
+        const config = allConfigs[key];
+        if (config && config.categories && config.categories.length > 0) {
+          const contentCount = countContent(config);
           
-          if (foundConfig) {
-            pagesConfig = foundConfig;
-            // Guardar esta configuración con el roomId actual para futuras cargas
-            savePagesJSON(pagesConfig, roomId);
-            log('✅ Configuración migrada al roomId actual:', roomId);
-          } else {
-            log('📝 No se encontró ninguna configuración válida, creando una nueva para room:', roomId);
-            pagesConfig = await getDefaultJSON();
-            savePagesJSON(pagesConfig, roomId);
-            log('✅ Configuración por defecto creada para room:', roomId);
+          // Evitar usar la configuración "default" si hay otras opciones con contenido
+          const isDefault = key === 'default';
+          
+          // Preferir configuraciones con contenido sobre las vacías
+          // Si encontramos una con contenido, preferirla sobre "default" vacía
+          if (contentCount > maxContent || (contentCount > 0 && bestConfigKey === 'default' && !isDefault)) {
+            maxContent = contentCount;
+            bestConfig = config;
+            bestConfigKey = key;
           }
-        } else {
-          log('📝 No se encontró ninguna configuración guardada, creando una nueva para room:', roomId);
-          pagesConfig = await getDefaultJSON();
-          savePagesJSON(pagesConfig, roomId);
-          log('✅ Configuración por defecto creada para room:', roomId);
         }
-      } else {
-        log('✅ Configuración encontrada para room:', roomId);
       }
       
-      // Verificar que la configuración cargada no sea la por defecto vacía
-      if (pagesConfig && pagesConfig.categories && pagesConfig.categories.length > 0) {
-        const firstCategory = pagesConfig.categories[0];
-        // Si solo tiene una categoría "General" vacía, podría ser la por defecto
-        if (pagesConfig.categories.length === 1 && 
-            firstCategory.name === 'General' && 
-            (!firstCategory.pages || firstCategory.pages.length === 0) &&
-            (!firstCategory.categories || firstCategory.categories.length === 0)) {
-          log('⚠️ La configuración parece ser la por defecto vacía, buscando otras configuraciones...');
-          const allConfigs = getAllRoomConfigs();
-          const configKeys = Object.keys(allConfigs);
-          for (const key of configKeys) {
-            const config = allConfigs[key];
-            if (config && config.categories && config.categories.length > 0) {
-              // Verificar si esta configuración tiene más contenido
-              const hasContent = config.categories.some(cat => 
-                (cat.pages && cat.pages.length > 0) || 
-                (cat.categories && cat.categories.length > 0)
-              );
-              if (hasContent) {
-                log('📋 Encontrada configuración con contenido, usando:', key);
-                pagesConfig = config;
-                savePagesJSON(pagesConfig, roomId);
-                break;
-              }
-            }
-          }
+      // Si encontramos una configuración con contenido, usarla
+      if (bestConfig && maxContent > 0) {
+        log('📋 Usando la configuración con más contenido de:', bestConfigKey, '(contenido:', maxContent, ')');
+        pagesConfig = bestConfig;
+        // Si la mejor configuración no es para el roomId actual, migrarla
+        if (bestConfigKey !== roomId) {
+          savePagesJSON(pagesConfig, roomId);
+          log('✅ Configuración migrada al roomId actual:', roomId);
+        } else {
+          log('✅ Configuración encontrada para room:', roomId);
         }
+      } else {
+        // Si no hay ninguna configuración con contenido, crear una nueva por defecto
+        log('📝 No se encontró ninguna configuración con contenido, creando una nueva para room:', roomId);
+        pagesConfig = await getDefaultJSON();
+        savePagesJSON(pagesConfig, roomId);
+        log('✅ Configuración por defecto creada para room:', roomId);
       }
 
       console.log('📊 Configuración cargada para room:', roomId);
