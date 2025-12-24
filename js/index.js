@@ -2331,8 +2331,11 @@ function setupDragAndDrop(element, roomId) {
   
   // Drag over - mostrar indicador
   element.addEventListener('dragover', (e) => {
+    // Siempre prevenir el comportamiento por defecto para permitir drop
+    e.preventDefault();
+    
     if (!dragState.draggedElement || dragState.draggedElement === element) {
-      e.preventDefault();
+      e.dataTransfer.dropEffect = 'none';
       return;
     }
     
@@ -2344,17 +2347,16 @@ function setupDragAndDrop(element, roomId) {
     const currentParentPath = currentPath.slice(0, -2);
     
     if (JSON.stringify(draggedParentPath) !== JSON.stringify(currentParentPath)) {
-      e.preventDefault();
+      e.dataTransfer.dropEffect = 'none';
       return;
     }
     
     // Solo permitir mover elementos del mismo tipo
     if (dragState.draggedType !== currentType) {
-      e.preventDefault();
+      e.dataTransfer.dropEffect = 'none';
       return;
     }
     
-    e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     
     // Determinar si insertar antes o después
@@ -2421,8 +2423,15 @@ function setupDragAndDrop(element, roomId) {
     e.preventDefault();
     e.stopPropagation();
     
+    console.log('🎯 Drop event triggered', {
+      draggedElement: dragState.draggedElement,
+      targetElement: element,
+      draggedType: dragState.draggedType,
+      draggedPath: dragState.draggedPath
+    });
+    
     if (!dragState.draggedElement || dragState.draggedElement === element) {
-      // Restaurar opacidad si no se puede hacer drop
+      console.log('❌ Drop cancelled: no dragged element or same element');
       if (dragState.draggedElement) {
         dragState.draggedElement.style.opacity = '';
       }
@@ -2432,12 +2441,24 @@ function setupDragAndDrop(element, roomId) {
     const currentType = element.dataset.dragType;
     const currentPath = JSON.parse(element.dataset.categoryPath || '[]');
     
+    console.log('📊 Drop validation', {
+      currentType,
+      currentPath,
+      draggedType: dragState.draggedType,
+      draggedPath: dragState.draggedPath
+    });
+    
     // Verificar que sea el mismo nivel y tipo
     const draggedParentPath = dragState.draggedPath.slice(0, -2);
     const currentParentPath = currentPath.slice(0, -2);
     
     if (JSON.stringify(draggedParentPath) !== JSON.stringify(currentParentPath) || dragState.draggedType !== currentType) {
-      // Restaurar opacidad si no se puede hacer drop
+      console.log('❌ Drop cancelled: different level or type', {
+        draggedParentPath,
+        currentParentPath,
+        draggedType: dragState.draggedType,
+        currentType
+      });
       if (dragState.draggedElement) {
         dragState.draggedElement.style.opacity = '';
       }
@@ -2453,7 +2474,7 @@ function setupDragAndDrop(element, roomId) {
     // Obtener el contenedor padre
     const parent = navigateConfigPath(config, draggedParentPath);
     if (!parent) {
-      // Restaurar opacidad si no se puede hacer drop
+      console.log('❌ Drop cancelled: parent not found');
       if (dragState.draggedElement) {
         dragState.draggedElement.style.opacity = '';
       }
@@ -2473,8 +2494,15 @@ function setupDragAndDrop(element, roomId) {
     const currentIndex = siblings.indexOf(element);
     const draggedIndexInSiblings = siblings.indexOf(dragState.draggedElement);
     
+    console.log('📐 Index calculation', {
+      currentIndex,
+      draggedIndexInSiblings,
+      siblingsCount: siblings.length
+    });
+    
     // Si es el mismo índice, no hacer nada
     if (currentIndex === draggedIndexInSiblings) {
+      console.log('⚠️ Drop cancelled: same index');
       if (dragState.draggedElement) {
         dragState.draggedElement.style.opacity = '';
       }
@@ -2504,6 +2532,12 @@ function setupDragAndDrop(element, roomId) {
     // Mover en el JSON
     const key = dragState.draggedType === 'category' ? 'categories' : 'pages';
     if (!parent[key] || !parent[key][draggedIndexInSiblings]) {
+      console.log('❌ Drop cancelled: invalid parent key or index', {
+        key,
+        hasKey: !!parent[key],
+        arrayLength: parent[key]?.length,
+        draggedIndexInSiblings
+      });
       if (dragState.draggedElement) {
         dragState.draggedElement.style.opacity = '';
       }
@@ -2518,12 +2552,21 @@ function setupDragAndDrop(element, roomId) {
       finalIndex = newIndex - 1;
     }
     
+    console.log('🔄 Moving item', {
+      from: draggedIndexInSiblings,
+      to: finalIndex,
+      newIndex,
+      key
+    });
+    
     // Mover el elemento
     parent[key].splice(draggedIndexInSiblings, 1);
     parent[key].splice(finalIndex, 0, item);
     
     // Guardar configuración
     savePagesJSON(config, currentRoomId);
+    
+    console.log('✅ Item moved successfully');
     
     // Recargar vista
     const pageList = document.getElementById("page-list");
