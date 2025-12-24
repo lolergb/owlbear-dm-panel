@@ -1714,16 +1714,28 @@ try {
           }
         }
       });
-      // Botón para editar JSON
-      const adminButton = document.createElement("button");
-      adminButton.className = "icon-button admin-button";
+      // Botón para editar JSON (editor visual)
+      const visualEditorButton = document.createElement("button");
+      visualEditorButton.className = "icon-button admin-button";
+      const visualIcon = document.createElement("img");
+      visualIcon.src = "img/icon-json.svg";
+      visualIcon.alt = "Editor Visual";
+      visualIcon.className = "icon-button-icon";
+      visualEditorButton.appendChild(visualIcon);
+      visualEditorButton.title = "Editor Visual";
+      visualEditorButton.addEventListener("click", async () => await showVisualEditor(pagesConfig, roomId));
+      
+      // Botón para editar JSON (editor de texto)
+      const jsonEditorButton = document.createElement("button");
+      jsonEditorButton.className = "icon-button";
       const jsonIcon = document.createElement("img");
       jsonIcon.src = "img/icon-json.svg";
       jsonIcon.alt = "Editar JSON";
       jsonIcon.className = "icon-button-icon";
-      adminButton.appendChild(jsonIcon);
-      adminButton.title = "Editar JSON";
-      adminButton.addEventListener("click", async () => await showVisualEditor(pagesConfig, roomId));
+      jsonEditorButton.appendChild(jsonIcon);
+      jsonEditorButton.title = "Editar JSON";
+      jsonEditorButton.style.opacity = "0.7";
+      jsonEditorButton.addEventListener("click", async () => await showJSONEditor(pagesConfig, roomId));
       
       // Botón para configurar token de Notion
       const tokenButton = document.createElement("button");
@@ -1738,7 +1750,8 @@ try {
       
       buttonContainer.appendChild(tokenButton);
       buttonContainer.appendChild(clearCacheButton);
-      buttonContainer.appendChild(adminButton);
+      buttonContainer.appendChild(visualEditorButton);
+      buttonContainer.appendChild(jsonEditorButton);
       header.appendChild(buttonContainer);
 
       // Renderizar páginas agrupadas por categorías
@@ -1774,7 +1787,7 @@ try {
 }
 
 // Función recursiva para renderizar una categoría (puede tener subcategorías)
-function renderCategory(category, parentElement, level = 0, roomId = null) {
+function renderCategory(category, parentElement, level = 0, roomId = null, categoryPath = []) {
   // Verificar si la categoría tiene contenido (páginas o subcategorías)
   const hasPages = category.pages && category.pages.length > 0;
   const hasSubcategories = category.categories && category.categories.length > 0;
@@ -1817,7 +1830,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
   const collapseStateKey = `category-collapsed-${category.name}-level-${level}`;
   const isCollapsed = localStorage.getItem(collapseStateKey) === 'true';
   
-  collapseIcon.src = isCollapsed ? 'img/icon-closed.svg' : 'img/icon-open.svg';
+  collapseIcon.src = isCollapsed ? 'img/folder-close.svg' : 'img/folder-open.svg';
   collapseIcon.alt = isCollapsed ? 'Expandir' : 'Colapsar';
   collapseButton.appendChild(collapseIcon);
   
@@ -1827,8 +1840,59 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
   categoryTitle.className = 'category-title';
   categoryTitle.textContent = category.name;
   
+  // Botón de menú contextual para categorías
+  const contextMenuButton = document.createElement('button');
+  contextMenuButton.className = 'category-context-menu-button';
+  contextMenuButton.style.cssText = `
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-left: auto;
+  `;
+  const contextMenuIcon = document.createElement('img');
+  contextMenuIcon.src = 'img/icon-contextualmenu.svg';
+  contextMenuIcon.style.width = '16px';
+  contextMenuIcon.style.height = '16px';
+  contextMenuButton.appendChild(contextMenuIcon);
+  contextMenuButton.title = 'Menú';
+  
+  // Mostrar menú contextual al hover
+  titleContainer.addEventListener('mouseenter', () => {
+    contextMenuButton.style.opacity = '1';
+  });
+  titleContainer.addEventListener('mouseleave', () => {
+    contextMenuButton.style.opacity = '0';
+  });
+  
+  // Menú contextual para categorías
+  contextMenuButton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const rect = contextMenuButton.getBoundingClientRect();
+    const menuItems = [
+      { 
+        icon: '📝', 
+        text: 'Editar JSON', 
+        action: async () => {
+          const config = getPagesJSON(roomId) || await getDefaultJSON();
+          await showJSONEditor(config, roomId);
+        }
+      }
+    ];
+    createContextMenu(menuItems, { x: rect.right, y: rect.top });
+  });
+  
   titleContainer.appendChild(collapseButton);
   titleContainer.appendChild(categoryTitle);
+  titleContainer.appendChild(contextMenuButton);
   categoryDiv.appendChild(titleContainer);
   
   // Contenedor de contenido (páginas y subcategorías)
@@ -1838,8 +1902,9 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
   
   // Renderizar subcategorías primero (si existen)
   if (hasSubcategories) {
-    category.categories.forEach(subcategory => {
-      renderCategory(subcategory, contentContainer, level + 1, roomId);
+    category.categories.forEach((subcategory, index) => {
+      const subcategoryPath = [...categoryPath, 'categories', index];
+      renderCategory(subcategory, contentContainer, level + 1, roomId, subcategoryPath);
     });
   }
   
@@ -1874,11 +1939,67 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
         margin-bottom: 8px;
         background: ${CSS_VARS.bg};
         border: 1px solid ${CSS_VARS.border};
+        position: relative;
       `;
       
       // Placeholder para el icono (se cargará después)
       const placeholderColor = generateColorFromString(pageId || page.name);
       const placeholderInitial = (page.name || '?')[0].toUpperCase();
+      
+      // Botón de menú contextual para páginas
+      const pageContextMenuButton = document.createElement('button');
+      pageContextMenuButton.className = 'page-context-menu-button';
+      pageContextMenuButton.style.cssText = `
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        opacity: 0;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        z-index: 10;
+      `;
+      const pageContextMenuIcon = document.createElement('img');
+      pageContextMenuIcon.src = 'img/icon-contextualmenu.svg';
+      pageContextMenuIcon.style.width = '16px';
+      pageContextMenuIcon.style.height = '16px';
+      pageContextMenuButton.appendChild(pageContextMenuIcon);
+      pageContextMenuButton.title = 'Menú';
+      
+      // Mostrar menú contextual al hover
+      button.addEventListener('mouseenter', () => {
+        pageContextMenuButton.style.opacity = '1';
+      });
+      button.addEventListener('mouseleave', () => {
+        pageContextMenuButton.style.opacity = '0';
+      });
+      
+      // Menú contextual para páginas
+      pageContextMenuButton.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const rect = pageContextMenuButton.getBoundingClientRect();
+        const config = getPagesJSON(roomId) || await getDefaultJSON();
+        const menuItems = [
+          { 
+            icon: '📝', 
+            text: 'Editar JSON', 
+            action: async () => {
+              await showJSONEditor(config, roomId);
+            }
+          }
+        ];
+        createContextMenu(menuItems, { x: rect.right, y: rect.top });
+      });
+      
       button.innerHTML = `
         <div class="page-button-inner">
           <div class="page-icon-placeholder" style="background: ${placeholderColor};">${placeholderInitial}</div>
@@ -1886,6 +2007,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
           ${linkIconHtml}
         </div>
       `;
+      button.appendChild(pageContextMenuButton);
       
       // Hover effect
       button.addEventListener('mouseenter', () => {
@@ -1895,8 +2017,12 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
         button.style.background = CSS_VARS.bg;
       });
       
-      // Click handler
-      button.addEventListener('click', async () => {
+      // Click handler (no ejecutar si se hace click en el menú contextual)
+      button.addEventListener('click', async (e) => {
+        // No abrir la página si se hace click en el menú contextual
+        if (e.target.closest('.page-context-menu-button')) {
+          return;
+        }
         // Obtener blockTypes del objeto page si existe
         const blockTypes = page.blockTypes || null;
         await loadPageContent(page.url, page.name, page.selector || '', blockTypes);
@@ -1904,42 +2030,50 @@ function renderCategory(category, parentElement, level = 0, roomId = null) {
       
       pagesContainer.appendChild(button);
       
-      buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml });
+      buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml, pageContextMenuButton });
     });
     
-    // Cargar iconos en paralelo después de renderizar todos los botones
-    if (buttonsData.length > 0) {
-      Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml }) => {
-        // Solo intentar cargar el icono si tenemos un pageId válido
-        if (!pageId || pageId === 'null') {
-          return; // Saltar si no hay pageId válido
-        }
-        try {
-          const icon = await fetchPageIcon(pageId);
-          const iconHtml = renderPageIcon(icon, pageName, pageId);
-          button.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-              ${iconHtml}
-              <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
-              ${linkIconHtml}
-            </div>
-          `;
-        } catch (e) {
-          console.warn('No se pudo obtener el icono para:', pageName, e);
-        }
-      })).catch(e => {
-        console.error('Error al cargar iconos:', e);
-      });
-    }
+      // Cargar iconos en paralelo después de renderizar todos los botones
+      if (buttonsData.length > 0) {
+        Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml, pageContextMenuButton }) => {
+          // Solo intentar cargar el icono si tenemos un pageId válido
+          if (!pageId || pageId === 'null') {
+            return; // Saltar si no hay pageId válido
+          }
+          try {
+            const icon = await fetchPageIcon(pageId);
+            const iconHtml = renderPageIcon(icon, pageName, pageId);
+            button.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+                ${iconHtml}
+                <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
+                ${linkIconHtml}
+              </div>
+            `;
+            // Re-agregar el botón de menú contextual después de actualizar el HTML
+            if (pageContextMenuButton) {
+              button.appendChild(pageContextMenuButton);
+            }
+          } catch (e) {
+            console.warn('No se pudo obtener el icono para:', pageName, e);
+          }
+        })).catch(e => {
+          console.error('Error al cargar iconos:', e);
+        });
+      }
     
     contentContainer.appendChild(pagesContainer);
   }
   
   // Manejar colapso/expansión
-  titleContainer.addEventListener('click', () => {
+  titleContainer.addEventListener('click', (e) => {
+    // No colapsar si se hace click en el menú contextual
+    if (e.target.closest('.category-context-menu-button')) {
+      return;
+    }
     const newIsCollapsed = contentContainer.style.display === 'none';
     contentContainer.style.display = newIsCollapsed ? 'block' : 'none';
-    collapseIcon.src = newIsCollapsed ? 'img/icon-open.svg' : 'img/icon-closed.svg';
+    collapseIcon.src = newIsCollapsed ? 'img/folder-open.svg' : 'img/folder-close.svg';
     collapseIcon.alt = newIsCollapsed ? 'Colapsar' : 'Expandir';
     localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
   });
@@ -1968,8 +2102,9 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
     }
   
     // Mantener el orden original del JSON (sin ordenar)
-    pagesConfig.categories.forEach(category => {
-      renderCategory(category, pageList, 0, roomId);
+    pagesConfig.categories.forEach((category, index) => {
+      const categoryPath = ['categories', index];
+      renderCategory(category, pageList, 0, roomId, categoryPath);
     });
   }, 0); // Permitir que el DOM se actualice
 }
