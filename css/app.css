@@ -181,14 +181,6 @@ h1#page-title {
   cursor: grabbing;
 }
 
-.category-group[draggable="true"] {
-  cursor: grab;
-}
-
-.category-group[draggable="true"]:active {
-  cursor: grabbing;
-}
-
 .category-title-container {
   display: flex;
   align-items: center;

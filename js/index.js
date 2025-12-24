@@ -1852,9 +1852,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   categoryDiv.className = 'category-group';
   categoryDiv.dataset.categoryName = category.name;
   categoryDiv.dataset.level = Math.min(level, 5);
-  categoryDiv.draggable = true;
   categoryDiv.dataset.categoryPath = JSON.stringify(categoryPath);
-  categoryDiv.dataset.dragType = 'category';
   
   // Contenedor del título con botón de colapsar
   const titleContainer = document.createElement('div');
@@ -1918,6 +1916,15 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   contextMenuButton.addEventListener('click', async (e) => {
     e.stopPropagation();
     const rect = contextMenuButton.getBoundingClientRect();
+    
+    // Obtener información para determinar si se puede mover arriba/abajo
+    const config = getPagesJSON(roomId) || await getDefaultJSON();
+    const parentPath = categoryPath.slice(0, -2);
+    const parent = navigateConfigPath(config, parentPath);
+    const index = categoryPath[categoryPath.length - 1];
+    const canMoveUp = index > 0;
+    const canMoveDown = parent && parent.categories && index < parent.categories.length - 1;
+    
     const menuItems = [
       { 
         icon: 'img/folder-close.svg', 
@@ -1943,14 +1950,39 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         }
       },
       { separator: true },
-      { 
-        icon: 'img/icon-trash.svg', 
-        text: 'Eliminar', 
-        action: async () => {
-          await deleteCategoryFromPageList(category, categoryPath, roomId);
-        }
-      },
     ];
+    
+    // Agregar opciones de mover si es posible
+    if (canMoveUp || canMoveDown) {
+      if (canMoveUp) {
+        menuItems.push({
+          icon: 'img/icon-arrow.svg',
+          text: 'Mover arriba',
+          action: async () => {
+            await moveCategoryUp(category, categoryPath, roomId);
+          }
+        });
+      }
+      if (canMoveDown) {
+        menuItems.push({
+          icon: 'img/icon-arrow.svg',
+          text: 'Mover abajo',
+          action: async () => {
+            await moveCategoryDown(category, categoryPath, roomId);
+          }
+        });
+      }
+      menuItems.push({ separator: true });
+    }
+    
+    menuItems.push({
+      icon: 'img/icon-trash.svg', 
+      text: 'Eliminar', 
+      action: async () => {
+        await deleteCategoryFromPageList(category, categoryPath, roomId);
+      }
+    });
+    
     createContextMenu(menuItems, { x: rect.right, y: rect.top });
   });
   
@@ -2002,12 +2034,10 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       
       const button = document.createElement('button');
       button.className = 'page-button';
-      button.draggable = true;
       button.dataset.url = page.url;
       button.dataset.selector = page.selector || '';
       button.dataset.pageIndex = index;
       button.dataset.categoryPath = JSON.stringify(categoryPath);
-      button.dataset.dragType = 'page';
       button.style.cssText = `
         width: 100%;
         margin-bottom: 8px;
@@ -2058,6 +2088,13 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         const config = getPagesJSON(roomId) || await getDefaultJSON();
         // Obtener el path de la categoría padre para agregar páginas en la misma categoría
         const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
+        
+        // Obtener información para determinar si se puede mover arriba/abajo
+        const parent = navigateConfigPath(config, pageCategoryPath);
+        const pageIndex = parent && parent.pages ? parent.pages.findIndex(p => p.name === page.name && p.url === page.url) : -1;
+        const canMoveUp = pageIndex > 0;
+        const canMoveDown = pageIndex !== -1 && parent && parent.pages && pageIndex < parent.pages.length - 1;
+        
         const menuItems = [
           { 
             icon: 'img/icon-edit.svg', 
@@ -2067,14 +2104,39 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
             }
           },
           { separator: true },
-          { 
-            icon: 'img/icon-trash.svg', 
-            text: 'Eliminar', 
-            action: async () => {
-              await deletePageFromPageList(page, pageCategoryPath, roomId);
-            }
-          },
         ];
+        
+        // Agregar opciones de mover si es posible
+        if (canMoveUp || canMoveDown) {
+          if (canMoveUp) {
+            menuItems.push({
+              icon: 'img/icon-arrow.svg',
+              text: 'Mover arriba',
+              action: async () => {
+                await movePageUp(page, pageCategoryPath, roomId);
+              }
+            });
+          }
+          if (canMoveDown) {
+            menuItems.push({
+              icon: 'img/icon-arrow.svg',
+              text: 'Mover abajo',
+              action: async () => {
+                await movePageDown(page, pageCategoryPath, roomId);
+              }
+            });
+          }
+          menuItems.push({ separator: true });
+        }
+        
+        menuItems.push({
+          icon: 'img/icon-trash.svg', 
+          text: 'Eliminar', 
+          action: async () => {
+            await deletePageFromPageList(page, pageCategoryPath, roomId);
+          }
+        });
+        
         createContextMenu(menuItems, { x: rect.right, y: rect.top });
       });
       
@@ -2107,9 +2169,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       });
       
       pagesContainer.appendChild(button);
-      
-      // Configurar drag and drop para esta página
-      setupDragAndDrop(button, roomId);
       
       buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml, pageContextMenuButton });
     });
@@ -2153,14 +2212,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       }
     
       contentContainer.appendChild(pagesContainer);
-      
-      // Configurar drag and drop para las páginas después de renderizarlas
-      setTimeout(() => {
-        const pageButtons = pagesContainer.querySelectorAll('.page-button');
-        pageButtons.forEach(button => {
-          setupDragAndDrop(button, roomId);
-        });
-      }, 0);
   }
   
   // Manejar colapso/expansión
@@ -2239,341 +2290,104 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   
   categoryDiv.appendChild(contentContainer);
   parentElement.appendChild(categoryDiv);
-  
-  // Configurar drag and drop para esta categoría
-  setupDragAndDrop(categoryDiv, roomId);
 }
 
-// Variables globales para drag and drop (compartidas entre todos los elementos)
-let dragState = {
-  draggedElement: null,
-  draggedPath: null,
-  draggedType: null,
-  draggedIndex: null,
-  dragIndicator: null,
-  roomId: null
-};
-
-// Función para crear línea indicadora
-function createDragIndicator() {
-  if (dragState.dragIndicator) return dragState.dragIndicator;
+// Función para mover categoría arriba
+async function moveCategoryUp(category, categoryPath, roomId) {
+  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const parentPath = categoryPath.slice(0, -2);
+  const parent = navigateConfigPath(config, parentPath);
   
-  const indicator = document.createElement('div');
-  indicator.className = 'drag-indicator';
-  indicator.style.cssText = `
-    height: 2px;
-    background: #4a9eff;
-    margin: 2px 0;
-    border-radius: 1px;
-    opacity: 0;
-    transition: opacity 0.2s;
-    pointer-events: none;
-    position: relative;
-    z-index: 1000;
-    width: 100%;
-  `;
-  dragState.dragIndicator = indicator;
-  return indicator;
+  if (!parent || !parent.categories) return;
+  
+  const index = categoryPath[categoryPath.length - 1];
+  if (index === 0) return; // Ya está en la primera posición
+  
+  // Intercambiar con el anterior
+  const temp = parent.categories[index];
+  parent.categories[index] = parent.categories[index - 1];
+  parent.categories[index - 1] = temp;
+  
+  savePagesJSON(config, roomId);
+  
+  // Recargar vista
+  const pageList = document.getElementById("page-list");
+  if (pageList) {
+    renderPagesByCategories(config, pageList, roomId);
+  }
 }
 
-// Función para configurar drag and drop en un elemento
-function setupDragAndDrop(element, roomId) {
-  // Guardar roomId en el estado global
-  dragState.roomId = roomId;
+// Función para mover categoría abajo
+async function moveCategoryDown(category, categoryPath, roomId) {
+  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const parentPath = categoryPath.slice(0, -2);
+  const parent = navigateConfigPath(config, parentPath);
   
-  // Drag start
-  element.addEventListener('dragstart', (e) => {
-    dragState.draggedElement = element;
-    dragState.draggedType = element.dataset.dragType;
-    dragState.draggedPath = JSON.parse(element.dataset.categoryPath || '[]');
-    
-    // Obtener el índice del elemento
-    const parent = element.parentElement;
-    const siblings = Array.from(parent.children).filter(child => {
-      if (dragState.draggedType === 'category') {
-        return child.classList.contains('category-group');
-      } else {
-        return child.classList.contains('page-button');
-      }
-    });
-    dragState.draggedIndex = siblings.indexOf(element);
-    
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', ''); // Necesario para Firefox
-    
-    // Estilo visual durante el drag
-    element.style.opacity = '0.5';
-    
-    createDragIndicator();
-  });
+  if (!parent || !parent.categories) return;
   
-  // Drag end - siempre restaurar opacidad
-  element.addEventListener('dragend', (e) => {
-    // Restaurar estilo siempre
-    if (dragState.draggedElement) {
-      dragState.draggedElement.style.opacity = '';
-    }
-    
-    // Remover indicador
-    if (dragState.dragIndicator && dragState.dragIndicator.parentElement) {
-      dragState.dragIndicator.parentElement.removeChild(dragState.dragIndicator);
-    }
-    dragState.dragIndicator = null;
-    
-    // Limpiar estado después de un pequeño delay para permitir que el drop se complete
-    setTimeout(() => {
-      dragState.draggedElement = null;
-      dragState.draggedPath = null;
-      dragState.draggedType = null;
-      dragState.draggedIndex = null;
-    }, 100);
-  });
+  const index = categoryPath[categoryPath.length - 1];
+  if (index >= parent.categories.length - 1) return; // Ya está en la última posición
   
-  // Drag over - mostrar indicador
-  element.addEventListener('dragover', (e) => {
-    // Siempre prevenir el comportamiento por defecto para permitir drop
-    e.preventDefault();
-    
-    if (!dragState.draggedElement || dragState.draggedElement === element) {
-      e.dataTransfer.dropEffect = 'none';
-      return;
-    }
-    
-    const currentType = element.dataset.dragType;
-    const currentPath = JSON.parse(element.dataset.categoryPath || '[]');
-    
-    // Solo permitir mover en el mismo nivel
-    const draggedParentPath = dragState.draggedPath.slice(0, -2);
-    const currentParentPath = currentPath.slice(0, -2);
-    
-    if (JSON.stringify(draggedParentPath) !== JSON.stringify(currentParentPath)) {
-      e.dataTransfer.dropEffect = 'none';
-      return;
-    }
-    
-    // Solo permitir mover elementos del mismo tipo
-    if (dragState.draggedType !== currentType) {
-      e.dataTransfer.dropEffect = 'none';
-      return;
-    }
-    
-    e.dataTransfer.dropEffect = 'move';
-    
-    // Determinar si insertar antes o después
-    const parent = element.parentElement;
-    const siblings = Array.from(parent.children).filter(child => {
-      if (dragState.draggedType === 'category') {
-        return child.classList.contains('category-group');
-      } else {
-        return child.classList.contains('page-button');
-      }
-    });
-    
-    const currentIndex = siblings.indexOf(element);
-    const draggedIndexInSiblings = siblings.indexOf(dragState.draggedElement);
-    const insertBefore = currentIndex < draggedIndexInSiblings || (currentIndex === draggedIndexInSiblings && currentIndex === 0);
-    
-    // Remover indicador anterior si existe en otro lugar
-    const indicator = createDragIndicator();
-    if (indicator.parentElement && indicator.parentElement !== parent) {
-      indicator.parentElement.removeChild(indicator);
-    }
-    
-    // Insertar indicador
-    if (insertBefore) {
-      if (indicator.parentElement !== parent || indicator.nextSibling !== element) {
-        if (indicator.parentElement) {
-          indicator.parentElement.removeChild(indicator);
-        }
-        parent.insertBefore(indicator, element);
-      }
-    } else {
-      const nextSibling = element.nextElementSibling;
-      const targetSibling = nextSibling && (nextSibling.classList.contains('category-group') || nextSibling.classList.contains('page-button')) 
-        ? nextSibling 
-        : null;
-      
-      if (indicator.parentElement !== parent || indicator.nextSibling !== targetSibling) {
-        if (indicator.parentElement) {
-          indicator.parentElement.removeChild(indicator);
-        }
-        if (targetSibling) {
-          parent.insertBefore(indicator, targetSibling);
-        } else {
-          parent.appendChild(indicator);
-        }
-      }
-    }
-    
-    indicator.style.opacity = '1';
-  });
+  // Intercambiar con el siguiente
+  const temp = parent.categories[index];
+  parent.categories[index] = parent.categories[index + 1];
+  parent.categories[index + 1] = temp;
   
-  // Drag leave
-  element.addEventListener('dragleave', (e) => {
-    // Solo ocultar si realmente salimos del elemento (no solo entramos a un hijo)
-    if (!element.contains(e.relatedTarget)) {
-      if (dragState.dragIndicator) {
-        dragState.dragIndicator.style.opacity = '0';
-      }
-    }
-  });
+  savePagesJSON(config, roomId);
   
-  // Drop
-  element.addEventListener('drop', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('🎯 Drop event triggered', {
-      draggedElement: dragState.draggedElement,
-      targetElement: element,
-      draggedType: dragState.draggedType,
-      draggedPath: dragState.draggedPath
-    });
-    
-    if (!dragState.draggedElement || dragState.draggedElement === element) {
-      console.log('❌ Drop cancelled: no dragged element or same element');
-      if (dragState.draggedElement) {
-        dragState.draggedElement.style.opacity = '';
-      }
-      return;
-    }
-    
-    const currentType = element.dataset.dragType;
-    const currentPath = JSON.parse(element.dataset.categoryPath || '[]');
-    
-    console.log('📊 Drop validation', {
-      currentType,
-      currentPath,
-      draggedType: dragState.draggedType,
-      draggedPath: dragState.draggedPath
-    });
-    
-    // Verificar que sea el mismo nivel y tipo
-    const draggedParentPath = dragState.draggedPath.slice(0, -2);
-    const currentParentPath = currentPath.slice(0, -2);
-    
-    if (JSON.stringify(draggedParentPath) !== JSON.stringify(currentParentPath) || dragState.draggedType !== currentType) {
-      console.log('❌ Drop cancelled: different level or type', {
-        draggedParentPath,
-        currentParentPath,
-        draggedType: dragState.draggedType,
-        currentType
-      });
-      if (dragState.draggedElement) {
-        dragState.draggedElement.style.opacity = '';
-      }
-      return;
-    }
-    
-    // Usar roomId del estado global
-    const currentRoomId = dragState.roomId || roomId;
-    
-    // Obtener configuración actual
-    const config = JSON.parse(JSON.stringify(getPagesJSON(currentRoomId) || await getDefaultJSON()));
-    
-    // Obtener el contenedor padre
-    const parent = navigateConfigPath(config, draggedParentPath);
-    if (!parent) {
-      console.log('❌ Drop cancelled: parent not found');
-      if (dragState.draggedElement) {
-        dragState.draggedElement.style.opacity = '';
-      }
-      return;
-    }
-    
-    // Determinar índices
-    const parentContainer = element.parentElement;
-    const siblings = Array.from(parentContainer.children).filter(child => {
-      if (dragState.draggedType === 'category') {
-        return child.classList.contains('category-group');
-      } else {
-        return child.classList.contains('page-button');
-      }
-    });
-    
-    const currentIndex = siblings.indexOf(element);
-    const draggedIndexInSiblings = siblings.indexOf(dragState.draggedElement);
-    
-    console.log('📐 Index calculation', {
-      currentIndex,
-      draggedIndexInSiblings,
-      siblingsCount: siblings.length
-    });
-    
-    // Si es el mismo índice, no hacer nada
-    if (currentIndex === draggedIndexInSiblings) {
-      console.log('⚠️ Drop cancelled: same index');
-      if (dragState.draggedElement) {
-        dragState.draggedElement.style.opacity = '';
-      }
-      return;
-    }
-    
-    // Determinar nueva posición basada en dónde está el indicador
-    let newIndex = currentIndex;
-    const indicator = dragState.dragIndicator;
-    if (indicator && indicator.parentElement === parentContainer) {
-      // Si el indicador está antes del elemento actual, insertar antes
-      if (indicator.nextSibling === element) {
-        newIndex = currentIndex;
-      } else {
-        // Si el indicador está después, insertar después
-        newIndex = currentIndex + 1;
-      }
-    } else {
-      // Fallback: usar lógica basada en índices
-      if (draggedIndexInSiblings < currentIndex) {
-        newIndex = currentIndex;
-      } else {
-        newIndex = currentIndex + 1;
-      }
-    }
-    
-    // Mover en el JSON
-    const key = dragState.draggedType === 'category' ? 'categories' : 'pages';
-    if (!parent[key] || !parent[key][draggedIndexInSiblings]) {
-      console.log('❌ Drop cancelled: invalid parent key or index', {
-        key,
-        hasKey: !!parent[key],
-        arrayLength: parent[key]?.length,
-        draggedIndexInSiblings
-      });
-      if (dragState.draggedElement) {
-        dragState.draggedElement.style.opacity = '';
-      }
-      return;
-    }
-    
-    const item = parent[key][draggedIndexInSiblings];
-    
-    // Calcular el índice final correcto
-    let finalIndex = newIndex;
-    if (draggedIndexInSiblings < newIndex) {
-      finalIndex = newIndex - 1;
-    }
-    
-    console.log('🔄 Moving item', {
-      from: draggedIndexInSiblings,
-      to: finalIndex,
-      newIndex,
-      key
-    });
-    
-    // Mover el elemento
-    parent[key].splice(draggedIndexInSiblings, 1);
-    parent[key].splice(finalIndex, 0, item);
-    
-    // Guardar configuración
-    savePagesJSON(config, currentRoomId);
-    
-    console.log('✅ Item moved successfully');
-    
-    // Recargar vista
-    const pageList = document.getElementById("page-list");
-    if (pageList) {
-      renderPagesByCategories(config, pageList, currentRoomId);
-    }
-  });
+  // Recargar vista
+  const pageList = document.getElementById("page-list");
+  if (pageList) {
+    renderPagesByCategories(config, pageList, roomId);
+  }
+}
+
+// Función para mover página arriba
+async function movePageUp(page, pageCategoryPath, roomId) {
+  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const parent = navigateConfigPath(config, pageCategoryPath);
+  
+  if (!parent || !parent.pages) return;
+  
+  const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
+  if (pageIndex === -1 || pageIndex === 0) return; // No encontrada o ya está en la primera posición
+  
+  // Intercambiar con el anterior
+  const temp = parent.pages[pageIndex];
+  parent.pages[pageIndex] = parent.pages[pageIndex - 1];
+  parent.pages[pageIndex - 1] = temp;
+  
+  savePagesJSON(config, roomId);
+  
+  // Recargar vista
+  const pageList = document.getElementById("page-list");
+  if (pageList) {
+    renderPagesByCategories(config, pageList, roomId);
+  }
+}
+
+// Función para mover página abajo
+async function movePageDown(page, pageCategoryPath, roomId) {
+  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const parent = navigateConfigPath(config, pageCategoryPath);
+  
+  if (!parent || !parent.pages) return;
+  
+  const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
+  if (pageIndex === -1 || pageIndex >= parent.pages.length - 1) return; // No encontrada o ya está en la última posición
+  
+  // Intercambiar con el siguiente
+  const temp = parent.pages[pageIndex];
+  parent.pages[pageIndex] = parent.pages[pageIndex + 1];
+  parent.pages[pageIndex + 1] = temp;
+  
+  savePagesJSON(config, roomId);
+  
+  // Recargar vista
+  const pageList = document.getElementById("page-list");
+  if (pageList) {
+    renderPagesByCategories(config, pageList, roomId);
+  }
 }
 
 // Función auxiliar para navegar por el path en la configuración
@@ -4146,7 +3960,14 @@ function createContextMenu(items, position, onClose) {
     // Si el icon es una ruta de imagen, usar img, sino usar emoji/texto
     let iconHtml = '';
     if (item.icon && (item.icon.startsWith('img/') || item.icon.startsWith('/img/'))) {
-      iconHtml = `<img src="${item.icon}" alt="" style="width: 16px; height: 16px; display: block;" />`;
+      // Detectar si necesita rotación (para flechas arriba/abajo)
+      let rotation = '';
+      if (item.text === 'Mover arriba') {
+        rotation = 'transform: rotate(-90deg);';
+      } else if (item.text === 'Mover abajo') {
+        rotation = 'transform: rotate(90deg);';
+      }
+      iconHtml = `<img src="${item.icon}" alt="" style="width: 16px; height: 16px; display: block; ${rotation}" />`;
     } else {
       iconHtml = `<span style="font-size: 16px; width: 20px; text-align: center;">${item.icon || ''}</span>`;
     }
