@@ -1966,6 +1966,15 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   // Mostrar el contenido si no está colapsado Y si tiene contenido o si está vacía (para poder agregar)
   const hasContent = hasSubcategories || categoryPages.length > 0;
   contentContainer.style.display = isCollapsed ? 'none' : 'block';
+  // Permitir drop en el contenedor para reordenar
+  contentContainer.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  contentContainer.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
   
   // Renderizar subcategorías primero (si existen)
   if (hasSubcategories) {
@@ -1979,6 +1988,15 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   if (categoryPages.length > 0 || !hasContent) {
     const pagesContainer = document.createElement('div');
     pagesContainer.className = 'category-pages';
+    // Permitir drop en el contenedor para reordenar
+    pagesContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    pagesContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
     
     const buttonsData = [];
     
@@ -2313,28 +2331,49 @@ function setupDragAndDrop(element, type, path, roomId) {
       // Si es el mismo contenedor, ajustar el índice
       const isSameContainer = JSON.stringify(dragData.path.slice(0, -2)) === JSON.stringify(path.slice(0, -2));
       
-      // Remover del origen primero
-      sourceParent[sourceKey].splice(sourceIndex, 1);
-      
-      // Calcular el nuevo índice
       let newIndex;
+      
       if (isSameContainer) {
-        // Mismo contenedor: ajustar índice considerando que ya removimos el elemento
+        // Mismo contenedor: calcular el índice correctamente
+        if (sourceIndex === targetIndex) {
+          // Mismo elemento, no hacer nada
+          return;
+        }
+        
+        // Calcular el nuevo índice considerando que vamos a remover sourceIndex primero
         if (sourceIndex < targetIndex) {
-          newIndex = insertAfter ? targetIndex : targetIndex;
+          // Moviendo hacia abajo: después de remover sourceIndex, targetIndex se reduce en 1
+          newIndex = insertAfter ? targetIndex : targetIndex - 1;
         } else {
+          // Moviendo hacia arriba: targetIndex no cambia
           newIndex = insertAfter ? targetIndex + 1 : targetIndex;
         }
+        
+        // Remover del origen primero
+        sourceParent[sourceKey].splice(sourceIndex, 1);
+        
+        // Ajustar newIndex si removimos antes de la posición objetivo
+        // (ya está ajustado arriba, pero asegurémonos)
+        if (sourceIndex < targetIndex && !insertAfter) {
+          newIndex = targetIndex - 1;
+        }
+        
+        // Asegurar que el índice esté dentro de los límites
+        newIndex = Math.max(0, Math.min(newIndex, sourceParent[sourceKey].length));
+        
+        // Insertar en la nueva posición (mismo contenedor)
+        sourceParent[sourceKey].splice(newIndex, 0, item);
       } else {
         // Diferente contenedor: insertar en la posición calculada
         newIndex = insertAfter ? targetIndex + 1 : targetIndex;
+        newIndex = Math.max(0, newIndex);
+        
+        // Remover del origen
+        sourceParent[sourceKey].splice(sourceIndex, 1);
+        
+        // Insertar en la nueva posición (diferente contenedor)
+        targetParent[targetKey].splice(newIndex, 0, item);
       }
-      
-      // Asegurar que el índice no sea negativo
-      newIndex = Math.max(0, newIndex);
-      
-      // Insertar en la nueva posición
-      targetParent[targetKey].splice(newIndex, 0, item);
       
       savePagesJSON(config, roomId);
       
