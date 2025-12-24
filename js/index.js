@@ -1951,9 +1951,10 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   }
   
   // Contenedor de páginas de la categoría
-  // Siempre crear el contenedor si hay páginas o si no hay contenido (categoría vacía)
+  // Siempre crear el contenedor si hay páginas válidas
+  // O si la categoría está completamente vacía (sin páginas ni subcategorías)
   // Esto asegura que las categorías vacías anidadas se muestren correctamente
-  // Simplificamos la condición: si hay páginas O no hay contenido (ni páginas ni subcategorías)
+  // PERO no crear el contenedor si solo tiene subcategorías (sin páginas)
   if (categoryPages.length > 0 || (!hasPages && !hasSubcategories)) {
     const pagesContainer = document.createElement('div');
     pagesContainer.className = 'category-pages';
@@ -3259,7 +3260,16 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
 }
 
 // Función para mostrar configuración de token
-function showTokenConfig() {
+async function showTokenConfig() {
+  // Obtener roomId de forma segura
+  let roomId = null;
+  try {
+    if (typeof OBR !== 'undefined' && OBR.room && OBR.room.getId) {
+      roomId = await OBR.room.getId();
+    }
+  } catch (e) {
+    console.warn('No se pudo obtener roomId:', e);
+  }
   const mainContainer = document.querySelector('.container');
   const pageList = document.getElementById("page-list");
   const notionContainer = document.getElementById("notion-container");
@@ -3585,8 +3595,18 @@ function showTokenConfig() {
     });
     viewJsonBtn.addEventListener('click', async () => {
       try {
-        const roomId = await OBR.room.getId();
-        const config = getPagesJSON(roomId) || await getDefaultJSON();
+        // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
+        let currentRoomId = roomId;
+        if (!currentRoomId) {
+          try {
+            if (typeof OBR !== 'undefined' && OBR.room && OBR.room.getId) {
+              currentRoomId = await OBR.room.getId();
+            }
+          } catch (e) {
+            console.warn('No se pudo obtener roomId:', e);
+          }
+        }
+        const config = getPagesJSON(currentRoomId) || await getDefaultJSON();
         const jsonStr = JSON.stringify(config, null, 2);
         
         // Crear un modal para mostrar el JSON
@@ -3713,14 +3733,24 @@ function showTokenConfig() {
     });
     downloadJsonBtn.addEventListener('click', async () => {
       try {
-        const roomId = await OBR.room.getId();
-        const config = getPagesJSON(roomId) || await getDefaultJSON();
+        // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
+        let currentRoomId = roomId;
+        if (!currentRoomId) {
+          try {
+            if (typeof OBR !== 'undefined' && OBR.room && OBR.room.getId) {
+              currentRoomId = await OBR.room.getId();
+            }
+          } catch (e) {
+            console.warn('No se pudo obtener roomId:', e);
+          }
+        }
+        const config = getPagesJSON(currentRoomId) || await getDefaultJSON();
         const jsonStr = JSON.stringify(config, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `notion-pages-config-${roomId ? getFriendlyRoomId(roomId) : 'default'}.json`;
+        a.download = `notion-pages-config-${currentRoomId ? getFriendlyRoomId(currentRoomId) : 'default'}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
