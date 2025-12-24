@@ -1874,10 +1874,25 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   });
   
   // Menú contextual para categorías
-  contextMenuButton.addEventListener('click', (e) => {
+  contextMenuButton.addEventListener('click', async (e) => {
     e.stopPropagation();
     const rect = contextMenuButton.getBoundingClientRect();
     const menuItems = [
+      { 
+        icon: '➕', 
+        text: 'Agregar categoría', 
+        action: async () => {
+          await addCategoryToPageList(categoryPath, roomId);
+        }
+      },
+      { 
+        icon: '➕', 
+        text: 'Agregar página', 
+        action: async () => {
+          await addPageToPageList(categoryPath, roomId);
+        }
+      },
+      { separator: true },
       { 
         icon: '📝', 
         text: 'Editar JSON', 
@@ -1988,7 +2003,17 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         e.stopPropagation();
         const rect = pageContextMenuButton.getBoundingClientRect();
         const config = getPagesJSON(roomId) || await getDefaultJSON();
+        // Obtener el path de la categoría padre para agregar páginas en la misma categoría
+        const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
         const menuItems = [
+          { 
+            icon: '➕', 
+            text: 'Agregar página aquí', 
+            action: async () => {
+              await addPageToPageList(pageCategoryPath, roomId);
+            }
+          },
+          { separator: true },
           { 
             icon: '📝', 
             text: 'Editar JSON', 
@@ -2082,6 +2107,110 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   parentElement.appendChild(categoryDiv);
 }
 
+// Función auxiliar para navegar por el path en la configuración
+function navigateConfigPath(config, path) {
+  let target = config;
+  for (let i = 0; i < path.length; i += 2) {
+    const key = path[i];
+    const index = path[i + 1];
+    if (target[key] && target[key][index]) {
+      target = target[key][index];
+    } else {
+      return null;
+    }
+  }
+  return target;
+}
+
+// Función para agregar categoría desde la vista de page-list
+async function addCategoryToPageList(categoryPath, roomId) {
+  const currentConfig = getPagesJSON(roomId) || await getDefaultJSON();
+  
+  showModalForm(
+    'Agregar Categoría',
+    [
+      { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Nombre de la categoría' }
+    ],
+    async (data) => {
+      const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
+      const newCategory = { name: data.name, pages: [], categories: [] };
+      
+      if (categoryPath.length === 0) {
+        // Agregar al nivel raíz
+        if (!config.categories) config.categories = [];
+        config.categories.push(newCategory);
+      } else {
+        // Agregar dentro de una categoría
+        const parent = navigateConfigPath(config, categoryPath);
+        if (parent) {
+          if (!parent.categories) parent.categories = [];
+          parent.categories.push(newCategory);
+        }
+      }
+      
+      savePagesJSON(config, roomId);
+      
+      // Recargar la vista
+      const pageList = document.getElementById("page-list");
+      if (pageList) {
+        renderPagesByCategories(config, pageList, roomId);
+      }
+    }
+  );
+}
+
+// Función para agregar página desde la vista de page-list
+async function addPageToPageList(categoryPath, roomId) {
+  const currentConfig = getPagesJSON(roomId) || await getDefaultJSON();
+  
+  showModalForm(
+    'Agregar Página',
+    [
+      { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Nombre de la página' },
+      { name: 'url', label: 'URL', type: 'url', required: true, placeholder: 'https://...' },
+      { name: 'selector', label: 'Selector (opcional)', type: 'text', placeholder: '#main-content', help: 'Solo para URLs externas' },
+      { name: 'blockTypes', label: 'Tipos de bloques (opcional)', type: 'text', placeholder: 'quote, callout', help: 'Solo para URLs de Notion. Ej: "quote" o "quote,callout"' }
+    ],
+    async (data) => {
+      const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
+      const newPage = {
+        name: data.name,
+        url: data.url
+      };
+      if (data.selector) newPage.selector = data.selector;
+      if (data.blockTypes) {
+        newPage.blockTypes = data.blockTypes.includes(',') 
+          ? data.blockTypes.split(',').map(s => s.trim())
+          : data.blockTypes.trim();
+      }
+      
+      if (categoryPath.length === 0) {
+        // Si no hay categorías, crear una
+        if (!config.categories || config.categories.length === 0) {
+          config.categories = [{ name: 'General', pages: [], categories: [] }];
+        }
+        if (!config.categories[0].pages) config.categories[0].pages = [];
+        config.categories[0].pages.push(newPage);
+      } else {
+        // Agregar dentro de una categoría
+        const parent = navigateConfigPath(config, categoryPath);
+        if (parent) {
+          if (!parent.pages) parent.pages = [];
+          parent.pages.push(newPage);
+        }
+      }
+      
+      savePagesJSON(config, roomId);
+      
+      // Recargar la vista
+      const pageList = document.getElementById("page-list");
+      if (pageList) {
+        renderPagesByCategories(config, pageList, roomId);
+      }
+    }
+  );
+}
+
 // Función para renderizar páginas agrupadas por categorías
 function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
   // Mostrar loading
@@ -2092,12 +2221,38 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
     pageList.innerHTML = '';
     
     if (!pagesConfig || !pagesConfig.categories || pagesConfig.categories.length === 0) {
-      pageList.innerHTML = `
-        <div class="empty-state">
-          <p>No hay páginas configuradas</p>
-          <p>Clic en ⚙️ para editar el JSON</p>
-        </div>
+      const emptyState = document.createElement('div');
+      emptyState.className = 'empty-state';
+      emptyState.innerHTML = `
+        <p>No hay páginas configuradas</p>
+        <button id="add-first-category" style="
+          margin-top: 16px;
+          padding: 10px 20px;
+          background: #4a9eff;
+          border: none;
+          border-radius: 6px;
+          color: #fff;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          transition: all 0.2s;
+        ">➕ Agregar primera categoría</button>
       `;
+      pageList.appendChild(emptyState);
+      
+      // Botón para agregar primera categoría
+      const addFirstCategoryBtn = emptyState.querySelector('#add-first-category');
+      if (addFirstCategoryBtn) {
+        addFirstCategoryBtn.addEventListener('click', async () => {
+          await addCategoryToPageList([], roomId);
+        });
+        addFirstCategoryBtn.addEventListener('mouseenter', () => {
+          addFirstCategoryBtn.style.background = '#5aaeff';
+        });
+        addFirstCategoryBtn.addEventListener('mouseleave', () => {
+          addFirstCategoryBtn.style.background = '#4a9eff';
+        });
+      }
       return;
     }
   
