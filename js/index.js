@@ -1827,26 +1827,21 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   
   // Botón de menú contextual para categorías
   const contextMenuButton = document.createElement('button');
-  contextMenuButton.className = 'category-context-menu-button';
+  contextMenuButton.className = 'category-context-menu-button icon-button';
   contextMenuButton.style.cssText = `
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
     opacity: 0;
     transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     margin-left: auto;
   `;
   const contextMenuIcon = document.createElement('img');
   contextMenuIcon.src = 'img/icon-contextualmenu.svg';
-  contextMenuIcon.style.width = '16px';
-  contextMenuIcon.style.height = '16px';
+  contextMenuIcon.className = 'icon-button-icon';
   contextMenuButton.appendChild(contextMenuIcon);
   contextMenuButton.title = 'Menú';
   
@@ -1967,30 +1962,21 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       
       // Botón de menú contextual para páginas
       const pageContextMenuButton = document.createElement('button');
-      pageContextMenuButton.className = 'page-context-menu-button';
+      pageContextMenuButton.className = 'page-context-menu-button icon-button';
       pageContextMenuButton.style.cssText = `
         position: absolute;
         right: 8px;
         top: 50%;
         transform: translateY(-50%);
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
         opacity: 0;
         transition: all 0.15s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
+        width: 32px;
+        height: 32px;
         z-index: 10;
       `;
       const pageContextMenuIcon = document.createElement('img');
       pageContextMenuIcon.src = 'img/icon-contextualmenu.svg';
-      pageContextMenuIcon.style.width = '16px';
-      pageContextMenuIcon.style.height = '16px';
+      pageContextMenuIcon.className = 'icon-button-icon';
       pageContextMenuButton.appendChild(pageContextMenuIcon);
       pageContextMenuButton.title = 'Menú';
       
@@ -2013,15 +1999,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         // Obtener el path de la categoría padre para agregar páginas en la misma categoría
         const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
         const menuItems = [
-          { 
-            icon: 'img/icon-page.svg', 
-            text: 'Agregar página aquí', 
-            action: async () => {
-              // Pasar pageCategoryPath para que se autocomplete en el modal
-              await addPageToPageListWithCategorySelector(pageCategoryPath, roomId);
-            }
-          },
-          { separator: true },
           { 
             icon: 'img/icon-edit.svg', 
             text: 'Editar', 
@@ -3760,8 +3737,16 @@ function createContextMenu(items, position, onClose) {
       transition: background 0.15s;
     `;
 
+    // Si el icon es una ruta de imagen, usar img, sino usar emoji/texto
+    let iconHtml = '';
+    if (item.icon && (item.icon.startsWith('img/') || item.icon.startsWith('/img/'))) {
+      iconHtml = `<img src="${item.icon}" alt="" style="width: 16px; height: 16px; display: block;" />`;
+    } else {
+      iconHtml = `<span style="font-size: 16px; width: 20px; text-align: center;">${item.icon || ''}</span>`;
+    }
+    
     menuItem.innerHTML = `
-      <span style="font-size: 16px; width: 20px; text-align: center;">${item.icon || ''}</span>
+      ${iconHtml}
       <span>${item.text}</span>
     `;
 
