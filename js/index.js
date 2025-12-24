@@ -1951,10 +1951,10 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   }
   
   // Contenedor de páginas de la categoría
-  // Siempre crear el contenedor si no hay contenido, o si hay páginas
-  // Si tiene subcategorías pero no páginas, también crear el contenedor para mantener la estructura
+  // Siempre crear el contenedor si hay páginas o si no hay contenido (categoría vacía)
   // Esto asegura que las categorías vacías anidadas se muestren correctamente
-  if (categoryPages.length > 0 || !hasContent || (hasSubcategories && categoryPages.length === 0)) {
+  // Simplificamos la condición: si hay páginas O no hay contenido (ni páginas ni subcategorías)
+  if (categoryPages.length > 0 || (!hasPages && !hasSubcategories)) {
     const pagesContainer = document.createElement('div');
     pagesContainer.className = 'category-pages';
     // Permitir drop en el contenedor para reordenar
@@ -3394,33 +3394,76 @@ function showTokenConfig() {
         margin-bottom: 16px;
       "></div>
       
-      <div style="display: flex; gap: 16px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid ${CSS_VARS.borderPrimary};">
-        <button id="clear-token" style="
-          background: ${CSS_VARS.bgPrimary};
-          border: 1px solid ${CSS_VARS.borderPrimary};
-          border-radius: 6px;
-          padding: 10px 20px;
-          color: #e0e0e0;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 400;
-          font-family: Roboto, Helvetica, Arial, sans-serif;
-          transition: all 0.2s;
-          flex: 1;
-        ">Eliminar Token</button>
-        <button id="save-token" style="
-          background: #4a9eff;
-          border: none;
-          border-radius: 6px;
-          padding: 10px 20px;
-          color: #fff;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 700;
-          font-family: Roboto, Helvetica, Arial, sans-serif;
-          transition: all 0.2s;
-          flex: 1;
-        ">Guardar Token</button>
+      <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid ${CSS_VARS.borderPrimary};">
+        <div style="display: flex; gap: 12px;">
+          <button id="view-json-btn" style="
+            background: ${CSS_VARS.bgPrimary};
+            border: 1px solid ${CSS_VARS.borderPrimary};
+            border-radius: 6px;
+            padding: 10px 20px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 400;
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+            transition: all 0.2s;
+            flex: 1;
+          ">Ver JSON</button>
+          <button id="clear-cache-btn" style="
+            background: ${CSS_VARS.bgPrimary};
+            border: 1px solid ${CSS_VARS.borderPrimary};
+            border-radius: 6px;
+            padding: 10px 20px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 400;
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+            transition: all 0.2s;
+            flex: 1;
+          ">Limpiar toda la cache</button>
+          <button id="download-json-btn" style="
+            background: ${CSS_VARS.bgPrimary};
+            border: 1px solid ${CSS_VARS.borderPrimary};
+            border-radius: 6px;
+            padding: 10px 20px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 400;
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+            transition: all 0.2s;
+            flex: 1;
+          ">Descargar JSON</button>
+        </div>
+        <div style="display: flex; gap: 16px; justify-content: flex-end;">
+          <button id="clear-token" style="
+            background: ${CSS_VARS.bgPrimary};
+            border: 1px solid ${CSS_VARS.borderPrimary};
+            border-radius: 6px;
+            padding: 10px 20px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 400;
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+            transition: all 0.2s;
+            flex: 1;
+          ">Eliminar Token</button>
+          <button id="save-token" style="
+            background: #4a9eff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: Roboto, Helvetica, Arial, sans-serif;
+            transition: all 0.2s;
+            flex: 1;
+          ">Guardar Token</button>
+        </div>
       </div>
     </div>
   `;
@@ -3433,6 +3476,7 @@ function showTokenConfig() {
   const errorDiv = contentArea.querySelector('#token-error');
   const saveBtn = contentArea.querySelector('#save-token');
   const clearBtn = contentArea.querySelector('#clear-token');
+  const viewJsonBtn = contentArea.querySelector('#view-json-btn');
   const clearCacheBtn = contentArea.querySelector('#clear-cache-btn');
   const downloadJsonBtn = contentArea.querySelector('#download-json-btn');
   const backBtn = header.querySelector('#back-from-token');
@@ -3520,6 +3564,108 @@ function showTokenConfig() {
   };
   
   backBtn.addEventListener('click', closeTokenConfig);
+  
+  // Ver JSON
+  if (viewJsonBtn) {
+    viewJsonBtn.addEventListener('mouseenter', () => {
+      viewJsonBtn.style.background = CSS_VARS.bgHover;
+      viewJsonBtn.style.borderColor = CSS_VARS.borderPrimary;
+    });
+    viewJsonBtn.addEventListener('mouseleave', () => {
+      viewJsonBtn.style.background = CSS_VARS.bgPrimary;
+      viewJsonBtn.style.borderColor = CSS_VARS.borderPrimary;
+    });
+    viewJsonBtn.addEventListener('mousedown', () => {
+      viewJsonBtn.style.background = CSS_VARS.bgActive;
+      viewJsonBtn.style.borderColor = CSS_VARS.borderActive;
+    });
+    viewJsonBtn.addEventListener('mouseup', () => {
+      viewJsonBtn.style.background = CSS_VARS.bgHover;
+      viewJsonBtn.style.borderColor = CSS_VARS.borderPrimary;
+    });
+    viewJsonBtn.addEventListener('click', async () => {
+      try {
+        const roomId = await OBR.room.getId();
+        const config = getPagesJSON(roomId) || await getDefaultJSON();
+        const jsonStr = JSON.stringify(config, null, 2);
+        
+        // Crear un modal para mostrar el JSON
+        const jsonModal = document.createElement('div');
+        jsonModal.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.8);
+          z-index: 10001;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        `;
+        
+        const jsonContent = document.createElement('div');
+        jsonContent.style.cssText = `
+          background: #1a1a1a;
+          border: 1px solid ${CSS_VARS.borderPrimary};
+          border-radius: 8px;
+          padding: 24px;
+          max-width: 90%;
+          max-height: 90vh;
+          overflow: auto;
+          position: relative;
+        `;
+        
+        jsonContent.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2 style="color: #fff; font-size: 18px; font-weight: 700; margin: 0; font-family: Roboto, Helvetica, Arial, sans-serif;">JSON de Configuración</h2>
+            <button id="close-json-modal" style="
+              background: ${CSS_VARS.bgPrimary};
+              border: 1px solid ${CSS_VARS.borderPrimary};
+              border-radius: 6px;
+              padding: 6px 12px;
+              color: #e0e0e0;
+              cursor: pointer;
+              font-size: 14px;
+              font-family: Roboto, Helvetica, Arial, sans-serif;
+            ">Cerrar</button>
+          </div>
+          <pre id="json-display" style="
+            background: ${CSS_VARS.bgPrimary};
+            border: 1px solid ${CSS_VARS.borderPrimary};
+            border-radius: 6px;
+            padding: 16px;
+            color: #e0e0e0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre;
+            margin: 0;
+          ">${jsonStr}</pre>
+        `;
+        
+        jsonModal.appendChild(jsonContent);
+        document.body.appendChild(jsonModal);
+        
+        const closeBtn = jsonContent.querySelector('#close-json-modal');
+        const closeModal = () => {
+          document.body.removeChild(jsonModal);
+        };
+        
+        closeBtn.addEventListener('click', closeModal);
+        jsonModal.addEventListener('click', (e) => {
+          if (e.target === jsonModal) {
+            closeModal();
+          }
+        });
+      } catch (e) {
+        console.error('Error al mostrar JSON:', e);
+        alert('❌ Error al mostrar JSON: ' + e.message);
+      }
+    });
+  }
   
   // Limpiar toda la cache
   if (clearCacheBtn) {
