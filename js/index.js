@@ -1698,7 +1698,7 @@ try {
       const tokenButton = document.createElement("button");
       tokenButton.className = "icon-button";
       const keyIcon = document.createElement("img");
-      keyIcon.src = "img/icon-key.svg";
+      keyIcon.src = "img/icon-json.svg";
       keyIcon.alt = "Configurar token";
       keyIcon.className = "icon-button-icon";
       tokenButton.appendChild(keyIcon);
@@ -1718,14 +1718,14 @@ try {
         const rect = addButton.getBoundingClientRect();
         const menuItems = [
           { 
-            icon: '📁', 
+            icon: 'img/folder-close.svg', 
             text: 'Agregar categoría', 
             action: async () => {
               await addCategoryToPageList([], roomId);
             }
           },
           { 
-            icon: '📄', 
+            icon: 'img/icon-page.svg', 
             text: 'Agregar página', 
             action: async () => {
               await addPageToPageListWithCategorySelector([], roomId);
@@ -1735,8 +1735,8 @@ try {
         createContextMenu(menuItems, { x: rect.right, y: rect.top });
       });
       
-      buttonContainer.appendChild(addButton);
       buttonContainer.appendChild(tokenButton);
+      buttonContainer.appendChild(addButton);
       header.appendChild(buttonContainer);
 
       // Renderizar páginas agrupadas por categorías
@@ -1854,8 +1854,11 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   titleContainer.addEventListener('mouseenter', () => {
     contextMenuButton.style.opacity = '1';
   });
-  titleContainer.addEventListener('mouseleave', () => {
-    contextMenuButton.style.opacity = '0';
+  titleContainer.addEventListener('mouseleave', (e) => {
+    // No ocultar si el mouse está sobre el menú contextual o el menú está abierto
+    if (!e.relatedTarget || (!e.relatedTarget.closest('.category-context-menu-button') && !e.relatedTarget.closest('#context-menu'))) {
+      contextMenuButton.style.opacity = '0';
+    }
   });
   
   // Menú contextual para categorías
@@ -1864,14 +1867,14 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     const rect = contextMenuButton.getBoundingClientRect();
     const menuItems = [
       { 
-        icon: '➕', 
+        icon: 'img/folder-close.svg', 
         text: 'Agregar categoría', 
         action: async () => {
           await addCategoryToPageList(categoryPath, roomId);
         }
       },
       { 
-        icon: '➕', 
+        icon: 'img/icon-page.svg', 
         text: 'Agregar página', 
         action: async () => {
           // Pasar categoryPath para que se autocomplete en el modal
@@ -1880,7 +1883,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       },
       { separator: true },
       { 
-        icon: '✏️', 
+        icon: 'img/icon-edit.svg', 
         text: 'Editar', 
         action: async () => {
           await editCategoryFromPageList(category, categoryPath, roomId);
@@ -1888,7 +1891,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       },
       { separator: true },
       { 
-        icon: '🗑️', 
+        icon: 'img/icon-trash.svg', 
         text: 'Eliminar', 
         action: async () => {
           await deleteCategoryFromPageList(category, categoryPath, roomId);
@@ -1995,8 +1998,11 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       button.addEventListener('mouseenter', () => {
         pageContextMenuButton.style.opacity = '1';
       });
-      button.addEventListener('mouseleave', () => {
-        pageContextMenuButton.style.opacity = '0';
+      button.addEventListener('mouseleave', (e) => {
+        // No ocultar si el mouse está sobre el menú contextual o el menú está abierto
+        if (!e.relatedTarget || (!e.relatedTarget.closest('.page-context-menu-button') && !e.relatedTarget.closest('#context-menu'))) {
+          pageContextMenuButton.style.opacity = '0';
+        }
       });
       
       // Menú contextual para páginas
@@ -2008,7 +2014,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
         const menuItems = [
           { 
-            icon: '➕', 
+            icon: 'img/icon-page.svg', 
             text: 'Agregar página aquí', 
             action: async () => {
               // Pasar pageCategoryPath para que se autocomplete en el modal
@@ -2017,7 +2023,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
           },
           { separator: true },
           { 
-            icon: '✏️', 
+            icon: 'img/icon-edit.svg', 
             text: 'Editar', 
             action: async () => {
               await editPageFromPageList(page, pageCategoryPath, roomId);
@@ -2025,13 +2031,12 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
           },
           { separator: true },
           { 
-            icon: '🗑️', 
+            icon: 'img/icon-trash.svg', 
             text: 'Eliminar', 
             action: async () => {
               await deletePageFromPageList(page, pageCategoryPath, roomId);
             }
           },
-          { separator: true },
         ];
         createContextMenu(menuItems, { x: rect.right, y: rect.top });
       });
@@ -2079,6 +2084,9 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
           try {
             const icon = await fetchPageIcon(pageId);
             const iconHtml = renderPageIcon(icon, pageName, pageId);
+            // Guardar referencia al botón de menú contextual antes de actualizar HTML
+            const menuButtonParent = pageContextMenuButton ? pageContextMenuButton.parentNode : null;
+            
             button.innerHTML = `
               <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
                 ${iconHtml}
@@ -2086,9 +2094,15 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
                 ${linkIconHtml}
               </div>
             `;
+            
             // Re-agregar el botón de menú contextual después de actualizar el HTML
-            if (pageContextMenuButton) {
+            // Asegurarse de que el botón se mantiene visible
+            if (pageContextMenuButton && menuButtonParent === button) {
               button.appendChild(pageContextMenuButton);
+              // Asegurar que el botón sea visible si el mouse está sobre el botón
+              if (button.matches(':hover')) {
+                pageContextMenuButton.style.opacity = '1';
+              }
             }
           } catch (e) {
             console.warn('No se pudo obtener el icono para:', pageName, e);
@@ -2111,9 +2125,62 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         return;
       }
       const newIsCollapsed = contentContainer.style.display === 'none';
-      contentContainer.style.display = newIsCollapsed ? 'block' : 'none';
-      collapseIcon.src = newIsCollapsed ? 'img/folder-open.svg' : 'img/folder-close.svg';
-      collapseIcon.alt = newIsCollapsed ? 'Colapsar' : 'Expandir';
+      
+      // Aplicar animación suave
+      if (newIsCollapsed) {
+        // Abrir
+        contentContainer.style.display = 'block';
+        contentContainer.style.maxHeight = '0';
+        contentContainer.style.overflow = 'hidden';
+        contentContainer.style.transition = 'max-height 0.3s ease-out, opacity 0.3s ease-out';
+        contentContainer.style.opacity = '0';
+        
+        // Forzar reflow
+        void contentContainer.offsetHeight;
+        
+        // Animar
+        const scrollHeight = contentContainer.scrollHeight;
+        contentContainer.style.maxHeight = scrollHeight + 'px';
+        contentContainer.style.opacity = '1';
+        
+        collapseIcon.src = 'img/folder-open.svg';
+        collapseIcon.alt = 'Colapsar';
+        
+        // Limpiar estilos después de la animación
+        setTimeout(() => {
+          contentContainer.style.maxHeight = '';
+          contentContainer.style.overflow = '';
+          contentContainer.style.transition = '';
+          contentContainer.style.opacity = '';
+        }, 300);
+      } else {
+        // Cerrar
+        const scrollHeight = contentContainer.scrollHeight;
+        contentContainer.style.maxHeight = scrollHeight + 'px';
+        contentContainer.style.overflow = 'hidden';
+        contentContainer.style.transition = 'max-height 0.3s ease-in, opacity 0.3s ease-in';
+        contentContainer.style.opacity = '1';
+        
+        // Forzar reflow
+        void contentContainer.offsetHeight;
+        
+        // Animar
+        contentContainer.style.maxHeight = '0';
+        contentContainer.style.opacity = '0';
+        
+        collapseIcon.src = 'img/folder-close.svg';
+        collapseIcon.alt = 'Expandir';
+        
+        // Ocultar después de la animación
+        setTimeout(() => {
+          contentContainer.style.display = 'none';
+          contentContainer.style.maxHeight = '';
+          contentContainer.style.overflow = '';
+          contentContainer.style.transition = '';
+          contentContainer.style.opacity = '';
+        }, 300);
+      }
+      
       localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
     });
   } else {
@@ -2185,14 +2252,29 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
   
   // Obtener el path del padre (si existe)
   const parentPath = categoryPath.slice(0, -2);
-  const parentPathValue = parentPath.length > 0 ? JSON.stringify(parentPath) : '';
+  
+  // Buscar el valor correcto del parentPath en las opciones disponibles
+  let parentPathValue = '';
+  if (parentPath.length > 0) {
+    // Buscar en las opciones el path que coincida con el parentPath
+    const matchingOption = categoryOptions.find(opt => {
+      const optPath = JSON.parse(opt.value);
+      return JSON.stringify(optPath) === JSON.stringify(parentPath);
+    });
+    if (matchingOption) {
+      parentPathValue = matchingOption.value;
+    } else {
+      // Si no se encuentra, usar el parentPath directamente
+      parentPathValue = JSON.stringify(parentPath);
+    }
+  }
   
   const fields = [
     { name: 'name', label: 'Nombre', type: 'text', required: true, value: category.name, placeholder: 'Nombre de la categoría' }
   ];
   
-  // Agregar selector de categoría padre si hay categorías disponibles y no es raíz
-  if (categoryOptions.length > 0 && categoryPath.length > 0) {
+  // Agregar selector de categoría padre si hay categorías disponibles
+  if (categoryOptions.length > 0) {
     fields.push({
       name: 'parentCategory',
       label: 'Categoría padre',
@@ -2203,8 +2285,20 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
         ...categoryOptions.filter(opt => {
           // Excluir la categoría actual y sus hijos
           const optPath = JSON.parse(opt.value);
-          return JSON.stringify(optPath) !== JSON.stringify(categoryPath) && 
-                 !optPath.every((val, idx) => val === categoryPath[idx]);
+          // No permitir seleccionar la categoría actual como padre
+          if (JSON.stringify(optPath) === JSON.stringify(categoryPath)) {
+            return false;
+          }
+          // No permitir seleccionar una categoría que contiene a esta como padre
+          // (evitar crear ciclos)
+          if (categoryPath.length > 0 && optPath.length < categoryPath.length) {
+            // Verificar si optPath es un prefijo de categoryPath
+            const isPrefix = optPath.every((val, idx) => val === categoryPath[idx]);
+            if (isPrefix) {
+              return false;
+            }
+          }
+          return true;
         })
       ],
       value: parentPathValue
@@ -3016,7 +3110,7 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         pageList.classList.remove("hidden");
         notionContainer.classList.add("hidden");
         backButton.classList.add("hidden");
-        pageTitle.textContent = "Context";
+        pageTitle.textContent = "DM screen";
         notionContainer.classList.remove("show-content");
         if (notionContent) {
           notionContent.innerHTML = "";
@@ -3326,8 +3420,12 @@ async function showTokenConfig() {
       errorDiv.style.display = 'none';
       alert('✅ Token guardado exitosamente. Ahora puedes usar tus propias páginas de Notion.');
       closeTokenConfig();
-      // Recargar la página para aplicar el nuevo token
-      window.location.reload();
+      // Actualizar el título del botón de token sin recargar la página
+      const tokenButton = document.querySelector('.icon-button[title*="Token"]');
+      if (tokenButton) {
+        tokenButton.title = "Token configurado - Clic para cambiar";
+      }
+      // No recargar la página para preservar la configuración actual
     } else {
       errorDiv.textContent = 'Error al guardar el token. Revisa la consola para más detalles.';
       errorDiv.style.display = 'block';
@@ -3340,7 +3438,12 @@ async function showTokenConfig() {
       if (saveUserToken('')) {
         alert('Token eliminado. Se usará el token del servidor.');
         closeTokenConfig();
-        window.location.reload();
+        // Actualizar el título del botón de token sin recargar la página
+        const tokenButton = document.querySelector('.icon-button[title*="Token"]');
+        if (tokenButton) {
+          tokenButton.title = "Configurar token de Notion";
+        }
+        // No recargar la página para preservar la configuración actual
       }
     }
   });
