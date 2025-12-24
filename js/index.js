@@ -3522,8 +3522,15 @@ async function showTokenConfig() {
             if (savePagesJSON(parsed, currentRoomId)) {
               alert('✅ JSON cargado exitosamente. La configuración ha sido actualizada.');
               closeTokenConfig();
-              // Recargar la página para aplicar la nueva configuración
-              window.location.reload();
+              
+              // Actualizar la vista principal directamente sin recargar la página
+              const pageList = document.getElementById("page-list");
+              if (pageList) {
+                renderPagesByCategories(parsed, pageList, currentRoomId);
+              } else {
+                // Si no se encuentra el pageList, recargar la página como fallback
+                window.location.reload();
+              }
             } else {
               alert('❌ Error al guardar el JSON. Revisa la consola para más detalles.');
             }
