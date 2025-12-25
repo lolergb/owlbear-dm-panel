@@ -260,7 +260,7 @@ h1#page-title {
 .page-link-icon {
   width: 24px;
   height: 24px;
-  opacity: 0.5;
+  opacity: 1;
   transition: opacity 0.15s;
 }
 
@@ -532,6 +532,7 @@ h1#page-title {
   z-index: 10001;
   display: flex;
   align-items: center;
+  width: 80%;
   justify-content: center;
   font-family: Roboto, Helvetica, Arial, sans-serif;
 }

@@ -4109,6 +4109,7 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     right: 0;
     bottom: 0;
     background: rgba(34, 38, 57, 0.9);
+    width: 80%;
     z-index: 10001;
     display: flex;
     align-items: center;
