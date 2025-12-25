@@ -4109,7 +4109,6 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     right: 0;
     bottom: 0;
     background: rgba(34, 38, 57, 0.9);
-    width: 80%;
     z-index: 10001;
     display: flex;
     align-items: center;
@@ -4123,6 +4122,7 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     position: fixed;
     border-radius: 8px;
     z-index: 10000;
+    width: 80%;
     font-family: Roboto, Helvetica, Arial, sans-serif;
     font-size: 16px;
     background-color: rgb(34, 38, 57);
