@@ -4108,8 +4108,7 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    background: rgba(34, 38, 57, 0.9);
     z-index: 10001;
     display: flex;
     align-items: center;
@@ -4119,13 +4118,15 @@ function showModalForm(title, fields, onSubmit, onCancel) {
 
   const modal = document.createElement('div');
   modal.style.cssText = `
-    background: rgba(30, 30, 30, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
     padding: 24px;
-    min-width: 400px;
-    max-width: 500px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    position: fixed;
+    border-radius: 8px;
+    z-index: 10000;
+    font-family: Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    background-color: rgb(34, 38, 57);
+    box-shadow: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px, rgba(0, 0, 0, 0.14) 0px 4px 5px 0px, rgba(0, 0, 0, 0.12) 0px 1px 10px 0px;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08));
   `;
 
   modal.innerHTML = `
