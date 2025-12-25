@@ -1817,7 +1817,7 @@ try {
         const categories = document.querySelectorAll('.category-group');
         categories.forEach(categoryDiv => {
           const contentContainer = categoryDiv.querySelector('.category-content');
-          const collapseBtn = categoryDiv.querySelector('.collapse-button img');
+          const collapseBtn = categoryDiv.querySelector('.category-collapse-button img');
           const categoryName = categoryDiv.dataset.categoryName;
           const level = categoryDiv.dataset.level;
           
