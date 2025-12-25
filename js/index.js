@@ -1909,13 +1909,15 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     e.stopPropagation();
     const rect = contextMenuButton.getBoundingClientRect();
     
-    // Obtener información para determinar si se puede mover arriba/abajo
+    // Obtener información para determinar si se puede mover arriba/abajo (usando orden combinado)
     const config = getPagesJSON(roomId) || await getDefaultJSON();
     const parentPath = categoryPath.slice(0, -2);
-    const parent = navigateConfigPath(config, parentPath);
+    const parent = parentPath.length === 0 ? config : navigateConfigPath(config, parentPath);
     const index = categoryPath[categoryPath.length - 1];
-    const canMoveUp = index > 0;
-    const canMoveDown = parent && parent.categories && index < parent.categories.length - 1;
+    const combinedOrder = getCombinedOrder(parent);
+    const currentPos = combinedOrder.findIndex(o => o.type === 'category' && o.index === index);
+    const canMoveUp = currentPos > 0;
+    const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
     
     const menuItems = [
       { 
@@ -1991,26 +1993,23 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   const hasContent = hasSubcategories || categoryPages.length > 0;
   contentContainer.style.display = isCollapsed ? 'none' : 'block';
   
-  // Renderizar subcarpetas primero (si existen)
-  if (hasSubcategories) {
-    category.categories.forEach((subcategory, index) => {
-      const subcategoryPath = [...categoryPath, 'categories', index];
-      renderCategory(subcategory, contentContainer, level + 1, roomId, subcategoryPath);
-    });
-  }
+  // Obtener el orden combinado de elementos (carpetas y páginas mezcladas)
+  const combinedOrder = getCombinedOrder(category);
   
-  // Contenedor de páginas de la carpeta
-  // Siempre crear el contenedor si hay páginas válidas
-  // O si la carpeta está completamente vacía (sin páginas ni subcarpetas)
-  // Esto asegura que las carpetas vacías anidadas se muestren correctamente
-  // PERO no crear el contenedor si solo tiene subcarpetas (sin páginas)
-  if (categoryPages.length > 0 || (!hasPages && !hasSubcategories)) {
-    const pagesContainer = document.createElement('div');
-    pagesContainer.className = 'category-pages';
-    
-    const buttonsData = [];
-    
-    categoryPages.forEach((page, index) => {
+  // Contenedor de páginas (se reutiliza para renderizar páginas en orden)
+  const pagesContainer = document.createElement('div');
+  pagesContainer.className = 'category-pages';
+  const buttonsData = [];
+  
+  // Renderizar elementos según el orden combinado
+  combinedOrder.forEach(item => {
+    if (item.type === 'category' && category.categories && category.categories[item.index]) {
+      const subcategory = category.categories[item.index];
+      const subcategoryPath = [...categoryPath, 'categories', item.index];
+      renderCategory(subcategory, contentContainer, level + 1, roomId, subcategoryPath);
+    } else if (item.type === 'page' && category.pages && category.pages[item.index]) {
+      const page = category.pages[item.index];
+      const index = item.index;
       const pageId = extractNotionPageId(page.url);
       const isNotion = isNotionUrl(page.url);
       const isDndbeyondUrl = isDndbeyond(page.url);
@@ -2070,11 +2069,13 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         // Obtener el path de la carpeta padre para agregar páginas en la misma carpeta
         const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
         
-        // Obtener información para determinar si se puede mover arriba/abajo
+        // Obtener información para determinar si se puede mover arriba/abajo (usando orden combinado)
         const parent = navigateConfigPath(config, pageCategoryPath);
         const pageIndex = parent && parent.pages ? parent.pages.findIndex(p => p.name === page.name && p.url === page.url) : -1;
-        const canMoveUp = pageIndex > 0;
-        const canMoveDown = pageIndex !== -1 && parent && parent.pages && pageIndex < parent.pages.length - 1;
+        const combinedOrder = getCombinedOrder(parent);
+        const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === pageIndex);
+        const canMoveUp = currentPos > 0;
+        const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
         
         const menuItems = [
           { 
@@ -2153,47 +2154,50 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       pagesContainer.appendChild(button);
       
       buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml, pageContextMenuButton });
-    });
-    
-      // Cargar iconos en paralelo después de renderizar todos los botones
-      if (buttonsData.length > 0) {
-        Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml, pageContextMenuButton }) => {
-          // Solo intentar cargar el icono si tenemos un pageId válido
-          if (!pageId || pageId === 'null') {
-            return; // Saltar si no hay pageId válido
-          }
-          try {
-            const icon = await fetchPageIcon(pageId);
-            const iconHtml = renderPageIcon(icon, pageName, pageId);
-            // Guardar referencia al botón de menú contextual antes de actualizar HTML
-            const menuButtonParent = pageContextMenuButton ? pageContextMenuButton.parentNode : null;
-            
-            button.innerHTML = `
-              <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-                ${iconHtml}
-                <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
-                ${linkIconHtml}
-              </div>
-            `;
-            
-            // Re-agregar el botón de menú contextual después de actualizar el HTML
-            // Asegurarse de que el botón se mantiene visible
-            if (pageContextMenuButton && menuButtonParent === button) {
-              button.appendChild(pageContextMenuButton);
-              // Asegurar que el botón sea visible si el mouse está sobre el botón
-              if (button.matches(':hover')) {
-                pageContextMenuButton.style.opacity = '1';
-              }
+    }
+  });
+  
+  // Agregar el contenedor de páginas al contenedor de contenido si tiene páginas
+  if (buttonsData.length > 0 || (!hasPages && !hasSubcategories)) {
+    // Cargar iconos en paralelo después de renderizar todos los botones
+    if (buttonsData.length > 0) {
+      Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml, pageContextMenuButton }) => {
+        // Solo intentar cargar el icono si tenemos un pageId válido
+        if (!pageId || pageId === 'null') {
+          return; // Saltar si no hay pageId válido
+        }
+        try {
+          const icon = await fetchPageIcon(pageId);
+          const iconHtml = renderPageIcon(icon, pageName, pageId);
+          // Guardar referencia al botón de menú contextual antes de actualizar HTML
+          const menuButtonParent = pageContextMenuButton ? pageContextMenuButton.parentNode : null;
+          
+          button.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              ${iconHtml}
+              <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
+              ${linkIconHtml}
+            </div>
+          `;
+          
+          // Re-agregar el botón de menú contextual después de actualizar el HTML
+          // Asegurarse de que el botón se mantiene visible
+          if (pageContextMenuButton && menuButtonParent === button) {
+            button.appendChild(pageContextMenuButton);
+            // Asegurar que el botón sea visible si el mouse está sobre el botón
+            if (button.matches(':hover')) {
+              pageContextMenuButton.style.opacity = '1';
             }
-          } catch (e) {
-            console.warn('No se pudo obtener el icono para:', pageName, e);
           }
-        })).catch(e => {
-          console.error('Error al cargar iconos:', e);
-        });
-      }
-    
-      contentContainer.appendChild(pagesContainer);
+        } catch (e) {
+          console.warn('No se pudo obtener el icono para:', pageName, e);
+        }
+      })).catch(e => {
+        console.error('Error al cargar iconos:', e);
+      });
+    }
+  
+    contentContainer.appendChild(pagesContainer);
   }
   
   // Manejar colapso/expansión
@@ -2274,102 +2278,150 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   parentElement.appendChild(categoryDiv);
 }
 
-// Función para mover carpeta arriba
+// Función auxiliar para obtener el orden combinado de elementos en un nivel
+// El orden se guarda en parent.order como array de {type: 'category'|'page', index: number}
+function getCombinedOrder(parent) {
+  if (!parent) return [];
+  
+  // Si existe un orden guardado, usarlo
+  if (parent.order && Array.isArray(parent.order)) {
+    // Validar que todos los elementos del orden existen
+    const validOrder = parent.order.filter(item => {
+      if (item.type === 'category') {
+        return parent.categories && parent.categories[item.index];
+      } else if (item.type === 'page') {
+        return parent.pages && parent.pages[item.index];
+      }
+      return false;
+    });
+    
+    // Agregar elementos nuevos que no estén en el orden
+    const categories = parent.categories || [];
+    const pages = parent.pages || [];
+    
+    categories.forEach((cat, index) => {
+      if (!validOrder.some(o => o.type === 'category' && o.index === index)) {
+        validOrder.push({ type: 'category', index });
+      }
+    });
+    
+    pages.forEach((page, index) => {
+      if (!validOrder.some(o => o.type === 'page' && o.index === index)) {
+        validOrder.push({ type: 'page', index });
+      }
+    });
+    
+    return validOrder;
+  }
+  
+  // Si no hay orden guardado, generar uno por defecto (carpetas primero, luego páginas)
+  const order = [];
+  const categories = parent.categories || [];
+  const pages = parent.pages || [];
+  
+  categories.forEach((cat, index) => {
+    order.push({ type: 'category', index });
+  });
+  
+  pages.forEach((page, index) => {
+    order.push({ type: 'page', index });
+  });
+  
+  return order;
+}
+
+// Función para guardar el orden combinado
+function saveCombinedOrder(parent, order) {
+  parent.order = order;
+}
+
+// Función para mover un elemento arriba en el orden combinado
+async function moveItemUp(itemType, itemIndex, parentPath, roomId) {
+  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const parent = parentPath.length === 0 ? config : navigateConfigPath(config, parentPath);
+  
+  if (!parent) return;
+  
+  const order = getCombinedOrder(parent);
+  const currentPos = order.findIndex(o => o.type === itemType && o.index === itemIndex);
+  
+  if (currentPos <= 0) return; // Ya está en la primera posición
+  
+  // Intercambiar con el anterior
+  const temp = order[currentPos];
+  order[currentPos] = order[currentPos - 1];
+  order[currentPos - 1] = temp;
+  
+  saveCombinedOrder(parent, order);
+  savePagesJSON(config, roomId);
+  
+  // Recargar vista
+  const pageList = document.getElementById("page-list");
+  if (pageList) {
+    renderPagesByCategories(config, pageList, roomId);
+  }
+}
+
+// Función para mover un elemento abajo en el orden combinado
+async function moveItemDown(itemType, itemIndex, parentPath, roomId) {
+  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const parent = parentPath.length === 0 ? config : navigateConfigPath(config, parentPath);
+  
+  if (!parent) return;
+  
+  const order = getCombinedOrder(parent);
+  const currentPos = order.findIndex(o => o.type === itemType && o.index === itemIndex);
+  
+  if (currentPos === -1 || currentPos >= order.length - 1) return; // Ya está en la última posición
+  
+  // Intercambiar con el siguiente
+  const temp = order[currentPos];
+  order[currentPos] = order[currentPos + 1];
+  order[currentPos + 1] = temp;
+  
+  saveCombinedOrder(parent, order);
+  savePagesJSON(config, roomId);
+  
+  // Recargar vista
+  const pageList = document.getElementById("page-list");
+  if (pageList) {
+    renderPagesByCategories(config, pageList, roomId);
+  }
+}
+
+// Funciones de compatibilidad (usan las nuevas funciones de orden combinado)
 async function moveCategoryUp(category, categoryPath, roomId) {
-  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
-  const parentPath = categoryPath.slice(0, -2);
-  const parent = navigateConfigPath(config, parentPath);
-  
-  if (!parent || !parent.categories) return;
-  
   const index = categoryPath[categoryPath.length - 1];
-  if (index === 0) return; // Ya está en la primera posición
-  
-  // Intercambiar con el anterior
-  const temp = parent.categories[index];
-  parent.categories[index] = parent.categories[index - 1];
-  parent.categories[index - 1] = temp;
-  
-  savePagesJSON(config, roomId);
-  
-  // Recargar vista
-  const pageList = document.getElementById("page-list");
-  if (pageList) {
-    renderPagesByCategories(config, pageList, roomId);
-  }
+  const parentPath = categoryPath.slice(0, -2);
+  await moveItemUp('category', index, parentPath, roomId);
 }
 
-// Función para mover carpeta abajo
 async function moveCategoryDown(category, categoryPath, roomId) {
-  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
-  const parentPath = categoryPath.slice(0, -2);
-  const parent = navigateConfigPath(config, parentPath);
-  
-  if (!parent || !parent.categories) return;
-  
   const index = categoryPath[categoryPath.length - 1];
-  if (index >= parent.categories.length - 1) return; // Ya está en la última posición
-  
-  // Intercambiar con el siguiente
-  const temp = parent.categories[index];
-  parent.categories[index] = parent.categories[index + 1];
-  parent.categories[index + 1] = temp;
-  
-  savePagesJSON(config, roomId);
-  
-  // Recargar vista
-  const pageList = document.getElementById("page-list");
-  if (pageList) {
-    renderPagesByCategories(config, pageList, roomId);
-  }
+  const parentPath = categoryPath.slice(0, -2);
+  await moveItemDown('category', index, parentPath, roomId);
 }
 
-// Función para mover página arriba
 async function movePageUp(page, pageCategoryPath, roomId) {
-  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const config = getPagesJSON(roomId) || await getDefaultJSON();
   const parent = navigateConfigPath(config, pageCategoryPath);
-  
   if (!parent || !parent.pages) return;
   
   const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
-  if (pageIndex === -1 || pageIndex === 0) return; // No encontrada o ya está en la primera posición
+  if (pageIndex === -1) return;
   
-  // Intercambiar con el anterior
-  const temp = parent.pages[pageIndex];
-  parent.pages[pageIndex] = parent.pages[pageIndex - 1];
-  parent.pages[pageIndex - 1] = temp;
-  
-  savePagesJSON(config, roomId);
-  
-  // Recargar vista
-  const pageList = document.getElementById("page-list");
-  if (pageList) {
-    renderPagesByCategories(config, pageList, roomId);
-  }
+  await moveItemUp('page', pageIndex, pageCategoryPath, roomId);
 }
 
-// Función para mover página abajo
 async function movePageDown(page, pageCategoryPath, roomId) {
-  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  const config = getPagesJSON(roomId) || await getDefaultJSON();
   const parent = navigateConfigPath(config, pageCategoryPath);
-  
   if (!parent || !parent.pages) return;
   
   const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
-  if (pageIndex === -1 || pageIndex >= parent.pages.length - 1) return; // No encontrada o ya está en la última posición
+  if (pageIndex === -1) return;
   
-  // Intercambiar con el siguiente
-  const temp = parent.pages[pageIndex];
-  parent.pages[pageIndex] = parent.pages[pageIndex + 1];
-  parent.pages[pageIndex + 1] = temp;
-  
-  savePagesJSON(config, roomId);
-  
-  // Recargar vista
-  const pageList = document.getElementById("page-list");
-  if (pageList) {
-    renderPagesByCategories(config, pageList, roomId);
-  }
+  await moveItemDown('page', pageIndex, pageCategoryPath, roomId);
 }
 
 // Función auxiliar para navegar por el path en la configuración
