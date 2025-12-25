@@ -1818,8 +1818,10 @@ try {
         categories.forEach(categoryDiv => {
           const contentContainer = categoryDiv.querySelector('.category-content');
           const collapseBtn = categoryDiv.querySelector('.collapse-button img');
+          const categoryName = categoryDiv.dataset.categoryName;
+          const level = categoryDiv.dataset.level;
           
-          if (contentContainer && collapseBtn) {
+          if (contentContainer && collapseBtn && categoryName) {
             if (newState) {
               // Colapsar
               contentContainer.style.display = 'none';
@@ -1830,11 +1832,9 @@ try {
               collapseBtn.src = 'img/folder-open.svg';
             }
             
-            // Guardar estado en localStorage
-            const categoryName = categoryDiv.dataset.categoryName;
-            if (categoryName) {
-              localStorage.setItem(`category-collapsed-${categoryName}`, (!newState).toString());
-            }
+            // Guardar estado en localStorage (usar la misma clave que renderCategory)
+            const collapseStateKey = `category-collapsed-${categoryName}-level-${level}`;
+            localStorage.setItem(collapseStateKey, newState.toString());
           }
         });
       });
@@ -2043,8 +2043,8 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   
   // Obtener el orden combinado de elementos (carpetas y páginas mezcladas)
   const combinedOrder = getCombinedOrder(category);
-  const buttonsData = [];
-  
+    const buttonsData = [];
+    
   // Renderizar elementos según el orden combinado
   combinedOrder.forEach(item => {
     if (item.type === 'category' && category.categories && category.categories[item.index]) {
@@ -2200,28 +2200,28 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       
       buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml, pageContextMenuButton });
     }
-  });
-  
-  // Cargar iconos en paralelo después de renderizar todos los botones
-  if (buttonsData.length > 0) {
+    });
+    
+    // Cargar iconos en paralelo después de renderizar todos los botones
+    if (buttonsData.length > 0) {
     Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml, pageContextMenuButton }) => {
-      // Solo intentar cargar el icono si tenemos un pageId válido
-      if (!pageId || pageId === 'null') {
-        return; // Saltar si no hay pageId válido
-      }
-      try {
-        const icon = await fetchPageIcon(pageId);
-        const iconHtml = renderPageIcon(icon, pageName, pageId);
+        // Solo intentar cargar el icono si tenemos un pageId válido
+        if (!pageId || pageId === 'null') {
+          return; // Saltar si no hay pageId válido
+        }
+        try {
+          const icon = await fetchPageIcon(pageId);
+          const iconHtml = renderPageIcon(icon, pageName, pageId);
         // Guardar referencia al botón de menú contextual antes de actualizar HTML
         const menuButtonParent = pageContextMenuButton ? pageContextMenuButton.parentNode : null;
         
-        button.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-            ${iconHtml}
-            <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
-            ${linkIconHtml}
-          </div>
-        `;
+          button.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              ${iconHtml}
+              <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
+              ${linkIconHtml}
+            </div>
+          `;
         
         // Re-agregar el botón de menú contextual después de actualizar el HTML
         // Asegurarse de que el botón se mantiene visible
@@ -2232,12 +2232,12 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
             pageContextMenuButton.style.opacity = '1';
           }
         }
-      } catch (e) {
-        console.warn('No se pudo obtener el icono para:', pageName, e);
-      }
-    })).catch(e => {
-      console.error('Error al cargar iconos:', e);
-    });
+        } catch (e) {
+          console.warn('No se pudo obtener el icono para:', pageName, e);
+        }
+      })).catch(e => {
+        console.error('Error al cargar iconos:', e);
+      });
   }
   
   // Manejar colapso/expansión
@@ -2249,7 +2249,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       if (e.target.closest('.category-context-menu-button')) {
         return;
       }
-      const newIsCollapsed = contentContainer.style.display === 'none';
+    const newIsCollapsed = contentContainer.style.display === 'none';
       
       // Aplicar animación suave
       if (newIsCollapsed) {
@@ -2306,8 +2306,8 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         }, 300);
       }
       
-      localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
-    });
+    localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
+  });
   } else {
     // Si no tiene contenido, mostrar la carpeta como abierta (sin funcionalidad de colapsar)
     collapseIcon.src = 'img/folder-open.svg';
@@ -3037,7 +3037,7 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
       const emptyState = document.createElement('div');
       emptyState.className = 'empty-state';
       emptyState.innerHTML = `
-        <p>No hay páginas configuradas</p>
+          <p>No hay páginas configuradas</p>
         <button id="add-first-category" class="add-first-category-button">➕ Agregar primera carpeta</button>
       `;
       pageList.appendChild(emptyState);
@@ -3263,9 +3263,9 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
   const notionContent = document.getElementById("notion-content");
   const header = document.getElementById("header");
   
-    if (pageList && notionContainer && backButton && pageTitle && notionContent && header) {
-      pageList.classList.add("hidden");
-      notionContainer.classList.remove("hidden");
+  if (pageList && notionContainer && backButton && pageTitle && notionContent && header) {
+    pageList.classList.add("hidden");
+    notionContainer.classList.remove("hidden");
       
       // Ocultar el button-container cuando se está en la vista de detalle
       const buttonContainer = document.querySelector('.button-container');
@@ -3613,32 +3613,32 @@ async function showTokenConfig() {
           ">Descargar JSON</button>
         </div>
         <div style="display: flex; gap: 16px; justify-content: flex-end;">
-          <button id="clear-token" style="
-            background: ${CSS_VARS.bgPrimary};
-            border: 1px solid ${CSS_VARS.borderPrimary};
-            border-radius: 6px;
-            padding: 10px 20px;
-            color: #e0e0e0;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 400;
-            font-family: Roboto, Helvetica, Arial, sans-serif;
-            transition: all 0.2s;
-            flex: 1;
-          ">Eliminar Token</button>
-          <button id="save-token" style="
-            background: #4a9eff;
-            border: none;
-            border-radius: 6px;
-            padding: 10px 20px;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 700;
-            font-family: Roboto, Helvetica, Arial, sans-serif;
-            transition: all 0.2s;
-            flex: 1;
-          ">Guardar Token</button>
+        <button id="clear-token" style="
+          background: ${CSS_VARS.bgPrimary};
+          border: 1px solid ${CSS_VARS.borderPrimary};
+          border-radius: 6px;
+          padding: 10px 20px;
+          color: #e0e0e0;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 400;
+          font-family: Roboto, Helvetica, Arial, sans-serif;
+          transition: all 0.2s;
+          flex: 1;
+        ">Eliminar Token</button>
+        <button id="save-token" style="
+          background: #4a9eff;
+          border: none;
+          border-radius: 6px;
+          padding: 10px 20px;
+          color: #fff;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 700;
+          font-family: Roboto, Helvetica, Arial, sans-serif;
+          transition: all 0.2s;
+          flex: 1;
+        ">Guardar Token</button>
         </div>
       </div>
     </div>
@@ -4052,7 +4052,7 @@ function createContextMenu(items, position, onClose) {
     } else {
       iconHtml = `<span style="font-size: 16px; width: 20px; text-align: center;">${item.icon || ''}</span>`;
     }
-    
+
     menuItem.innerHTML = `
       ${iconHtml}
       <span>${item.text}</span>
@@ -4072,7 +4072,7 @@ function createContextMenu(items, position, onClose) {
           await item.action();
         } catch (error) {
           console.error('Error ejecutando acción del menú:', error);
-        }
+      }
       }
     });
 
@@ -4227,7 +4227,7 @@ function showModalForm(title, fields, onSubmit, onCancel) {
             formData[field.name] = '';
           }
         } else {
-          formData[field.name] = input.value.trim();
+      formData[field.name] = input.value.trim();
         }
       }
     });
@@ -4242,7 +4242,7 @@ function showModalForm(title, fields, onSubmit, onCancel) {
     setTimeout(() => {
       try {
         firstInput.focus();
-      } catch (e) {
+    } catch (e) {
         // Ignorar errores de focus (pueden ser causados por extensiones del navegador)
         console.debug('No se pudo hacer focus en el campo:', e);
       }
@@ -4398,7 +4398,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         notionIcon.style.cssText = `
           width: 20px;
           height: 20px;
-          border-radius: 4px;
+      border-radius: 4px;
           background: #4a4a4a;
           display: flex;
           align-items: center;
@@ -4691,7 +4691,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
   const refreshEditor = () => {
     const config = getPagesJSON(roomId) || currentConfig;
     contentArea.innerHTML = '';
-
+    
     // Renderizar carpetas
     if (config.categories && config.categories.length > 0) {
       config.categories.forEach((category, index) => {

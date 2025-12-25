@@ -172,7 +172,6 @@ h1#page-title {
 /* Category styles */
 .category-group {
   margin-bottom: 0px;
-  margin-left: 32px;
 }
 
 .category-group[draggable="true"] {
@@ -224,6 +223,7 @@ h1#page-title {
 .category-content {
   /* Se controla con display: none/block dinámicamente */
   display: block;
+  margin-left: 32px;
 }
 
 .category-pages {
