@@ -1701,55 +1701,38 @@ try {
         return count;
       };
       
-      // PRIORIDAD 1: Intentar cargar la configuración del roomId actual
+      // Obtener ambas configuraciones
       const currentRoomConfig = getPagesJSON(roomId);
-      let currentRoomHasContent = false;
-      if (currentRoomConfig && currentRoomConfig.categories && Array.isArray(currentRoomConfig.categories)) {
-        const contentCount = countContent(currentRoomConfig);
-        console.log('🔍 Contenido encontrado en configuración actual:', contentCount, 'elementos');
-        if (contentCount > 0) {
-          log('✅ Configuración encontrada para room:', roomId, 'con', contentCount, 'elementos');
-          pagesConfig = currentRoomConfig;
-          currentRoomHasContent = true;
-        } else {
-          log('⚠️ Configuración encontrada para room:', roomId, 'pero está vacía o no tiene contenido válido');
-        }
-      } else {
-        log('⚠️ No se encontró configuración para room:', roomId);
+      const defaultConfig = getPagesJSON('default');
+      
+      // Contar contenido de cada una
+      const currentRoomCount = countContent(currentRoomConfig);
+      const defaultCount = countContent(defaultConfig);
+      
+      console.log('🔍 Configuración roomId:', roomId, '- elementos:', currentRoomCount);
+      console.log('🔍 Configuración default - elementos:', defaultCount);
+      
+      // Usar la que tenga MÁS contenido
+      if (currentRoomCount >= defaultCount && currentRoomCount > 0) {
+        log('✅ Usando configuración del roomId:', roomId, 'con', currentRoomCount, 'elementos');
+        pagesConfig = currentRoomConfig;
+      } else if (defaultCount > 0) {
+        log('✅ Usando configuración "default" con', defaultCount, 'elementos (tiene más contenido)');
+        pagesConfig = defaultConfig;
+        // Copiar la configuración default al roomId actual para futuras ediciones
+        savePagesJSON(defaultConfig, roomId);
+        log('💾 Configuración "default" copiada a roomId:', roomId);
+      } else if (currentRoomConfig) {
+        log('⚠️ Ambas configuraciones vacías, usando la del roomId');
+        pagesConfig = currentRoomConfig;
       }
       
-      // PRIORIDAD 2: Si la configuración del roomId no tiene contenido, intentar usar "default"
-      if (!currentRoomHasContent) {
-        log('🔍 Buscando configuración "default" como fallback...');
-        const defaultConfig = getPagesJSON('default');
-        if (defaultConfig && defaultConfig.categories && Array.isArray(defaultConfig.categories)) {
-          const defaultContentCount = countContent(defaultConfig);
-          if (defaultContentCount > 0) {
-            log('✅ Configuración "default" encontrada con', defaultContentCount, 'elementos, usándola');
-            pagesConfig = defaultConfig;
-            // NO sobrescribir la configuración del roomId, solo usar la default para mostrar
-          } else {
-            log('⚠️ Configuración "default" encontrada pero está vacía');
-          }
-        } else {
-          log('⚠️ No se encontró configuración "default"');
-        }
-      }
-      
-      // PRIORIDAD 3: Si no hay ninguna configuración con contenido, crear una nueva por defecto
+      // Si no hay ninguna configuración, crear una nueva por defecto
       if (!pagesConfig) {
-        log('📝 No se encontró ninguna configuración con contenido, creando una nueva por defecto');
+        log('📝 No se encontró ninguna configuración, creando una nueva por defecto');
         pagesConfig = await getDefaultJSON();
-        // Solo guardar si realmente no existe ninguna configuración para este roomId
-        const existingConfig = getPagesJSON(roomId);
-        if (!existingConfig) {
-          savePagesJSON(pagesConfig, roomId);
-          log('✅ Configuración por defecto creada para room:', roomId);
-        } else {
-          log('⚠️ Ya existe una configuración para room:', roomId, ', no se sobrescribe');
-          // Usar la existente aunque esté vacía
-          pagesConfig = existingConfig;
-        }
+        savePagesJSON(pagesConfig, roomId);
+        log('✅ Configuración por defecto creada para room:', roomId);
       }
 
       console.log('📊 Configuración cargada para room:', roomId);
