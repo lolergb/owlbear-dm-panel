@@ -1995,10 +1995,6 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   
   // Obtener el orden combinado de elementos (carpetas y páginas mezcladas)
   const combinedOrder = getCombinedOrder(category);
-  
-  // Contenedor de páginas (se reutiliza para renderizar páginas en orden)
-  const pagesContainer = document.createElement('div');
-  pagesContainer.className = 'category-pages';
   const buttonsData = [];
   
   // Renderizar elementos según el orden combinado
@@ -2151,53 +2147,49 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         await loadPageContent(page.url, page.name, page.selector || '', blockTypes);
       });
       
-      pagesContainer.appendChild(button);
+      // Agregar la página directamente al contentContainer para mantener el orden combinado
+      contentContainer.appendChild(button);
       
       buttonsData.push({ button, pageId, pageName: page.name, linkIconHtml, pageContextMenuButton });
     }
   });
   
-  // Agregar el contenedor de páginas al contenedor de contenido si tiene páginas
-  if (buttonsData.length > 0 || (!hasPages && !hasSubcategories)) {
-    // Cargar iconos en paralelo después de renderizar todos los botones
-    if (buttonsData.length > 0) {
-      Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml, pageContextMenuButton }) => {
-        // Solo intentar cargar el icono si tenemos un pageId válido
-        if (!pageId || pageId === 'null') {
-          return; // Saltar si no hay pageId válido
-        }
-        try {
-          const icon = await fetchPageIcon(pageId);
-          const iconHtml = renderPageIcon(icon, pageName, pageId);
-          // Guardar referencia al botón de menú contextual antes de actualizar HTML
-          const menuButtonParent = pageContextMenuButton ? pageContextMenuButton.parentNode : null;
-          
-          button.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
-              ${iconHtml}
-              <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
-              ${linkIconHtml}
-            </div>
-          `;
-          
-          // Re-agregar el botón de menú contextual después de actualizar el HTML
-          // Asegurarse de que el botón se mantiene visible
-          if (pageContextMenuButton && menuButtonParent === button) {
-            button.appendChild(pageContextMenuButton);
-            // Asegurar que el botón sea visible si el mouse está sobre el botón
-            if (button.matches(':hover')) {
-              pageContextMenuButton.style.opacity = '1';
-            }
+  // Cargar iconos en paralelo después de renderizar todos los botones
+  if (buttonsData.length > 0) {
+    Promise.all(buttonsData.map(async ({ button, pageId, pageName, linkIconHtml, pageContextMenuButton }) => {
+      // Solo intentar cargar el icono si tenemos un pageId válido
+      if (!pageId || pageId === 'null') {
+        return; // Saltar si no hay pageId válido
+      }
+      try {
+        const icon = await fetchPageIcon(pageId);
+        const iconHtml = renderPageIcon(icon, pageName, pageId);
+        // Guardar referencia al botón de menú contextual antes de actualizar HTML
+        const menuButtonParent = pageContextMenuButton ? pageContextMenuButton.parentNode : null;
+        
+        button.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+            ${iconHtml}
+            <div class="page-name" style="flex: 1; text-align: left;">${pageName}</div>
+            ${linkIconHtml}
+          </div>
+        `;
+        
+        // Re-agregar el botón de menú contextual después de actualizar el HTML
+        // Asegurarse de que el botón se mantiene visible
+        if (pageContextMenuButton && menuButtonParent === button) {
+          button.appendChild(pageContextMenuButton);
+          // Asegurar que el botón sea visible si el mouse está sobre el botón
+          if (button.matches(':hover')) {
+            pageContextMenuButton.style.opacity = '1';
           }
-        } catch (e) {
-          console.warn('No se pudo obtener el icono para:', pageName, e);
         }
-      })).catch(e => {
-        console.error('Error al cargar iconos:', e);
-      });
-    }
-  
-    contentContainer.appendChild(pagesContainer);
+      } catch (e) {
+        console.warn('No se pudo obtener el icono para:', pageName, e);
+      }
+    })).catch(e => {
+      console.error('Error al cargar iconos:', e);
+    });
   }
   
   // Manejar colapso/expansión
@@ -3013,10 +3005,14 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
       return;
     }
   
-    // Mantener el orden original del JSON (sin ordenar)
-    pagesConfig.categories.forEach((category, index) => {
-      const categoryPath = ['categories', index];
-      renderCategory(category, pageList, 0, roomId, categoryPath);
+    // Usar el orden combinado para el nivel raíz
+    const rootOrder = getCombinedOrder(pagesConfig);
+    rootOrder.forEach(item => {
+      if (item.type === 'category' && pagesConfig.categories && pagesConfig.categories[item.index]) {
+        const categoryPath = ['categories', item.index];
+        renderCategory(pagesConfig.categories[item.index], pageList, 0, roomId, categoryPath);
+      }
+      // En el nivel raíz normalmente solo hay categorías, pero esto permite páginas sueltas en el futuro
     });
   }, 0); // Permitir que el DOM se actualice
 }
