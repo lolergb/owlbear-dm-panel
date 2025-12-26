@@ -3436,12 +3436,11 @@ async function showTokenConfig() {
   } catch (e) {
     console.warn('No se pudo obtener roomId:', e);
   }
-  const mainContainer = document.querySelector('.container');
   const pageList = document.getElementById("page-list");
   const notionContainer = document.getElementById("notion-container");
   const tokenContainer = document.getElementById("token-config-container");
   
-  if (mainContainer) mainContainer.classList.add('hidden');
+  // Ocultar otros contenedores pero mantener el container visible
   if (pageList) pageList.classList.add('hidden');
   if (notionContainer) notionContainer.classList.add('hidden');
   if (tokenContainer) tokenContainer.classList.remove('hidden');
@@ -3480,7 +3479,6 @@ async function showTokenConfig() {
   // Cerrar
   const closeTokenConfig = () => {
     if (tokenContainer) tokenContainer.classList.add('hidden');
-    if (mainContainer) mainContainer.classList.remove('hidden');
     if (pageList) pageList.classList.remove('hidden');
   };
   
