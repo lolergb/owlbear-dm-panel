@@ -27,62 +27,33 @@
       <div class="token-config-content">
         <div class="token-config-section">
           <p class="token-config-description">
-            Configura tu token de Notion para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms).
+            Configura tu token de Notion <a href="https://developers.notion.com/docs/create-a-notion-integration#create-your-integration-in-notion">siguiendo este tutorial</a> para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms). 
           </p>
           
-          <div class="token-config-info-box">
-            <h3 class="token-config-info-title">📝 Cómo obtener tu token:</h3>
-            <ol class="token-config-info-list">
-              <li>Ve a <a href="https://www.notion.so/my-integrations" target="_blank" class="token-config-link">notion.so/my-integrations</a></li>
-              <li><strong>Crea una nueva integración:</strong>
-                <ul class="token-config-info-sublist">
-                  <li>Clic en <strong>"+ Nueva integración"</strong></li>
-                  <li>Dale un nombre (ej: "Owlbear Notion")</li>
-                  <li>Selecciona el workspace donde están tus páginas</li>
-                  <li>Clic en <strong>"Enviar"</strong></li>
-                </ul>
-              </li>
-              <li><strong>Copia el token:</strong>
-                <ul class="token-config-info-sublist">
-                  <li>En la página de la integración, busca <strong>"Internal Integration Token"</strong></li>
-                  <li>Clic en <strong>"Mostrar"</strong> y copia el token completo</li>
-                </ul>
-              </li>
-              <li><strong>Comparte tus páginas:</strong>
-                <ul class="token-config-info-sublist">
-                  <li>En Notion, abre cada página que quieres usar</li>
-                  <li>Clic en <strong>"Compartir"</strong> (arriba a la derecha)</li>
-                  <li>Busca el nombre de tu integración y dale acceso</li>
-                </ul>
-              </li>
-              <li>Pega el token en el campo de abajo y guarda</li>
-            </ol>
-          </div>
-          
-          <div class="token-config-input-group">
-            <label class="token-config-label">
+          <div class="modal-field">
+            <label class="modal-label">
               Token de Notion:
             </label>
             <input 
               type="password" 
               id="token-input" 
               placeholder="ntn_... o secret_..." 
-              class="token-config-input"
+              class="modal-input"
             />
-            <p id="token-masked" class="token-config-masked"></p>
+            <p id="token-masked" class="modal-help"></p>
           </div>
           
-          <div id="token-error" class="token-config-error"></div>
+          <div id="token-error" class="modal-error"></div>
           
           <div class="token-config-actions">
             <div class="token-config-buttons-row">
-              <button id="view-json-btn" class="token-config-button">Ver JSON</button>
-              <button id="load-json-btn" class="token-config-button">Cargar JSON</button>
-              <button id="download-json-btn" class="token-config-button">Descargar JSON</button>
+              <button id="view-json-btn" class="modal-button modal-button-cancel">Ver JSON</button>
+              <button id="load-json-btn" class="modal-button modal-button-cancel">Cargar JSON</button>
+              <button id="download-json-btn" class="modal-button modal-button-cancel">Descargar JSON</button>
             </div>
             <div class="token-config-buttons-row">
-              <button id="clear-token" class="token-config-button token-config-button-secondary">Eliminar Token</button>
-              <button id="save-token" class="token-config-button token-config-button-primary">Guardar Token</button>
+              <button id="clear-token" class="modal-button modal-button-cancel">Eliminar Token</button>
+              <button id="save-token" class="modal-button modal-button-submit">Guardar Token</button>
             </div>
           </div>
         </div>
