@@ -283,6 +283,13 @@ body {
   border-top: 1px solid var(--color-border-subtle);
 }
 
+/* Formulario con separación visual (borde superior) */
+.form--separated {
+  padding-top: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
 /* ==========================================================================
    Componentes Base - Links
    ========================================================================== */

@@ -3403,21 +3403,21 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
           settingsContainer.classList.add("hidden");
         } else {
           // Volver a la vista principal desde notion-container
-          notionContainer.classList.add("hidden");
-          notionContainer.classList.remove("show-content");
-          if (notionContent) {
-            notionContent.innerHTML = "";
-          }
-          // Limpiar iframe
-          const iframe = notionContainer.querySelector('#notion-iframe');
-          if (iframe) {
-            iframe.src = '';
-            iframe.style.display = 'none';
-          }
-          // Ocultar botón de recargar
-          const refreshButton = document.getElementById("refresh-page-button");
-          if (refreshButton) {
-            refreshButton.classList.add("hidden");
+        notionContainer.classList.add("hidden");
+        notionContainer.classList.remove("show-content");
+        if (notionContent) {
+          notionContent.innerHTML = "";
+        }
+        // Limpiar iframe
+        const iframe = notionContainer.querySelector('#notion-iframe');
+        if (iframe) {
+          iframe.src = '';
+          iframe.style.display = 'none';
+        }
+        // Ocultar botón de recargar
+        const refreshButton = document.getElementById("refresh-page-button");
+        if (refreshButton) {
+          refreshButton.classList.add("hidden");
           }
         }
         
@@ -3534,6 +3534,11 @@ async function showSettings() {
   const loadJsonBtn = document.getElementById('load-json-btn');
   const downloadJsonBtn = document.getElementById('download-json-btn');
   
+  // Mostrar botón "Ver JSON" solo en modo debug
+  if (viewJsonBtn && DEBUG_MODE) {
+    viewJsonBtn.classList.remove('hidden');
+  }
+  
   if (tokenInput) {
     tokenInput.value = currentToken;
   }
@@ -3638,14 +3643,14 @@ async function showSettings() {
         // Crear un modal para mostrar el JSON
         const jsonModal = document.createElement('div');
         jsonModal.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
           background: rgba(0, 0, 0, 0.8);
           z-index: 10001;
-          display: flex;
+    display: flex;
           align-items: center;
           justify-content: center;
           padding: 20px;
@@ -3667,22 +3672,22 @@ async function showSettings() {
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h2 style="color: #fff; font-size: 18px; font-weight: 700; margin: 0; font-family: Roboto, Helvetica, Arial, sans-serif;">JSON de Configuración</h2>
             <button id="close-json-modal" style="
-              background: ${CSS_VARS.bgPrimary};
-              border: 1px solid ${CSS_VARS.borderPrimary};
-              border-radius: 6px;
-              padding: 6px 12px;
-              color: #e0e0e0;
-              cursor: pointer;
-              font-size: 14px;
+        background: ${CSS_VARS.bgPrimary};
+        border: 1px solid ${CSS_VARS.borderPrimary};
+        border-radius: 6px;
+        padding: 6px 12px;
+        color: #e0e0e0;
+        cursor: pointer;
+        font-size: 14px;
               font-family: Roboto, Helvetica, Arial, sans-serif;
             ">Cerrar</button>
-          </div>
+      </div>
           <pre id="json-display" style="
             background: ${CSS_VARS.bgPrimary};
             border: 1px solid ${CSS_VARS.borderPrimary};
             border-radius: 6px;
             padding: 16px;
-            color: #e0e0e0;
+          color: #e0e0e0;
             font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
             font-size: 12px;
             line-height: 1.6;
@@ -3734,9 +3739,9 @@ async function showSettings() {
             // Validar estructura básica
             if (!parsed.categories || !Array.isArray(parsed.categories)) {
               alert('❌ El JSON debe tener un array "categories"');
-              return;
-            }
-            
+      return;
+    }
+    
             // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
             let currentRoomId = roomId;
             if (!currentRoomId) {
@@ -3760,9 +3765,9 @@ async function showSettings() {
                 renderPagesByCategories(parsed, pageList, currentRoomId);
               } else {
                 // Si no se encuentra el pageList, recargar la página como fallback
-                window.location.reload();
+      window.location.reload();
               }
-            } else {
+    } else {
               alert('❌ Error al guardar el JSON. Revisa la consola para más detalles.');
             }
           } catch (e) {
