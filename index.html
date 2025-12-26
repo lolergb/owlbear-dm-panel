@@ -12,51 +12,50 @@
 </head>
 <body>
   <div class="container">
-    <div id="header" class="header">
-      <button id="back-button" class="back-button hidden"><img src="img/icon-arrow.svg" alt="Volver" class="back-button-icon"> Volver</button>
-      <h1 id="page-title">DM screen</h1>
-    </div>
+    <header id="header" class="header">
+      <button id="back-button" class="btn btn--sm back-button hidden">
+        <img src="img/icon-arrow.svg" alt="Volver" class="btn__icon">
+        Volver
+      </button>
+      <h1 id="page-title" class="header__title">DM screen</h1>
+    </header>
     <div id="page-list" class="page-list">
       <!-- Las páginas se cargarán aquí dinámicamente -->
     </div>
-    <div id="notion-container" class="notion-container hidden notion-container-dark">
-      <iframe id="notion-iframe" src="" frameborder="0" allowfullscreen></iframe>
-      <div id="notion-content" class="notion-content"></div>
+    <div id="notion-container" class="notion-container notion-container-dark hidden">
+      <iframe id="notion-iframe" class="notion-container__iframe" src="" frameborder="0" allowfullscreen></iframe>
+      <div id="notion-content" class="notion-container__content notion-content"></div>
     </div>
-    <div id="token-config-container" class="token-config-container hidden">
-      <div class="token-config-content">
-        <div class="token-config-section">
-          <p class="token-config-description">
-            Configura tu token de Notion <a href="https://developers.notion.com/docs/create-a-notion-integration#create-your-integration-in-notion">siguiendo este tutorial</a> para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms). 
-          </p>
-          
-          <div class="modal-field">
-            <label class="modal-label">
-              Token de Notion:
-            </label>
-            <input 
-              type="password" 
-              id="token-input" 
-              placeholder="ntn_... o secret_..." 
-              class="modal-input"
-            />
-            <p id="token-masked" class="modal-help"></p>
+    <div id="settings-container" class="settings hidden">
+      <div class="settings__content">
+        <p class="settings__description">
+          Configura tu token de Notion <a href="https://developers.notion.com/docs/create-a-notion-integration#create-your-integration-in-notion" class="settings__link">siguiendo este tutorial</a> para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms). 
+        </p>
+        
+        <div class="form__field">
+          <label class="form__label" for="token-input">
+            Token de Notion:
+          </label>
+          <input 
+            type="password" 
+            id="token-input" 
+            placeholder="ntn_... o secret_..." 
+            class="input input--mono"
+          />
+          <p id="token-masked" class="form__help"></p>
+        </div>
+        
+        <div id="token-error" class="settings__error"></div>
+        
+        <div class="settings__actions">
+          <div class="settings__row">
+            <button id="clear-token" class="btn btn--secondary btn--flex">Eliminar Token</button>
+            <button id="save-token" class="btn btn--primary btn--flex">Guardar Token</button>
           </div>
-          
-          <div id="token-error" class="modal-error"></div>
-          
-          <div class="token-config-actions">
-            <div class="token-config-buttons-row">
-              <button id="clear-token" class="modal-button modal-button-cancel">Eliminar Token</button>
-              <button id="save-token" class="modal-button modal-button-submit">Guardar Token</button>
-            </div>
-          </div>
-          <div class="token-config-actions">
-            <div class="token-config-buttons-row">
-              <button id="view-json-btn" class="modal-button modal-button-cancel">Ver JSON</button>
-              <button id="load-json-btn" class="modal-button modal-button-cancel">Cargar JSON</button>
-              <button id="download-json-btn" class="modal-button modal-button-cancel">Descargar JSON</button>
-            </div>
+          <div class="settings__row">
+            <button id="view-json-btn" class="btn btn--flex">Ver JSON</button>
+            <button id="load-json-btn" class="btn btn--flex">Cargar JSON</button>
+            <button id="download-json-btn" class="btn btn--flex">Descargar JSON</button>
           </div>
         </div>
       </div>

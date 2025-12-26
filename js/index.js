@@ -517,7 +517,7 @@ async function fetchNotionBlocks(pageId, useCache = true) {
       apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(userToken)}`;
     } else {
       // No hay token del usuario → mostrar error
-      throw new Error('No hay token configurado. Ve a Configuración → Token de Notion (botón 🔑) para configurar tu token.');
+      throw new Error('No hay token configurado. Ve a Configuración (botón ⚙️) para configurar tu token de Notion.');
     }
     
     log('🌐 Obteniendo bloques desde la API para:', pageId);
@@ -1751,15 +1751,15 @@ try {
       buttonContainer.className = "button-container";
       
       // Botón para configurar token de Notion
-      const tokenButton = document.createElement("button");
-      tokenButton.className = "icon-button";
+      const settingsButton = document.createElement("button");
+      settingsButton.className = "icon-button";
       const keyIcon = document.createElement("img");
       keyIcon.src = "img/icon-json.svg";
-      keyIcon.alt = "Configurar token";
+      keyIcon.alt = "Configuración";
       keyIcon.className = "icon-button-icon";
-      tokenButton.appendChild(keyIcon);
-      tokenButton.title = hasUserToken() ? "Token configurado - Clic para cambiar" : "Configurar token de Notion";
-      tokenButton.addEventListener("click", () => showTokenConfig());
+      settingsButton.appendChild(keyIcon);
+      settingsButton.title = hasUserToken() ? "Configuración (Token configurado)" : "Configuración";
+      settingsButton.addEventListener("click", () => showSettings());
       
       // Botón para agregar (carpeta o página)
       const addButton = document.createElement("button");
@@ -1839,7 +1839,7 @@ try {
         });
       });
       
-      buttonContainer.appendChild(tokenButton);
+      buttonContainer.appendChild(settingsButton);
       buttonContainer.appendChild(collapseAllButton);
       buttonContainer.appendChild(addButton);
       header.appendChild(buttonContainer);
@@ -3395,12 +3395,12 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     
     if (!backButton.dataset.listenerAdded) {
       backButton.addEventListener("click", () => {
-        const tokenContainer = document.getElementById("token-config-container");
-        const isTokenConfigVisible = tokenContainer && !tokenContainer.classList.contains('hidden');
+        const settingsContainer = document.getElementById("settings-container");
+        const isSettingsVisible = settingsContainer && !settingsContainer.classList.contains('hidden');
         
-        if (isTokenConfigVisible) {
+        if (isSettingsVisible) {
           // Cerrar token config
-          tokenContainer.classList.add("hidden");
+          settingsContainer.classList.add("hidden");
         } else {
           // Volver a la vista principal desde notion-container
           notionContainer.classList.add("hidden");
@@ -3437,7 +3437,7 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
 }
 
 // Función para mostrar configuración de token
-async function showTokenConfig() {
+async function showSettings() {
   // Obtener roomId de forma segura
   let roomId = null;
   try {
@@ -3449,7 +3449,7 @@ async function showTokenConfig() {
   }
   const pageList = document.getElementById("page-list");
   const notionContainer = document.getElementById("notion-container");
-  const tokenContainer = document.getElementById("token-config-container");
+  const settingsContainer = document.getElementById("settings-container");
   const backButton = document.getElementById("back-button");
   const pageTitle = document.getElementById("page-title");
   const header = document.getElementById("header");
@@ -3457,31 +3457,31 @@ async function showTokenConfig() {
   // Ocultar otros contenedores pero mantener el container visible
   if (pageList) pageList.classList.add('hidden');
   if (notionContainer) notionContainer.classList.add('hidden');
-  if (tokenContainer) tokenContainer.classList.remove('hidden');
+  if (settingsContainer) settingsContainer.classList.remove('hidden');
   
   // Actualizar header como en loadPageContent
   if (backButton) {
     backButton.classList.remove('hidden');
   }
   if (pageTitle) {
-    pageTitle.textContent = 'Configurar Token de Notion';
+    pageTitle.textContent = '⚙️ Configuración';
   }
   
   // Asegurar que el listener esté configurado (se agrega en loadPageContent o aquí si es necesario)
   if (backButton && !backButton.dataset.listenerAdded) {
     backButton.addEventListener("click", () => {
-      const tokenContainer = document.getElementById("token-config-container");
+      const settingsContainer = document.getElementById("settings-container");
       const notionContainer = document.getElementById("notion-container");
       const pageList = document.getElementById("page-list");
       const pageTitle = document.getElementById("page-title");
       const notionContent = document.getElementById("notion-content");
       
-      const isTokenConfigVisible = tokenContainer && !tokenContainer.classList.contains('hidden');
+      const isSettingsVisible = settingsContainer && !settingsContainer.classList.contains('hidden');
       const isNotionContainerVisible = notionContainer && !notionContainer.classList.contains('hidden');
       
-      if (isTokenConfigVisible) {
+      if (isSettingsVisible) {
         // Cerrar token config
-        tokenContainer.classList.add("hidden");
+        settingsContainer.classList.add("hidden");
       } else if (isNotionContainerVisible) {
         // Volver a la vista principal desde notion-container
         notionContainer.classList.add("hidden");
@@ -3552,8 +3552,8 @@ async function showTokenConfig() {
   }
   
   // Cerrar
-  const closeTokenConfig = () => {
-    if (tokenContainer) tokenContainer.classList.add('hidden');
+  const closeSettings = () => {
+    if (settingsContainer) settingsContainer.classList.add('hidden');
     if (pageList) pageList.classList.remove('hidden');
     if (backButton) backButton.classList.add('hidden');
     if (pageTitle) pageTitle.textContent = 'DM screen';
@@ -3580,11 +3580,11 @@ async function showTokenConfig() {
       if (saveUserToken(token)) {
         if (errorDiv) errorDiv.style.display = 'none';
         alert('✅ Token guardado exitosamente. Ahora puedes usar tus propias páginas de Notion.');
-        closeTokenConfig();
+        closeSettings();
         // Actualizar el título del botón de token sin recargar la página
-        const tokenButton = document.querySelector('.icon-button[title*="Token"]');
-        if (tokenButton) {
-          tokenButton.title = "Token configurado - Clic para cambiar";
+        const settingsButton = document.querySelector('.icon-button[title*="Token"]');
+        if (settingsButton) {
+          settingsButton.title = "Configuración (Token configurado)";
         }
         // No recargar la página para preservar la configuración actual
       } else {
@@ -3602,11 +3602,11 @@ async function showTokenConfig() {
       if (confirm('¿Eliminar el token? Volverás a usar el token del servidor (si está configurado).')) {
         if (saveUserToken('')) {
           alert('Token eliminado. Se usará el token del servidor.');
-          closeTokenConfig();
+          closeSettings();
           // Actualizar el título del botón de token sin recargar la página
-          const tokenButton = document.querySelector('.icon-button[title*="Token"]');
-          if (tokenButton) {
-            tokenButton.title = "Configurar token de Notion";
+          const settingsButton = document.querySelector('.icon-button[title*="Token"]');
+          if (settingsButton) {
+            settingsButton.title = "Configuración";
           }
           // No recargar la página para preservar la configuración actual
         }
@@ -3614,7 +3614,7 @@ async function showTokenConfig() {
     });
   }
   
-  // El back-button ya tiene un listener que maneja el cierre de token-config-container
+  // El back-button ya tiene un listener que maneja el cierre de settings-container
   // No necesitamos agregar otro listener aquí
   
   // Ver JSON
@@ -3752,7 +3752,7 @@ async function showTokenConfig() {
             // Guardar la nueva configuración
             if (savePagesJSON(parsed, currentRoomId)) {
               alert('✅ JSON cargado exitosamente. La configuración ha sido actualizada.');
-              closeTokenConfig();
+              closeSettings();
               
               // Actualizar la vista principal directamente sin recargar la página
               const pageList = document.getElementById("page-list");
