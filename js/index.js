@@ -3164,6 +3164,7 @@ function getLinkType(url) {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
+    const pathname = urlObj.pathname.toLowerCase();
     
     // Detectar tipos de links
     if (hostname.includes('notion.so') || hostname.includes('notion.site')) {
@@ -3173,14 +3174,254 @@ function getLinkType(url) {
     if (hostname.includes('dndbeyond.com')) {
       return { type: 'dndbeyond', icon: 'icon-dnd.svg' };
     }
-    // if (hostname.includes('roll20.net')) {
-    //   return { type: 'roll20', icon: 'icon-roll20.svg' };
-    // }
+    
+    // Google Drive
+    if (hostname.includes('drive.google.com')) {
+      return { type: 'google-drive', icon: 'icon-google-drive.svg' };
+    }
+    
+    // Google Docs/Sheets/Slides
+    if (hostname.includes('docs.google.com')) {
+      if (pathname.includes('/document/')) {
+        return { type: 'google-docs', icon: 'icon-google-docs.svg' };
+      }
+      if (pathname.includes('/spreadsheets/')) {
+        return { type: 'google-sheets', icon: 'icon-google-sheets.svg' };
+      }
+      if (pathname.includes('/presentation/')) {
+        return { type: 'google-slides', icon: 'icon-google-slides.svg' };
+      }
+    }
+    
+    // YouTube
+    if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return { type: 'youtube', icon: 'icon-youtube.svg' };
+    }
+    
+    // Vimeo
+    if (hostname.includes('vimeo.com')) {
+      return { type: 'vimeo', icon: 'icon-vimeo.svg' };
+    }
+    
+    // Figma
+    if (hostname.includes('figma.com')) {
+      return { type: 'figma', icon: 'icon-figma.svg' };
+    }
+    
+    // Dropbox
+    if (hostname.includes('dropbox.com')) {
+      return { type: 'dropbox', icon: 'icon-dropbox.svg' };
+    }
+    
+    // OneDrive
+    if (hostname.includes('onedrive.live.com') || hostname.includes('1drv.ms')) {
+      return { type: 'onedrive', icon: 'icon-onedrive.svg' };
+    }
+    
+    // CodePen
+    if (hostname.includes('codepen.io')) {
+      return { type: 'codepen', icon: 'icon-codepen.svg' };
+    }
+    
+    // JSFiddle
+    if (hostname.includes('jsfiddle.net')) {
+      return { type: 'jsfiddle', icon: 'icon-jsfiddle.svg' };
+    }
+    
+    // GitHub
+    if (hostname.includes('github.com') || hostname.includes('gist.github.com')) {
+      return { type: 'github', icon: 'icon-github.svg' };
+    }
+    
+    // PDF
+    if (pathname.endsWith('.pdf')) {
+      return { type: 'pdf', icon: 'icon-pdf.svg' };
+    }
     
     // Por defecto, link genérico
     return { type: 'generic', icon: 'icon-link.svg' };
   } catch (e) {
     return { type: 'generic', icon: 'icon-link.svg' };
+  }
+}
+
+// Función para convertir URLs de servicios externos a formato embed
+// Soporta: Google Drive, Google Docs/Sheets/Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma, CodePen, JSFiddle
+function convertToEmbedUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return { url, converted: false, service: null };
+  }
+
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    const pathname = urlObj.pathname;
+
+    // Google Drive
+    if (hostname.includes('drive.google.com') && pathname.includes('/file/d/')) {
+      const match = pathname.match(/\/file\/d\/([^/]+)/);
+      if (match) {
+        const fileId = match[1];
+        return {
+          url: `https://drive.google.com/file/d/${fileId}/preview`,
+          converted: true,
+          service: 'Google Drive'
+        };
+      }
+    }
+
+    // Google Docs
+    if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
+      const match = pathname.match(/\/document\/d\/([^/]+)/);
+      if (match) {
+        const docId = match[1];
+        return {
+          url: `https://docs.google.com/document/d/${docId}/preview`,
+          converted: true,
+          service: 'Google Docs'
+        };
+      }
+    }
+
+    // Google Sheets
+    if (hostname.includes('docs.google.com') && pathname.includes('/spreadsheets/d/')) {
+      const match = pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+      if (match) {
+        const sheetId = match[1];
+        return {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/preview`,
+          converted: true,
+          service: 'Google Sheets'
+        };
+      }
+    }
+
+    // Google Slides
+    if (hostname.includes('docs.google.com') && pathname.includes('/presentation/d/')) {
+      const match = pathname.match(/\/presentation\/d\/([^/]+)/);
+      if (match) {
+        const slideId = match[1];
+        return {
+          url: `https://docs.google.com/presentation/d/${slideId}/embed`,
+          converted: true,
+          service: 'Google Slides'
+        };
+      }
+    }
+
+    // Dropbox - convertir ?dl=0 a ?raw=1
+    if (hostname.includes('dropbox.com')) {
+      const newUrl = url.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1');
+      if (newUrl !== url) {
+        return {
+          url: newUrl,
+          converted: true,
+          service: 'Dropbox'
+        };
+      }
+    }
+
+    // OneDrive
+    if (hostname.includes('onedrive.live.com') && url.includes('resid=')) {
+      // Ya es formato embed o lo convertimos
+      if (!url.includes('/embed')) {
+        const resid = urlObj.searchParams.get('resid');
+        if (resid) {
+          return {
+            url: `https://onedrive.live.com/embed?resid=${resid}`,
+            converted: true,
+            service: 'OneDrive'
+          };
+        }
+      }
+    }
+
+    // YouTube
+    if (hostname.includes('youtube.com') && pathname.includes('/watch')) {
+      const videoId = urlObj.searchParams.get('v');
+      if (videoId) {
+        return {
+          url: `https://www.youtube.com/embed/${videoId}`,
+          converted: true,
+          service: 'YouTube'
+        };
+      }
+    }
+
+    // YouTube corto (youtu.be)
+    if (hostname === 'youtu.be') {
+      const videoId = pathname.substring(1);
+      if (videoId) {
+        return {
+          url: `https://www.youtube.com/embed/${videoId}`,
+          converted: true,
+          service: 'YouTube'
+        };
+      }
+    }
+
+    // Vimeo
+    if (hostname.includes('vimeo.com') && !pathname.includes('/video/')) {
+      const videoId = pathname.match(/\/(\d+)/);
+      if (videoId) {
+        return {
+          url: `https://player.vimeo.com/video/${videoId[1]}`,
+          converted: true,
+          service: 'Vimeo'
+        };
+      }
+    }
+
+    // Figma
+    if (hostname.includes('figma.com') && (pathname.includes('/file/') || pathname.includes('/design/'))) {
+      return {
+        url: `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(url)}`,
+        converted: true,
+        service: 'Figma'
+      };
+    }
+
+    // CodePen
+    if (hostname.includes('codepen.io') && pathname.includes('/pen/')) {
+      const parts = pathname.split('/');
+      const userIndex = parts.indexOf('pen') - 1;
+      const penIndex = parts.indexOf('pen') + 1;
+      if (userIndex >= 0 && penIndex < parts.length) {
+        const user = parts[userIndex];
+        const penId = parts[penIndex];
+        return {
+          url: `https://codepen.io/${user}/embed/${penId}?default-tab=result`,
+          converted: true,
+          service: 'CodePen'
+        };
+      }
+    }
+
+    // JSFiddle
+    if (hostname.includes('jsfiddle.net') && !pathname.includes('/embedded/')) {
+      const cleanPath = pathname.replace(/\/$/, '');
+      return {
+        url: `https://jsfiddle.net${cleanPath}/embedded/result/`,
+        converted: true,
+        service: 'JSFiddle'
+      };
+    }
+
+    // PDF directo - no necesita conversión pero lo marcamos
+    if (pathname.endsWith('.pdf')) {
+      return {
+        url: url,
+        converted: false,
+        service: 'PDF'
+      };
+    }
+
+    // No se necesita conversión
+    return { url, converted: false, service: null };
+
+  } catch (e) {
+    console.warn('Error al convertir URL:', e);
+    return { url, converted: false, service: null };
   }
 }
 
@@ -3285,15 +3526,26 @@ async function loadIframeContent(url, container, selector = null) {
     } catch (error) {
       console.warn('⚠️ No se pudo cargar elemento específico (posible CORS):', error.message);
       console.log('📄 Cargando URL completa como fallback:', url);
-      // Fallback: cargar la URL completa
-      iframe.src = url;
+      // Fallback: cargar la URL completa con conversión
+      const embedResult = convertToEmbedUrl(url);
+      if (embedResult.converted) {
+        console.log(`🔄 URL convertida para ${embedResult.service}: ${embedResult.url}`);
+      }
+      iframe.src = embedResult.url;
       iframe.style.display = 'block';
       iframe.style.visibility = 'visible';
     }
   } else {
     // Sin selector: cargar la URL completa
-    console.log('📄 Cargando URL completa en iframe:', url);
-    iframe.src = url;
+    // Convertir URL si es de un servicio soportado
+    const embedResult = convertToEmbedUrl(url);
+    if (embedResult.converted) {
+      console.log(`🔄 URL convertida para ${embedResult.service}: ${embedResult.url}`);
+    } else if (embedResult.service) {
+      console.log(`📄 URL de ${embedResult.service} (sin conversión necesaria)`);
+    }
+    console.log('📄 Cargando URL en iframe:', embedResult.url);
+    iframe.src = embedResult.url;
     iframe.style.display = 'block';
     iframe.style.visibility = 'visible';
   }
