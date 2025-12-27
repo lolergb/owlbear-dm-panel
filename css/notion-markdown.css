@@ -1,4 +1,79 @@
-/* Estilos para renderizar contenido de Notion */
+/* ==========================================================================
+   Variables CSS (importadas de app.css para consistencia)
+   ========================================================================== */
+:root {
+  /* Colores de fondo */
+  --color-bg-primary: rgba(0, 0, 0, 0.16);
+  --color-bg-hover: rgba(0, 0, 0, 0.24);
+  --color-bg-active: rgba(187, 153, 255, 0.12);
+  --color-bg-overlay: rgba(34, 38, 57, 0.9);
+  --color-bg-surface: rgb(34, 38, 57);
+  
+  /* Colores de borde */
+  --color-border-primary: rgba(0, 0, 0, 0);
+  --color-border-active: rgba(187, 153, 255, 0.32);
+  --color-border-subtle: rgba(255, 255, 255, 0.1);
+
+  /* Colores de texto */
+  --color-text-primary: #fff;
+  --color-text-secondary: #e0e0e0;
+  --color-text-muted: #999;
+  --color-text-hint: #888;
+  --color-text-disabled: #666;
+  
+  /* Colores de acento */
+  --color-accent-primary: #4a9eff;
+  --color-accent-primary-hover: #5aaeff;
+  --color-accent-link: #4a9eff;
+  
+  /* Colores de error */
+  --color-error-bg: #4a2d2d;
+  --color-error-border: #6a4040;
+  --color-error-text: #ff6b6b;
+  
+  /* Espaciado */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 50%;
+  
+  /* Transiciones */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  
+  /* Tipografía */
+  --font-family-base: Roboto, Helvetica, Arial, sans-serif;
+  --font-family-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  
+  /* Tamaños de iconos */
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  
+  /* Sombras */
+  --shadow-menu: rgba(0, 0, 0, 0.2) 0px 2px 4px -1px, rgba(0, 0, 0, 0.14) 0px 4px 5px 0px, rgba(0, 0, 0, 0.12) 0px 1px 10px 0px;
+}
+
+/* ==========================================================================
+   Estilos para renderizar contenido de Notion
+   ========================================================================== */
 .notion-content {
   padding: 0 24px 24px;
   max-width: 900px;
