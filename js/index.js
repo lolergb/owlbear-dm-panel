@@ -2196,7 +2196,7 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         button.classList.add('context-menu-open');
         
         // Posicionar el menú a 8px del botón
-        createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 8 }, () => {
+        createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 4 }, () => {
           // Callback cuando se cierra el menú
           pageContextMenuButton.classList.remove('context-menu-active');
           button.classList.remove('context-menu-open');
@@ -4303,7 +4303,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
       }
 
       // Posicionar el menú a 8px del botón
-      createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 8 });
+      createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 4 });
     });
 
     itemRow.appendChild(menuBtn);
