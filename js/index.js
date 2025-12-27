@@ -3218,20 +3218,20 @@ function getLinkType(url) {
       return { type: 'onedrive', icon: 'icon-onedrive.svg' };
     }
     
-    // CodePen
-    if (hostname.includes('codepen.io')) {
-      return { type: 'codepen', icon: 'icon-codepen.svg' };
-    }
+    // CodePen - COMENTADO
+    // if (hostname.includes('codepen.io')) {
+    //   return { type: 'codepen', icon: 'icon-codepen.svg' };
+    // }
     
-    // JSFiddle
-    if (hostname.includes('jsfiddle.net')) {
-      return { type: 'jsfiddle', icon: 'icon-jsfiddle.svg' };
-    }
+    // JSFiddle - COMENTADO
+    // if (hostname.includes('jsfiddle.net')) {
+    //   return { type: 'jsfiddle', icon: 'icon-jsfiddle.svg' };
+    // }
     
-    // GitHub
-    if (hostname.includes('github.com') || hostname.includes('gist.github.com')) {
-      return { type: 'github', icon: 'icon-github.svg' };
-    }
+    // GitHub - COMENTADO
+    // if (hostname.includes('github.com') || hostname.includes('gist.github.com')) {
+    //   return { type: 'github', icon: 'icon-github.svg' };
+    // }
     
     // PDF
     if (pathname.endsWith('.pdf')) {
@@ -3272,7 +3272,7 @@ function convertToEmbedUrl(url) {
 
     // Google Docs
     if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
-      const match = pathname.match(/\/document\/d\/([^/]+)/);
+      const match = pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
       if (match) {
         const docId = match[1];
         return {
@@ -3285,7 +3285,7 @@ function convertToEmbedUrl(url) {
 
     // Google Sheets
     if (hostname.includes('docs.google.com') && pathname.includes('/spreadsheets/d/')) {
-      const match = pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+      const match = pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
       if (match) {
         const sheetId = match[1];
         return {
@@ -3298,7 +3298,7 @@ function convertToEmbedUrl(url) {
 
     // Google Slides
     if (hostname.includes('docs.google.com') && pathname.includes('/presentation/d/')) {
-      const match = pathname.match(/\/presentation\/d\/([^/]+)/);
+      const match = pathname.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
       if (match) {
         const slideId = match[1];
         return {
@@ -3381,31 +3381,31 @@ function convertToEmbedUrl(url) {
       };
     }
 
-    // CodePen
-    if (hostname.includes('codepen.io') && pathname.includes('/pen/')) {
-      const parts = pathname.split('/');
-      const userIndex = parts.indexOf('pen') - 1;
-      const penIndex = parts.indexOf('pen') + 1;
-      if (userIndex >= 0 && penIndex < parts.length) {
-        const user = parts[userIndex];
-        const penId = parts[penIndex];
-        return {
-          url: `https://codepen.io/${user}/embed/${penId}?default-tab=result`,
-          converted: true,
-          service: 'CodePen'
-        };
-      }
-    }
+    // CodePen - COMENTADO
+    // if (hostname.includes('codepen.io') && pathname.includes('/pen/')) {
+    //   const parts = pathname.split('/');
+    //   const userIndex = parts.indexOf('pen') - 1;
+    //   const penIndex = parts.indexOf('pen') + 1;
+    //   if (userIndex >= 0 && penIndex < parts.length) {
+    //     const user = parts[userIndex];
+    //     const penId = parts[penIndex];
+    //     return {
+    //       url: `https://codepen.io/${user}/embed/${penId}?default-tab=result`,
+    //       converted: true,
+    //       service: 'CodePen'
+    //     };
+    //   }
+    // }
 
-    // JSFiddle
-    if (hostname.includes('jsfiddle.net') && !pathname.includes('/embedded/')) {
-      const cleanPath = pathname.replace(/\/$/, '');
-      return {
-        url: `https://jsfiddle.net${cleanPath}/embedded/result/`,
-        converted: true,
-        service: 'JSFiddle'
-      };
-    }
+    // JSFiddle - COMENTADO
+    // if (hostname.includes('jsfiddle.net') && !pathname.includes('/embedded/')) {
+    //   const cleanPath = pathname.replace(/\/$/, '');
+    //   return {
+    //     url: `https://jsfiddle.net${cleanPath}/embedded/result/`,
+    //     converted: true,
+    //     service: 'JSFiddle'
+    //   };
+    // }
 
     // PDF directo - no necesita conversión pero lo marcamos
     if (pathname.endsWith('.pdf')) {
@@ -3866,8 +3866,9 @@ async function showSettings() {
     }
   };
   
-  // Guardar token
-  if (saveBtn) {
+  // Guardar token - evitar múltiples listeners
+  if (saveBtn && !saveBtn.dataset.listenerAdded) {
+    saveBtn.dataset.listenerAdded = 'true';
     saveBtn.addEventListener('click', () => {
       const token = tokenInput ? tokenInput.value.trim() : '';
       
@@ -3898,8 +3899,9 @@ async function showSettings() {
     });
   }
   
-  // Eliminar token
-  if (clearBtn) {
+  // Eliminar token - evitar múltiples listeners
+  if (clearBtn && !clearBtn.dataset.listenerAdded) {
+    clearBtn.dataset.listenerAdded = 'true';
     clearBtn.addEventListener('click', () => {
       if (confirm('¿Eliminar el token? Volverás a usar el token del servidor (si está configurado).')) {
         if (saveUserToken('')) {
@@ -3919,8 +3921,9 @@ async function showSettings() {
   // El back-button ya tiene un listener que maneja el cierre de settings-container
   // No necesitamos agregar otro listener aquí
   
-  // Ver JSON
-  if (viewJsonBtn) {
+  // Ver JSON - evitar múltiples listeners
+  if (viewJsonBtn && !viewJsonBtn.dataset.listenerAdded) {
+    viewJsonBtn.dataset.listenerAdded = 'true';
     viewJsonBtn.addEventListener('click', async () => {
       try {
         // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
@@ -4015,8 +4018,9 @@ async function showSettings() {
     });
   }
   
-  // Cargar JSON
-  if (loadJsonBtn) {
+  // Cargar JSON - evitar múltiples listeners
+  if (loadJsonBtn && !loadJsonBtn.dataset.listenerAdded) {
+    loadJsonBtn.dataset.listenerAdded = 'true';
     loadJsonBtn.addEventListener('click', async () => {
       try {
         // Crear input de archivo oculto
@@ -4036,8 +4040,8 @@ async function showSettings() {
             // Validar estructura básica
             if (!parsed.categories || !Array.isArray(parsed.categories)) {
               alert('❌ El JSON debe tener un array "categories"');
-      return;
-    }
+              return;
+            }
     
             // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
             let currentRoomId = roomId;
@@ -4062,9 +4066,9 @@ async function showSettings() {
                 renderPagesByCategories(parsed, pageList, currentRoomId);
               } else {
                 // Si no se encuentra el pageList, recargar la página como fallback
-      window.location.reload();
+                window.location.reload();
               }
-    } else {
+            } else {
               alert('❌ Error al guardar el JSON. Revisa la consola para más detalles.');
             }
           } catch (e) {
@@ -4074,7 +4078,7 @@ async function showSettings() {
           
           // Limpiar el input
           document.body.removeChild(fileInput);
-        });
+        }, { once: true }); // El listener del change solo se ejecuta una vez
         
         document.body.appendChild(fileInput);
         fileInput.click();
@@ -4085,8 +4089,9 @@ async function showSettings() {
     });
   }
   
-  // Descargar JSON
-  if (downloadJsonBtn) {
+  // Descargar JSON - evitar múltiples listeners
+  if (downloadJsonBtn && !downloadJsonBtn.dataset.listenerAdded) {
+    downloadJsonBtn.dataset.listenerAdded = 'true';
     downloadJsonBtn.addEventListener('click', async () => {
       try {
         // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
