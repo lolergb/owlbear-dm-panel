@@ -1014,6 +1014,9 @@ body {
   transition: opacity var(--transition-fast);
 }
 
+.page-button.context-menu-open .page-link-icon {
+  opacity: 0;
+}
 .page-button:hover .page-link-icon {
   opacity: 0;
 }
