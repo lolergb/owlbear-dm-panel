@@ -2221,10 +2221,14 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         button.style.background = CSS_VARS.bg;
       });
       
-      // Click handler (no ejecutar si se hace click en el menú contextual)
+      // Click handler (no ejecutar si se hace click en el menú contextual o el menú está abierto)
       button.addEventListener('click', async (e) => {
         // No abrir la página si se hace click en el menú contextual
         if (e.target.closest('.page-context-menu-button')) {
+          return;
+        }
+        // No abrir la página si el menú contextual está abierto
+        if (button.classList.contains('context-menu-open')) {
           return;
         }
         // Obtener blockTypes del objeto page si existe
@@ -2286,7 +2290,11 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       if (e.target.closest('.category-context-menu-button')) {
         return;
       }
-    const newIsCollapsed = contentContainer.style.display === 'none';
+      // No colapsar si el menú contextual está abierto
+      if (titleContainer.classList.contains('context-menu-open')) {
+        return;
+      }
+      const newIsCollapsed = contentContainer.style.display === 'none';
       
       // Aplicar animación suave
       if (newIsCollapsed) {

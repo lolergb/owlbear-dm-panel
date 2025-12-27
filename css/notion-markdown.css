@@ -49,12 +49,6 @@
   word-break: break-word;
 }
 
-.notion-content .notion-paragraph {
-  margin-top: 1px;
-  margin-bottom: 1px;
-  padding-left: 2px;
-}
-
 .notion-content .notion-text {
   color: var(--color-text-primary);
 }
