@@ -33,13 +33,13 @@
     <!-- Panel de configuración -->
     <div id="settings-container" class="settings hidden">
       <div class="settings__content">
-        <p class="settings__description">
-          Configura tu token de Notion <a href="https://developers.notion.com/docs/create-a-notion-integration#create-your-integration-in-notion" class="link">siguiendo este tutorial</a> para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms). 
-        </p>
         
         <div class="form">
           <div class="form__field">
-            <label class="form__label" for="token-input">Token de Notion:</label>
+            <label class="form__label" for="token-input">Token de Notion</label>
+            <p class="settings__description">
+              Configura tu token de Notion <a href="https://developers.notion.com/docs/create-a-notion-integration#create-your-integration-in-notion" class="link">siguiendo este tutorial</a> para usar tus propias páginas. Este token es global para toda la extensión (todas las rooms). 
+            </p>
             <input type="password" id="token-input" placeholder="ntn_... o secret_..." class="input input--mono">
             <p id="token-masked" class="form__help"></p>
           </div>
@@ -53,7 +53,7 @@
         </div>
 
         <div class="form form--separated">
-          <label class="form__label">Configuración JSON:</label>
+          <label class="form__label">Configuración JSON</label>
           <div class="form__actions">
             <button id="view-json-btn" class="btn btn--ghost btn--flex hidden">Ver JSON</button>
             <button id="download-json-btn" class="btn btn--ghost btn--flex">Descargar JSON</button>
