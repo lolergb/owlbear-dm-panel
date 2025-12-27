@@ -1792,8 +1792,8 @@ try {
         // Marcar como activo mientras el menú está abierto
         addButton.classList.add('context-menu-active');
         
-        // Ajustar posición para mostrar el botón seleccionado (32px altura + 16px padding = 48px)
-        createContextMenu(menuItems, { x: rect.right, y: rect.top + 48 }, () => {
+        // Posicionar el menú a 8px del botón
+        createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 8 }, () => {
           // Callback cuando se cierra el menú
           addButton.classList.remove('context-menu-active');
         });
@@ -2042,8 +2042,8 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     contextMenuButton.classList.add('context-menu-active');
     titleContainer.classList.add('context-menu-open');
     
-    // Ajustar posición para mostrar el botón seleccionado (32px altura + 16px padding = 48px)
-    createContextMenu(menuItems, { x: rect.right, y: rect.top + 48 }, () => {
+    // Posicionar el menú a 8px del botón
+    createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 8 }, () => {
       // Callback cuando se cierra el menú
       contextMenuButton.classList.remove('context-menu-active');
       titleContainer.classList.remove('context-menu-open');
@@ -2195,8 +2195,8 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         pageContextMenuButton.classList.add('context-menu-active');
         button.classList.add('context-menu-open');
         
-        // Ajustar posición para mostrar el botón seleccionado (32px altura + 16px padding = 48px)
-        createContextMenu(menuItems, { x: rect.right, y: rect.top + 48 }, () => {
+        // Posicionar el menú a 8px del botón
+        createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 8 }, () => {
           // Callback cuando se cierra el menú
           pageContextMenuButton.classList.remove('context-menu-active');
           button.classList.remove('context-menu-open');
@@ -4302,8 +4302,8 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         );
       }
 
-      // Ajustar posición para mostrar el botón seleccionado (32px altura + 16px padding = 48px)
-    createContextMenu(menuItems, { x: rect.right, y: rect.top + 48 });
+      // Posicionar el menú a 8px del botón
+      createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 8 });
     });
 
     itemRow.appendChild(menuBtn);
