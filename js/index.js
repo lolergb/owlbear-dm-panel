@@ -1621,92 +1621,88 @@ async function setupTokenContextMenus(pagesConfig, roomId) {
   try {
     console.log('🎯 Configurando menús contextuales para tokens...');
     
-    // Menú: Vincular página (solo GM)
+    // Obtener la URL base para los iconos (debe ser absoluta)
+    const baseUrl = window.location.origin;
+    
+    // Menú principal: DM Screen (submenú con embed)
     await OBR.contextMenu.create({
-      id: `${METADATA_KEY}/link-page`,
+      id: `${METADATA_KEY}/menu`,
       icons: [
         {
-          icon: "/img/icon-page.svg",
-          label: "Vincular página",
+          icon: `${baseUrl}/img/icon-page.svg`,
+          label: "DM Screen",
           filter: {
-            every: [{ key: "layer", value: "CHARACTER" }],
-            roles: ["GM"]
+            every: [{ key: "layer", value: "CHARACTER" }]
           }
         }
       ],
-      onClick: async (context) => {
-        const item = context.items[0];
-        if (!item) return;
-        
-        // Mostrar selector de páginas
-        showPageSelectorForToken(item.id, pagesConfig, roomId);
+      embed: {
+        url: `${baseUrl}/html/token-menu.html`,
+        height: 150
       }
     });
     
-    // Menú: Ver página vinculada (todos, si tiene página)
-    await OBR.contextMenu.create({
-      id: `${METADATA_KEY}/view-page`,
-      icons: [
-        {
-          icon: "/img/icon-open.svg",
-          label: "Ver página vinculada",
-          filter: {
-            every: [
-              { key: "layer", value: "CHARACTER" },
-              { key: ["metadata", `${METADATA_KEY}/pageUrl`], value: undefined, operator: "!=" }
-            ]
-          }
-        }
-      ],
-      onClick: async (context) => {
-        const item = context.items[0];
-        if (!item) return;
-        
-        const pageUrl = item.metadata[`${METADATA_KEY}/pageUrl`];
-        const pageName = item.metadata[`${METADATA_KEY}/pageName`] || "Página vinculada";
-        
-        if (pageUrl) {
-          // Abrir la página usando la función existente
-          await loadPageContent(pageUrl, pageName);
-        }
-      }
-    });
-    
-    // Menú: Desvincular página (solo GM)
-    await OBR.contextMenu.create({
-      id: `${METADATA_KEY}/unlink-page`,
-      icons: [
-        {
-          icon: "/img/icon-trash.svg",
-          label: "Desvincular página",
-          filter: {
-            every: [
-              { key: "layer", value: "CHARACTER" },
-              { key: ["metadata", `${METADATA_KEY}/pageUrl`], value: undefined, operator: "!=" }
-            ],
-            roles: ["GM"]
-          }
-        }
-      ],
-      onClick: async (context) => {
-        const item = context.items[0];
-        if (!item) return;
-        
-        // Eliminar metadatos de página
-        await OBR.scene.items.updateItems([item], (items) => {
-          delete items[0].metadata[`${METADATA_KEY}/pageUrl`];
-          delete items[0].metadata[`${METADATA_KEY}/pageName`];
-          delete items[0].metadata[`${METADATA_KEY}/pageIcon`];
-        });
-        
-        console.log('🗑️ Página desvinculada del token:', item.name || item.id);
-      }
-    });
-    
-    console.log('✅ Menús contextuales para tokens configurados');
+    console.log('✅ Menú contextual para tokens configurado');
     
   } catch (error) {
     console.error('❌ Error al configurar menús contextuales:', error);
+  }
+}
+
+// Función para manejar acciones del menú de tokens
+async function handleTokenMenuAction(action, itemId) {
+  try {
+    const items = await OBR.scene.items.getItems([itemId]);
+    if (items.length === 0) {
+      console.error('Token no encontrado:', itemId);
+      return;
+    }
+    
+    const item = items[0];
+    
+    switch (action) {
+      case 'link':
+        // Obtener configuración actual
+        const roomId = await OBR.room.getId();
+        const pagesConfig = getPagesJSON(roomId) || { categories: [] };
+        showPageSelectorForToken(itemId, pagesConfig, roomId);
+        break;
+        
+      case 'view':
+        const pageUrl = item.metadata[`${METADATA_KEY}/pageUrl`];
+        const pageName = item.metadata[`${METADATA_KEY}/pageName`] || "Página vinculada";
+        if (pageUrl) {
+          await loadPageContent(pageUrl, pageName);
+        }
+        break;
+        
+      case 'unlink':
+        await OBR.scene.items.updateItems([item], (updateItems) => {
+          delete updateItems[0].metadata[`${METADATA_KEY}/pageUrl`];
+          delete updateItems[0].metadata[`${METADATA_KEY}/pageName`];
+          delete updateItems[0].metadata[`${METADATA_KEY}/pageIcon`];
+        });
+        console.log('🗑️ Página desvinculada del token:', item.name || item.id);
+        break;
+    }
+    
+  } catch (error) {
+    console.error('Error en acción del menú:', error);
+  }
+}
+
+// Configurar listener para mensajes del menú de tokens
+async function setupTokenMenuListener() {
+  try {
+    await OBR.broadcast.onMessage(`${METADATA_KEY}/action`, async (event) => {
+      const { action, itemId } = event.data;
+      if (action && itemId) {
+        await handleTokenMenuAction(action, itemId);
+      }
+    });
+    console.log('✅ Listener para menú de tokens configurado');
+  } catch (error) {
+    console.error('❌ Error al configurar listener de tokens:', error);
   }
 }
 
@@ -2048,6 +2044,9 @@ try {
       
       // Registrar menús contextuales para tokens
       await setupTokenContextMenus(pagesConfig, roomId);
+      
+      // Configurar listener para mensajes del menú de tokens
+      await setupTokenMenuListener();
       
     } catch (error) {
       console.error('❌ Error dentro de OBR.onReady:', error);
