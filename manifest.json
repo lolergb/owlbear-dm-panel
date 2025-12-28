@@ -2,7 +2,7 @@
   "name": "DM screen",
   "version": "1.0.0",
   "manifest_version": 1,
-  "author": "Lole",
+  "author": "lolergb",
   "description": "A digital DM screen for Owlbear Rodeo. Keep notes, NPCs, and references inside the VTT during play.",
   "homepage_url": "https://github.com/lolergb/owlbear-notion-embed",
   "icon": "/icon.svg",

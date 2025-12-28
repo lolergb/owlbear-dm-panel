@@ -32,7 +32,7 @@ Extension to embed Notion pages and external content directly in Owlbear Rodeo.
 ### 🚀 Installation (One-time)
 
 1. **Get the extension URL** from the developer
-   - Example: `https://your-project.netlify.app/manifest.json`
+   - Example: `https://owlbear-notion-embed.netlify.app/manifest.json`
 
 2. **In Owlbear Rodeo:**
    - Go to your profile → "Add Extension"
