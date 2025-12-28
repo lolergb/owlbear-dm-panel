@@ -17,8 +17,7 @@ Esta es una extensión para [Owlbear Rodeo](https://www.owlbear.rodeo/) que perm
 - 📊 Carpetas anidadas con profundidad ilimitada
 - 🎨 Iconos automáticos de páginas desde Notion
 - 🗑️ Gestión de caché (limpiar todo o por página)
-- 🔗 **Soporte multi-servicio:** Google Drive, Docs, Sheets, Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma, PDFs
-- 🔄 **Conversión automática de URLs:** Las URLs se convierten automáticamente al formato embed
+- 📄 **Soporte para PDFs:** Cualquier archivo PDF accesible públicamente
 - 📁 **Gestión de carpetas:** Colapsar/expandir todas las carpetas, reordenar elementos
 - ⚙️ **Panel de configuración:** Interfaz de configuración unificada
 - 🎯 **Integración con tokens:** Vincular páginas a tokens de escena mediante menú contextual
@@ -145,13 +144,11 @@ O usa la URL proporcionada por el desarrollador de la extensión.
 **Página (`categories[].pages[].url`)**
 - **Tipo:** String (URL)
 - **Requerido:** Sí
-- **Descripción:** URL completa de la página. Las URLs se convierten automáticamente al formato embed cuando están soportadas.
+- **Descripción:** URL completa de la página.
 - **Ejemplos:**
   - Notion: `https://your-workspace.notion.site/Title-2d0d4856c90e80f6801dcafb6b7366e6`
-  - Google Drive: `https://drive.google.com/file/d/FILE_ID/view?usp=sharing`
-  - Google Docs: `https://docs.google.com/document/d/DOC_ID/edit`
-  - YouTube: `https://www.youtube.com/watch?v=VIDEO_ID`
   - PDF: `https://example.com/document.pdf`
+  - URL externa: `https://5e.tools/book.html#mm,1`
 
 **Página (`categories[].pages[].selector`)**
 - **Tipo:** String (selector CSS)
@@ -194,22 +191,11 @@ Puedes vincular páginas directamente a tokens/personajes en la escena:
 
 **Nota:** Solo el GM puede vincular/desvincular páginas. Todos los jugadores pueden ver páginas vinculadas.
 
-### Servicios externos soportados
+### Contenido soportado
 
-La extensión convierte automáticamente las URLs al formato embed para:
-
-- **Google Drive** - Archivos compartidos públicamente
-- **Google Docs** - Documentos compartidos públicamente
-- **Google Sheets** - Hojas de cálculo compartidas públicamente
-- **Google Slides** - Presentaciones compartidas públicamente
-- **Dropbox** - Archivos con enlaces públicos
-- **OneDrive** - Archivos con enlaces de embed
-- **YouTube** - Videos públicos
-- **Vimeo** - Videos públicos
-- **Figma** - Archivos compartidos públicamente
+- **Páginas de Notion** - Páginas privadas o públicas (compartidas con tu integración)
 - **PDFs** - Cualquier archivo PDF accesible públicamente
-
-**Nota:** Para servicios de Google, los archivos deben estar compartidos como "Cualquiera con el enlace puede ver" para funcionar en iframes.
+- **URLs externas** - Cualquier página web (con selectores CSS opcionales)
 
 ### 💡 Consejos
 
@@ -228,10 +214,9 @@ La extensión convierte automáticamente las URLs al formato embed para:
 - Asegúrate de que la URL esté completa (sin parámetros `?source=...`)
 - Verifica que la página esté compartida con tu integración
 
-**El servicio externo no carga:**
-- Para servicios de Google: Asegúrate de que el archivo esté compartido como "Cualquiera con el enlace puede ver"
-- Para Dropbox/OneDrive: Verifica que el archivo tenga un enlace público
-- Para YouTube/Vimeo: Asegúrate de que el video sea público o no listado (no privado)
+**El contenido externo no carga:**
+- Para PDFs: Asegúrate de que la URL sea accesible públicamente
+- Para URLs externas: Algunas páginas bloquean iframes por seguridad (CORS)
 - Revisa la consola del navegador para errores CORS o de iframe
 
 **La extensión no aparece:**

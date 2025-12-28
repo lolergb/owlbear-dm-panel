@@ -162,14 +162,18 @@ Esta extensión usa el SDK oficial de Owlbear Rodeo:
 - ✅ Iconos automáticos de páginas
 - ✅ Gestión de caché
 - ✅ Modo debug (controlado por variable de entorno de Netlify)
-- ✅ **Soporte multi-servicio de URLs** (Google Drive, Docs, Sheets, Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma, PDFs)
-- ✅ **Conversión automática de URLs** al formato embed
-- ✅ **Iconos específicos de servicio** para cada servicio soportado
+- ✅ **Soporte para PDFs** embebidos
 - ✅ **Funcionalidad colapsar/expandir todas las carpetas**
 - ✅ **Panel de configuración** con interfaz de configuración unificada
 - ✅ **Integración con tokens** vía menú contextual (vincular/ver/desvincular páginas)
 
 ### 🔜 Implementaciones Futuras
+
+#### Soporte multi-servicio (rama `feature/multi-service`)
+- **Estado:** Código listo, deshabilitado para soft launch
+- **Servicios:** Google Drive, Docs, Sheets, Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma
+- **Descripción:** Conversión automática de URLs a formato embed
+- **Rama:** `feature/multi-service`
 
 #### Base de datos anidada (Bases de datos anidadas)
 - **Estado:** Pendiente
@@ -220,16 +224,17 @@ Esta extensión usa el SDK oficial de Owlbear Rodeo:
 
 ### 🎯 Alcance del Proyecto
 - **Tipo:** Extensión para Owlbear Rodeo
-- **Funcionalidad principal:** Integración de Notion y servicios externos
-- **Servicios soportados:** 10+ servicios (Notion, Google Drive, Docs, Sheets, Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma, PDFs)
-- **Características implementadas:** 30+ funcionalidades principales
+- **Funcionalidad principal:** Integración de Notion
+- **Contenido soportado:** Notion, PDFs, URLs externas
+- **Características implementadas:** 25+ funcionalidades principales
 - **Bloques de Notion soportados:** 15+ tipos de bloques
+- **Próximamente:** Multi-servicio (rama `feature/multi-service`)
 
 ### 🛠️ Tecnologías Utilizadas
 - **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3
 - **Backend:** Netlify Functions (Node.js)
 - **SDK:** Owlbear Rodeo SDK v3.1.0
-- **APIs:** Notion API, servicios externos (Google, Dropbox, OneDrive, etc.)
+- **APIs:** Notion API
 - **Almacenamiento:** localStorage (configuración por sala)
 - **Deployment:** Netlify
 - **Control de versiones:** Git
