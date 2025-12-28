@@ -177,6 +177,11 @@ function getFriendlyRoomId(roomId) {
 const ROOM_METADATA_KEY = 'com.dmscreen/pagesConfig';
 const ROOM_CONTENT_CACHE_KEY = 'com.dmscreen/contentCache';
 const ROOM_HTML_CACHE_KEY = 'com.dmscreen/htmlCache';
+const BROADCAST_CHANNEL_REQUEST = 'com.dmscreen/requestContent';
+const BROADCAST_CHANNEL_RESPONSE = 'com.dmscreen/responseContent';
+
+// Caché local de HTML renderizado (solo en memoria del GM)
+let localHtmlCache = {};
 
 // Cache local para evitar lecturas repetidas (se sincroniza con room metadata)
 let pagesConfigCache = null;
@@ -438,68 +443,90 @@ async function saveToSharedCache(pageId, blocks) {
 }
 
 /**
- * Guardar HTML renderizado en el caché compartido (room metadata)
+ * Guardar HTML renderizado en el caché local (en memoria del GM)
  * @param {string} pageId - ID de la página de Notion
  * @param {string} html - HTML renderizado
  */
-async function saveHtmlToSharedCache(pageId, html) {
-  try {
-    // Obtener el caché compartido actual
-    const metadata = await OBR.room.getMetadata();
-    const htmlCache = (metadata && metadata[ROOM_HTML_CACHE_KEY]) || {};
-    
-    // Limitar el tamaño del caché compartido (máximo 10 páginas)
-    const keys = Object.keys(htmlCache);
-    if (keys.length >= 10) {
-      // Eliminar la entrada más antigua
-      let oldestKey = keys[0];
-      let oldestTime = new Date(htmlCache[oldestKey].savedAt || 0).getTime();
-      for (const key of keys) {
-        const time = new Date(htmlCache[key].savedAt || 0).getTime();
-        if (time < oldestTime) {
-          oldestTime = time;
-          oldestKey = key;
-        }
+function saveHtmlToLocalCache(pageId, html) {
+  // Limitar el tamaño del caché local (máximo 20 páginas)
+  const keys = Object.keys(localHtmlCache);
+  if (keys.length >= 20) {
+    // Eliminar la entrada más antigua
+    let oldestKey = keys[0];
+    let oldestTime = localHtmlCache[oldestKey].savedAt || 0;
+    for (const key of keys) {
+      const time = localHtmlCache[key].savedAt || 0;
+      if (time < oldestTime) {
+        oldestTime = time;
+        oldestKey = key;
       }
-      delete htmlCache[oldestKey];
-      console.log('🗑️ Eliminada entrada más antigua del caché HTML:', oldestKey);
     }
-    
-    // Guardar el nuevo HTML
-    htmlCache[pageId] = {
-      html: html,
-      savedAt: new Date().toISOString()
-    };
-    
-    await OBR.room.setMetadata({
-      [ROOM_HTML_CACHE_KEY]: htmlCache
-    });
-    console.log('💾 HTML renderizado guardado en caché compartido para:', pageId, '- tamaño:', html.length, 'caracteres');
-    console.log('📦 Claves en caché HTML:', Object.keys(htmlCache));
-  } catch (e) {
-    console.error('❌ Error al guardar HTML en caché compartido:', e);
+    delete localHtmlCache[oldestKey];
+    console.log('🗑️ Eliminada entrada más antigua del caché HTML local:', oldestKey);
   }
+  
+  localHtmlCache[pageId] = {
+    html: html,
+    savedAt: Date.now()
+  };
+  console.log('💾 HTML guardado en caché local para:', pageId, '- tamaño:', html.length, 'caracteres');
 }
 
 /**
- * Obtener HTML renderizado del caché compartido
+ * Solicitar HTML al GM via broadcast (para jugadores)
  * @param {string} pageId - ID de la página de Notion
- * @returns {Promise<string|null>} - HTML renderizado o null si no existe
+ * @returns {Promise<string|null>} - HTML renderizado o null si no hay respuesta
  */
-async function getHtmlFromSharedCache(pageId) {
-  try {
-    const metadata = await OBR.room.getMetadata();
-    const htmlCache = metadata && metadata[ROOM_HTML_CACHE_KEY];
-    console.log('🔍 Buscando HTML en caché. Claves disponibles:', htmlCache ? Object.keys(htmlCache) : 'ninguna');
-    if (htmlCache && htmlCache[pageId] && htmlCache[pageId].html) {
-      console.log('✅ HTML encontrado en caché compartido para:', pageId, '- tamaño:', htmlCache[pageId].html.length, 'caracteres');
-      return htmlCache[pageId].html;
+async function requestHtmlFromGM(pageId) {
+  return new Promise((resolve) => {
+    console.log('📡 Solicitando contenido al GM para:', pageId);
+    
+    // Timeout de 5 segundos
+    const timeout = setTimeout(() => {
+      console.log('⏰ Timeout esperando respuesta del GM');
+      unsubscribe();
+      resolve(null);
+    }, 5000);
+    
+    // Escuchar respuesta del GM
+    const unsubscribe = OBR.broadcast.onMessage(BROADCAST_CHANNEL_RESPONSE, (event) => {
+      const data = event.data;
+      if (data && data.pageId === pageId && data.html) {
+        console.log('✅ Recibido HTML del GM para:', pageId, '- tamaño:', data.html.length);
+        clearTimeout(timeout);
+        unsubscribe();
+        resolve(data.html);
+      }
+    });
+    
+    // Enviar solicitud al GM
+    OBR.broadcast.sendMessage(BROADCAST_CHANNEL_REQUEST, { pageId });
+  });
+}
+
+/**
+ * Configurar el GM para responder a solicitudes de contenido
+ */
+function setupGMContentBroadcast() {
+  OBR.broadcast.onMessage(BROADCAST_CHANNEL_REQUEST, async (event) => {
+    const data = event.data;
+    if (data && data.pageId) {
+      console.log('📨 Recibida solicitud de contenido para:', data.pageId);
+      
+      // Buscar en caché local
+      const cached = localHtmlCache[data.pageId];
+      if (cached && cached.html) {
+        console.log('📤 Enviando HTML cacheado para:', data.pageId);
+        OBR.broadcast.sendMessage(BROADCAST_CHANNEL_RESPONSE, {
+          pageId: data.pageId,
+          html: cached.html
+        });
+      } else {
+        console.log('⚠️ No hay HTML en caché local para:', data.pageId);
+      }
     }
-    console.log('❌ No se encontró HTML para pageId:', pageId);
-  } catch (e) {
-    console.debug('No se pudo leer HTML del caché compartido:', e);
-  }
-  return null;
+  });
+  console.log('🎧 GM escuchando solicitudes de contenido');
 }
 
 /**
@@ -1806,18 +1833,18 @@ async function loadNotionContent(url, container, forceRefresh = false, blockType
     const userToken = getUserToken();
     const isGM = await getUserRole();
     
-    // Si el jugador no tiene token, intentar usar el HTML del caché compartido
+    // Si el jugador no tiene token, solicitar HTML al GM via broadcast
     if (!userToken && !isGM) {
-      console.log('👤 Jugador sin token, buscando HTML en caché compartido para:', pageId);
-      const cachedHtml = await getHtmlFromSharedCache(pageId);
+      console.log('👤 Jugador sin token, solicitando HTML al GM para:', pageId);
+      const cachedHtml = await requestHtmlFromGM(pageId);
       if (cachedHtml) {
-        console.log('✅ Usando HTML del caché compartido');
+        console.log('✅ Usando HTML recibido del GM');
         contentDiv.innerHTML = cachedHtml;
         attachImageClickHandlers();
         return;
       }
-      console.log('⚠️ No hay HTML en caché compartido para esta página');
-      // Sin token y sin HTML cacheado, mostrar mensaje de espera con botón de reintentar
+      console.log('⚠️ El GM no tiene el contenido disponible');
+      // Sin HTML disponible, mostrar mensaje de espera con botón de reintentar
       contentDiv.innerHTML = `
         <div class="notion-waiting">
           <div class="notion-waiting-icon">⏳</div>
@@ -1832,21 +1859,11 @@ async function loadNotionContent(url, container, forceRefresh = false, blockType
       if (retryButton) {
         retryButton.addEventListener('click', async () => {
           retryButton.disabled = true;
-          retryButton.textContent = 'Checking...';
+          retryButton.textContent = 'Requesting...';
           // Reintentar carga
           await loadNotionContent(url, container, false, blockTypes);
         });
       }
-      
-      // Suscribirse a cambios en room metadata para auto-refrescar
-      const unsubscribe = OBR.room.onMetadataChange(async (metadata) => {
-        const htmlCache = metadata && metadata[ROOM_HTML_CACHE_KEY];
-        if (htmlCache && htmlCache[pageId] && htmlCache[pageId].html) {
-          console.log('🔄 Detectado nuevo contenido en caché, recargando...');
-          unsubscribe(); // Dejar de escuchar
-          await loadNotionContent(url, container, false, blockTypes);
-        }
-      });
       
       return;
     }
@@ -1872,9 +1889,9 @@ async function loadNotionContent(url, container, forceRefresh = false, blockType
     const html = await renderBlocks(blocks, blockTypes, 0, useCacheForChildren);
     contentDiv.innerHTML = html;
     
-    // Si es GM, guardar el HTML renderizado en el caché compartido para jugadores
+    // Si es GM, guardar el HTML renderizado en caché local para responder a jugadores
     if (isGM) {
-      saveHtmlToSharedCache(pageId, html);
+      saveHtmlToLocalCache(pageId, html);
     }
     
     // Agregar event listeners a las imágenes para abrirlas en modal
@@ -2137,6 +2154,9 @@ try {
         console.log('✅ Owlbear SDK listo');
         console.log('🌐 URL actual:', window.location.href);
         console.log('🔗 Origen:', window.location.origin);
+        
+        // Configurar el GM para responder a solicitudes de contenido de jugadores
+        setupGMContentBroadcast();
       }
       
       // Obtener ID de la room actual
