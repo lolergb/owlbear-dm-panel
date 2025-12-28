@@ -4340,15 +4340,16 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     
     // Agregar botón de visibilidad para GMs
     let visibilityButton = document.getElementById("page-visibility-button-header");
-    let isGM = true;
+    let isGMForHeader = false; // Por defecto asumir jugador (más seguro)
     try {
       const role = await OBR.player.getRole();
-      isGM = role === 'GM';
+      isGMForHeader = role === 'GM';
     } catch (e) {
-      console.warn('No se pudo verificar el rol, asumiendo GM:', e);
+      console.warn('No se pudo verificar el rol, asumiendo jugador:', e);
+      isGMForHeader = false;
     }
     
-    if (isGM) {
+    if (isGMForHeader) {
       // Buscar la página en la configuración
       let roomId = null;
       try {
