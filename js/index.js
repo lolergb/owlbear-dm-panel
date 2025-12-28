@@ -2040,7 +2040,7 @@ try {
       header.appendChild(buttonContainer);
 
       // Renderizar páginas agrupadas por carpetas
-      renderPagesByCategories(pagesConfig, pageList, roomId);
+      await renderPagesByCategories(pagesConfig, pageList, roomId);
       
       // Registrar menús contextuales para tokens
       await setupTokenContextMenus(pagesConfig, roomId);
@@ -2076,18 +2076,24 @@ try {
 }
 
 // Función recursiva para renderizar una carpeta (puede tener subcarpetas)
-function renderCategory(category, parentElement, level = 0, roomId = null, categoryPath = []) {
+function renderCategory(category, parentElement, level = 0, roomId = null, categoryPath = [], isGM = true) {
   // Verificar si la carpeta tiene contenido (páginas o subcarpetas)
   const hasPages = category.pages && category.pages.length > 0;
   const hasSubcategories = category.categories && category.categories.length > 0;
   
   // Filtrar páginas válidas (mantener el orden original)
-  const categoryPages = hasPages ? category.pages
+  // Si el usuario es jugador (no GM), solo mostrar páginas marcadas como visibleToPlayers
+  let categoryPages = hasPages ? category.pages
     .filter(page => 
       page.url && 
       !page.url.includes('...') && 
       page.url.startsWith('http')
     ) : [];
+  
+  // Si el usuario es jugador, filtrar solo las páginas visibles para jugadores
+  if (!isGM) {
+    categoryPages = categoryPages.filter(page => page.visibleToPlayers === true);
+  }
   
   // Renderizar la carpeta incluso si está vacía (para poder agregar contenido)
   // Solo no renderizar si no tiene nombre
@@ -2197,6 +2203,21 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         }
       },
       { separator: true },
+      { 
+        icon: 'img/icon-eye-open.svg', 
+        text: 'Show all pages to players', 
+        action: async () => {
+          await toggleCategoryVisibility(category, categoryPath, roomId, true);
+        }
+      },
+      { 
+        icon: 'img/icon-eye-close.svg', 
+        text: 'Hide all pages from players', 
+        action: async () => {
+          await toggleCategoryVisibility(category, categoryPath, roomId, false);
+        }
+      },
+      { separator: true },
     ];
     
     // Agregar opciones de mover si es posible
@@ -2264,9 +2285,13 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     if (item.type === 'category' && category.categories && category.categories[item.index]) {
       const subcategory = category.categories[item.index];
       const subcategoryPath = [...categoryPath, 'categories', item.index];
-      renderCategory(subcategory, contentContainer, level + 1, roomId, subcategoryPath);
+      renderCategory(subcategory, contentContainer, level + 1, roomId, subcategoryPath, isGM);
     } else if (item.type === 'page' && category.pages && category.pages[item.index]) {
+      // Si el usuario es jugador, verificar si la página es visible antes de renderizarla
       const page = category.pages[item.index];
+      if (!isGM && page.visibleToPlayers !== true) {
+        return; // Saltar esta página si el usuario es jugador y la página no es visible
+      }
       const index = item.index;
       const pageId = extractNotionPageId(page.url);
       const isNotion = isNotionUrl(page.url);
@@ -2341,12 +2366,21 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
         const canMoveUp = currentPos > 0;
         const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
         
+        const isVisible = page.visibleToPlayers === true;
         const menuItems = [
           { 
             icon: 'img/icon-edit.svg', 
             text: 'Edit', 
             action: async () => {
               await editPageFromPageList(page, pageCategoryPath, roomId);
+            }
+          },
+          { separator: true },
+          { 
+            icon: isVisible ? 'img/icon-eye-close.svg' : 'img/icon-eye-open.svg', 
+            text: isVisible ? 'Hide from players' : 'Show to all players', 
+            action: async () => {
+              await togglePageVisibility(page, pageCategoryPath, roomId);
             }
           },
           { separator: true },
@@ -2635,7 +2669,7 @@ async function moveItemUp(itemType, itemIndex, parentPath, roomId) {
   // Recargar vista
   const pageList = document.getElementById("page-list");
   if (pageList) {
-    renderPagesByCategories(config, pageList, roomId);
+    await renderPagesByCategories(config, pageList, roomId);
   }
 }
 
@@ -2662,7 +2696,7 @@ async function moveItemDown(itemType, itemIndex, parentPath, roomId) {
   // Recargar vista
   const pageList = document.getElementById("page-list");
   if (pageList) {
-    renderPagesByCategories(config, pageList, roomId);
+    await renderPagesByCategories(config, pageList, roomId);
   }
 }
 
@@ -2747,7 +2781,7 @@ async function addCategoryToPageList(categoryPath, roomId) {
       // Recargar la vista
       const pageList = document.getElementById("page-list");
       if (pageList) {
-        renderPagesByCategories(config, pageList, roomId);
+        await renderPagesByCategories(config, pageList, roomId);
       }
     }
   );
@@ -2870,7 +2904,7 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
       // Recargar la vista
       const pageList = document.getElementById("page-list");
       if (pageList) {
-        renderPagesByCategories(config, pageList, roomId);
+        await renderPagesByCategories(config, pageList, roomId);
       }
     }
   );
@@ -2903,7 +2937,8 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
   
   fields.push(
     { name: 'selector', label: 'Selector (optional)', type: 'text', value: page.selector || '', placeholder: '#main-content', help: 'Only for external URLs' },
-    { name: 'blockTypes', label: 'Block types (optional)', type: 'text', value: Array.isArray(page.blockTypes) ? page.blockTypes.join(', ') : (page.blockTypes || ''), placeholder: 'quote, callout', help: 'Only for Notion URLs. E.g: "quote" or "quote,callout"' }
+    { name: 'blockTypes', label: 'Block types (optional)', type: 'text', value: Array.isArray(page.blockTypes) ? page.blockTypes.join(', ') : (page.blockTypes || ''), placeholder: 'quote, callout', help: 'Only for Notion URLs. E.g: "quote" or "quote,callout"' },
+    { name: 'visibleToPlayers', label: 'Visible to all players', type: 'checkbox', value: page.visibleToPlayers === true, help: 'Allow all players to see this page' }
   );
   
   showModalForm(
@@ -2942,6 +2977,12 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
       } else {
         delete currentPage.blockTypes;
       }
+      // Actualizar visibilidad para jugadores
+      if (data.visibleToPlayers === true) {
+        currentPage.visibleToPlayers = true;
+      } else {
+        delete currentPage.visibleToPlayers;
+      }
       
       // Si se cambió la carpeta, mover la página
       if (data.category && data.category.trim() && data.category !== 'undefined') {
@@ -2973,7 +3014,7 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
       // Recargar la vista
       const pageList = document.getElementById("page-list");
       if (pageList) {
-        renderPagesByCategories(config, pageList, roomId);
+        await renderPagesByCategories(config, pageList, roomId);
       }
     }
   );
@@ -3042,7 +3083,7 @@ async function deleteCategoryFromPageList(category, categoryPath, roomId) {
     // Recargar la vista
     const pageList = document.getElementById("page-list");
     if (pageList) {
-      renderPagesByCategories(config, pageList, roomId);
+      await renderPagesByCategories(config, pageList, roomId);
     }
     
     return true;
@@ -3080,7 +3121,7 @@ async function deletePageFromPageList(page, pageCategoryPath, roomId) {
     // Recargar la vista
     const pageList = document.getElementById("page-list");
     if (pageList) {
-      renderPagesByCategories(config, pageList, roomId);
+      await renderPagesByCategories(config, pageList, roomId);
     }
     
     return true;
@@ -3088,6 +3129,88 @@ async function deletePageFromPageList(page, pageCategoryPath, roomId) {
     console.error('Error al eliminar página:', error);
     alert('Error deleting page: ' + error.message);
     return false;
+  }
+}
+
+// Función para alternar la visibilidad de una página para jugadores
+async function togglePageVisibility(page, pageCategoryPath, roomId) {
+  try {
+    const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+    const parent = navigateConfigPath(config, pageCategoryPath);
+    
+    if (!parent || !parent.pages) {
+      alert('Error: Could not find page to update');
+      return;
+    }
+    
+    const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
+    if (pageIndex === -1) {
+      alert('Error: Could not find page to update');
+      return;
+    }
+    
+    const currentPage = parent.pages[pageIndex];
+    // Alternar visibilidad
+    if (currentPage.visibleToPlayers === true) {
+      delete currentPage.visibleToPlayers;
+    } else {
+      currentPage.visibleToPlayers = true;
+    }
+    
+    savePagesJSON(config, roomId);
+    
+    // Recargar la vista
+    const pageList = document.getElementById("page-list");
+    if (pageList) {
+      await renderPagesByCategories(config, pageList, roomId);
+    }
+  } catch (error) {
+    console.error('Error al alternar visibilidad de página:', error);
+    alert('Error toggling page visibility: ' + error.message);
+  }
+}
+
+// Función para alternar la visibilidad de todas las páginas en una carpeta (recursivamente)
+async function toggleCategoryVisibility(category, categoryPath, roomId, makeVisible) {
+  try {
+    const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+    const targetCategory = navigateConfigPath(config, categoryPath);
+    
+    if (!targetCategory) {
+      alert('Error: Could not find category to update');
+      return;
+    }
+    
+    // Función recursiva para actualizar todas las páginas
+    function updatePagesRecursive(cat) {
+      if (cat.pages && Array.isArray(cat.pages)) {
+        cat.pages.forEach(page => {
+          if (makeVisible) {
+            page.visibleToPlayers = true;
+          } else {
+            delete page.visibleToPlayers;
+          }
+        });
+      }
+      
+      if (cat.categories && Array.isArray(cat.categories)) {
+        cat.categories.forEach(subCat => {
+          updatePagesRecursive(subCat);
+        });
+      }
+    }
+    
+    updatePagesRecursive(targetCategory);
+    savePagesJSON(config, roomId);
+    
+    // Recargar la vista
+    const pageList = document.getElementById("page-list");
+    if (pageList) {
+      await renderPagesByCategories(config, pageList, roomId);
+    }
+  } catch (error) {
+    console.error('Error al alternar visibilidad de carpeta:', error);
+    alert('Error toggling category visibility: ' + error.message);
   }
 }
 
@@ -3141,7 +3264,8 @@ async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId
   
   fields.push(
     { name: 'selector', label: 'Selector (optional)', type: 'text', placeholder: '#main-content', help: 'Only for external URLs' },
-    { name: 'blockTypes', label: 'Block types (optional)', type: 'text', placeholder: 'quote, callout', help: 'Only for Notion URLs. E.g: "quote" or "quote,callout"' }
+    { name: 'blockTypes', label: 'Block types (optional)', type: 'text', placeholder: 'quote, callout', help: 'Only for Notion URLs. E.g: "quote" or "quote,callout"' },
+    { name: 'visibleToPlayers', label: 'Visible to all players', type: 'checkbox', value: false, help: 'Allow all players to see this page' }
   );
   
   showModalForm(
@@ -3158,6 +3282,10 @@ async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId
         newPage.blockTypes = data.blockTypes.includes(',') 
           ? data.blockTypes.split(',').map(s => s.trim())
           : data.blockTypes.trim();
+      }
+      // Agregar visibilidad para jugadores
+      if (data.visibleToPlayers === true) {
+        newPage.visibleToPlayers = true;
       }
       
       // Determinar el path de la carpeta
@@ -3192,7 +3320,7 @@ async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId
       // Recargar la vista
       const pageList = document.getElementById("page-list");
       if (pageList) {
-        renderPagesByCategories(config, pageList, roomId);
+        await renderPagesByCategories(config, pageList, roomId);
       }
     }
   );
@@ -3219,7 +3347,8 @@ async function addPageToPageListSimple(categoryPath, roomId) {
       { name: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Page name' },
       { name: 'url', label: 'URL', type: 'url', required: true, placeholder: 'https://...' },
       { name: 'selector', label: 'Selector (opcional)', type: 'text', placeholder: '#main-content', help: 'Solo para URLs externas' },
-      { name: 'blockTypes', label: 'Tipos de bloques (opcional)', type: 'text', placeholder: 'quote, callout', help: 'Solo para URLs de Notion. Ej: "quote" o "quote,callout"' }
+      { name: 'blockTypes', label: 'Tipos de bloques (opcional)', type: 'text', placeholder: 'quote, callout', help: 'Solo para URLs de Notion. Ej: "quote" o "quote,callout"' },
+      { name: 'visibleToPlayers', label: 'Visible to all players', type: 'checkbox', value: false, help: 'Allow all players to see this page' }
     ],
     async (data) => {
       const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
@@ -3232,6 +3361,10 @@ async function addPageToPageListSimple(categoryPath, roomId) {
         newPage.blockTypes = data.blockTypes.includes(',') 
           ? data.blockTypes.split(',').map(s => s.trim())
           : data.blockTypes.trim();
+      }
+      // Agregar visibilidad para jugadores
+      if (data.visibleToPlayers === true) {
+        newPage.visibleToPlayers = true;
       }
       
       if (categoryPath.length === 0) {
@@ -3255,16 +3388,26 @@ async function addPageToPageListSimple(categoryPath, roomId) {
       // Recargar la vista
       const pageList = document.getElementById("page-list");
       if (pageList) {
-        renderPagesByCategories(config, pageList, roomId);
+        await renderPagesByCategories(config, pageList, roomId);
       }
     }
   );
 }
 
 // Función para renderizar páginas agrupadas por carpetas
-function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
+async function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
   // Mostrar loading
   pageList.innerHTML = '<div class="loading-state"><div class="loading-state-icon">⏳</div><div>Cargando páginas...</div></div>';
+  
+  // Verificar el rol del usuario
+  let isGM = true; // Por defecto asumir GM (para compatibilidad)
+  try {
+    const role = await OBR.player.getRole();
+    isGM = role === 'GM';
+  } catch (e) {
+    console.warn('⚠️ No se pudo verificar el rol del usuario, asumiendo GM:', e);
+    isGM = true; // Por defecto asumir GM si hay error
+  }
   
   // Usar setTimeout para permitir que el DOM se actualice con el loading
   setTimeout(() => {
@@ -3295,7 +3438,7 @@ function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
     rootOrder.forEach(item => {
       if (item.type === 'category' && pagesConfig.categories && pagesConfig.categories[item.index]) {
         const categoryPath = ['categories', item.index];
-        renderCategory(pagesConfig.categories[item.index], pageList, 0, roomId, categoryPath);
+        renderCategory(pagesConfig.categories[item.index], pageList, 0, roomId, categoryPath, isGM);
       }
       // En el nivel raíz normalmente solo hay categorías, pero esto permite páginas sueltas en el futuro
     });
@@ -4397,7 +4540,7 @@ async function showSettings() {
               // Actualizar la vista principal directamente sin recargar la página
               const pageList = document.getElementById("page-list");
               if (pageList) {
-                renderPagesByCategories(parsed, pageList, currentRoomId);
+                await renderPagesByCategories(parsed, pageList, currentRoomId);
               } else {
                 // Si no se encuentra el pageList, recargar la página como fallback
       window.location.reload();
@@ -4604,6 +4747,17 @@ function showModalForm(title, fields, onSubmit, onCancel) {
                 return `<option value="${optValue}" ${isSelected ? 'selected' : ''}>${opt.label}</option>`;
               }).join('')}
             </select>
+          ` : field.type === 'checkbox' ? `
+            <label class="form__checkbox-label">
+              <input 
+                type="checkbox" 
+                id="field-${field.name}" 
+                name="${field.name}"
+                class="checkbox"
+                ${field.value ? 'checked' : ''}
+              />
+              <span>${field.help || ''}</span>
+            </label>
           ` : `
             <input 
               type="${field.type || 'text'}" 
@@ -4665,6 +4819,8 @@ function showModalForm(title, fields, onSubmit, onCancel) {
           } else {
             formData[field.name] = '';
           }
+        } else if (field.type === 'checkbox') {
+          formData[field.name] = input.checked;
         } else {
       formData[field.name] = input.value.trim();
         }
@@ -5011,7 +5167,8 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         { name: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Page name' },
         { name: 'url', label: 'URL', type: 'url', required: true, placeholder: 'https://...' },
         { name: 'selector', label: 'Selector (opcional)', type: 'text', placeholder: '#main-content', help: 'Solo para URLs externas' },
-        { name: 'blockTypes', label: 'Tipos de bloques (opcional)', type: 'text', placeholder: 'quote, callout', help: 'Solo para URLs de Notion. Ej: "quote" o "quote,callout"' }
+        { name: 'blockTypes', label: 'Tipos de bloques (opcional)', type: 'text', placeholder: 'quote, callout', help: 'Solo para URLs de Notion. Ej: "quote" o "quote,callout"' },
+        { name: 'visibleToPlayers', label: 'Visible to all players', type: 'checkbox', value: false, help: 'Allow all players to see this page' }
       ],
       (data) => {
         const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
@@ -5024,6 +5181,10 @@ async function showVisualEditor(pagesConfig, roomId = null) {
           newPage.blockTypes = data.blockTypes.includes(',') 
             ? data.blockTypes.split(',').map(s => s.trim())
             : data.blockTypes.trim();
+        }
+        // Agregar visibilidad para jugadores
+        if (data.visibleToPlayers === true) {
+          newPage.visibleToPlayers = true;
         }
         
         if (parentPath.length === 0) {
@@ -5073,7 +5234,8 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         { name: 'name', label: 'Nombre', type: 'text', required: true, value: page.name },
         { name: 'url', label: 'URL', type: 'url', required: true, value: page.url },
         { name: 'selector', label: 'Selector (optional)', type: 'text', value: page.selector || '', help: 'Only for external URLs' },
-        { name: 'blockTypes', label: 'Block types (optional)', type: 'text', value: Array.isArray(page.blockTypes) ? page.blockTypes.join(', ') : (page.blockTypes || ''), help: 'Only for Notion URLs' }
+        { name: 'blockTypes', label: 'Block types (optional)', type: 'text', value: Array.isArray(page.blockTypes) ? page.blockTypes.join(', ') : (page.blockTypes || ''), help: 'Only for Notion URLs' },
+        { name: 'visibleToPlayers', label: 'Visible to all players', type: 'checkbox', value: page.visibleToPlayers === true, help: 'Allow all players to see this page' }
       ],
       (data) => {
         const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || currentConfig));
@@ -5092,6 +5254,12 @@ async function showVisualEditor(pagesConfig, roomId = null) {
               : data.blockTypes.trim();
           } else {
             delete target.blockTypes;
+          }
+          // Actualizar visibilidad para jugadores
+          if (data.visibleToPlayers === true) {
+            target.visibleToPlayers = true;
+          } else {
+            delete target.visibleToPlayers;
           }
           savePagesJSON(config, roomId);
           refreshEditor();
