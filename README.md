@@ -712,6 +712,49 @@ This extension uses the official Owlbear Rodeo SDK:
 - **Deployment:** Netlify
 - **Control de versiones:** Git
 
+## 💬 Support
+
+### Getting Help
+
+If you encounter any issues, have questions, or want to request a feature:
+
+1. **Check the README:** Most common questions are answered in this document
+2. **Check the Troubleshooting section:** See above for common issues and solutions
+3. **GitHub Issues:** Open an issue on [GitHub](https://github.com/lolergb/owlbear-notion-embed/issues) for:
+   - Bug reports
+   - Feature requests
+   - Questions about usage
+4. **GitHub Discussions:** Use [GitHub Discussions](https://github.com/lolergb/owlbear-notion-embed/discussions) for:
+   - General questions
+   - Sharing configurations
+   - Community support
+
+### Reporting Bugs
+
+When reporting a bug, please include:
+- **Description:** What happened vs. what you expected
+- **Steps to reproduce:** How to trigger the issue
+- **Browser/OS:** Your browser and operating system
+- **Console errors:** Any errors visible in the browser console (F12)
+- **Extension version:** Check the manifest.json version
+
+### Feature Requests
+
+We welcome feature requests! Please:
+- Check if the feature is already in the roadmap
+- Describe the use case and why it would be helpful
+- Consider if it fits the extension's scope
+
+## 🐛 Known Issues
+
+Currently, there are no known critical bugs. If you encounter any issues, please report them via GitHub Issues.
+
+### Minor Limitations
+
+- **Child Databases:** Nested databases are not yet supported (see Roadmap)
+- **Block Equations:** Mathematical formulas are not yet rendered (see Roadmap)
+- **Synced Blocks:** Synchronized blocks are not yet supported (see Roadmap)
+
 ## 📄 License
 
 Personal use - Feel free to modify and use as you wish.
