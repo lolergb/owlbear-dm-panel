@@ -122,7 +122,20 @@ function getFriendlyRoomId(roomId) {
   return roomId;
 }
 
+// Clave para metadata de OBR.room
+const ROOM_METADATA_KEY = 'com.dmscreen/pagesConfig';
+
+// Cache local para evitar lecturas repetidas (se sincroniza con room metadata)
+let pagesConfigCache = null;
+
 function getPagesJSON(roomId) {
+  // Primero intentar desde el cache
+  if (pagesConfigCache) {
+    log('✅ Usando configuración desde cache');
+    return pagesConfigCache;
+  }
+  
+  // Fallback a localStorage (para compatibilidad y cuando OBR no está disponible)
   try {
     const storageKey = getStorageKey(roomId);
     log('🔍 Buscando configuración con clave:', storageKey, 'para roomId:', roomId);
@@ -140,25 +153,75 @@ function getPagesJSON(roomId) {
   return null;
 }
 
-function savePagesJSON(json, roomId) {
+async function savePagesJSON(json, roomId) {
   try {
+    // Actualizar cache local
+    pagesConfigCache = json;
+    
+    // Guardar en localStorage (para persistencia local)
     const storageKey = getStorageKey(roomId);
     log('💾 Guardando configuración con clave:', storageKey, 'para roomId:', roomId);
     localStorage.setItem(storageKey, JSON.stringify(json, null, 2));
-    log('✅ Configuración guardada exitosamente para room:', roomId);
     
-    // Verificar que se guardó correctamente
-    const verify = localStorage.getItem(storageKey);
-    if (verify) {
-      console.log('✅ Verificación: configuración guardada correctamente');
-    } else {
-      console.error('❌ Error: no se pudo verificar la configuración guardada');
+    // Guardar en OBR.room.metadata para compartir con todos los usuarios
+    try {
+      await OBR.room.setMetadata({
+        [ROOM_METADATA_KEY]: json
+      });
+      log('✅ Configuración sincronizada con room metadata');
+    } catch (e) {
+      console.warn('⚠️ No se pudo sincronizar con room metadata:', e);
     }
     
+    log('✅ Configuración guardada exitosamente para room:', roomId);
     return true;
   } catch (e) {
     console.error('Error al guardar JSON:', e);
     return false;
+  }
+}
+
+// Función para cargar configuración desde room metadata (compartida entre usuarios)
+async function loadPagesFromRoomMetadata() {
+  try {
+    const metadata = await OBR.room.getMetadata();
+    if (metadata && metadata[ROOM_METADATA_KEY]) {
+      pagesConfigCache = metadata[ROOM_METADATA_KEY];
+      log('✅ Configuración cargada desde room metadata');
+      return pagesConfigCache;
+    }
+  } catch (e) {
+    console.warn('⚠️ No se pudo cargar desde room metadata:', e);
+  }
+  return null;
+}
+
+// Listener para cambios en metadata de room (sincronización en tiempo real)
+function setupRoomMetadataListener(roomId) {
+  try {
+    OBR.room.onMetadataChange(async (metadata) => {
+      if (metadata && metadata[ROOM_METADATA_KEY]) {
+        const newConfig = metadata[ROOM_METADATA_KEY];
+        // Solo actualizar si es diferente
+        if (JSON.stringify(newConfig) !== JSON.stringify(pagesConfigCache)) {
+          log('🔄 Configuración actualizada desde room metadata');
+          pagesConfigCache = newConfig;
+          
+          // Actualizar localStorage también
+          const storageKey = getStorageKey(roomId);
+          localStorage.setItem(storageKey, JSON.stringify(newConfig, null, 2));
+          
+          // Recargar la vista
+          const pageList = document.getElementById("page-list");
+          if (pageList) {
+            await renderPagesByCategories(newConfig, pageList, roomId);
+          }
+        }
+      }
+    });
+    log('✅ Listener de room metadata configurado');
+  } catch (e) {
+    console.warn('⚠️ No se pudo configurar listener de room metadata:', e);
   }
 }
 
@@ -1889,26 +1952,37 @@ try {
         return count;
       };
       
-      // Obtener ambas configuraciones
+      // PRIORIDAD: 1) Room metadata (compartida), 2) localStorage, 3) default
+      // Primero intentar cargar desde room metadata (configuración compartida entre usuarios)
+      const roomMetadataConfig = await loadPagesFromRoomMetadata();
+      
+      // Obtener configuraciones de localStorage como fallback
       const currentRoomConfig = getPagesJSON(roomId);
       const defaultConfig = getPagesJSON('default');
       
       // Contar contenido de cada una
+      const roomMetadataCount = countContent(roomMetadataConfig);
       const currentRoomCount = countContent(currentRoomConfig);
       const defaultCount = countContent(defaultConfig);
       
-      console.log('🔍 Configuración roomId:', roomId, '- elementos:', currentRoomCount);
+      console.log('🔍 Configuración room metadata - elementos:', roomMetadataCount);
+      console.log('🔍 Configuración localStorage roomId:', roomId, '- elementos:', currentRoomCount);
       console.log('🔍 Configuración default - elementos:', defaultCount);
       
-      // Usar la que tenga MÁS contenido
-      if (currentRoomCount >= defaultCount && currentRoomCount > 0) {
-        log('✅ Usando configuración del roomId:', roomId, 'con', currentRoomCount, 'elementos');
+      // Prioridad: room metadata > localStorage > default
+      if (roomMetadataCount > 0) {
+        log('✅ Usando configuración desde room metadata (compartida) con', roomMetadataCount, 'elementos');
+        pagesConfig = roomMetadataConfig;
+      } else if (currentRoomCount >= defaultCount && currentRoomCount > 0) {
+        log('✅ Usando configuración del localStorage roomId:', roomId, 'con', currentRoomCount, 'elementos');
         pagesConfig = currentRoomConfig;
+        // Sincronizar con room metadata para que otros usuarios la vean
+        await savePagesJSON(pagesConfig, roomId);
       } else if (defaultCount > 0) {
         log('✅ Usando configuración "default" con', defaultCount, 'elementos (tiene más contenido)');
         pagesConfig = defaultConfig;
         // Copiar la configuración default al roomId actual para futuras ediciones
-        savePagesJSON(defaultConfig, roomId);
+        await savePagesJSON(defaultConfig, roomId);
         log('💾 Configuración "default" copiada a roomId:', roomId);
       } else if (currentRoomConfig) {
         log('⚠️ Ambas configuraciones vacías, usando la del roomId');
@@ -1919,9 +1993,12 @@ try {
       if (!pagesConfig) {
         log('📝 No se encontró ninguna configuración, creando una nueva por defecto');
         pagesConfig = await getDefaultJSON();
-        savePagesJSON(pagesConfig, roomId);
+        await savePagesJSON(pagesConfig, roomId);
         log('✅ Configuración por defecto creada para room:', roomId);
       }
+      
+      // Configurar listener para sincronización en tiempo real
+      setupRoomMetadataListener(roomId);
 
       console.log('📊 Configuración cargada para room:', roomId);
       console.log('📊 Número de carpetas:', pagesConfig?.categories?.length || 0);
@@ -2664,7 +2741,7 @@ async function moveItemUp(itemType, itemIndex, parentPath, roomId) {
   order[currentPos - 1] = temp;
   
   saveCombinedOrder(parent, order);
-  savePagesJSON(config, roomId);
+  await savePagesJSON(config, roomId);
   
   // Recargar vista
   const pageList = document.getElementById("page-list");
@@ -2691,7 +2768,7 @@ async function moveItemDown(itemType, itemIndex, parentPath, roomId) {
   order[currentPos + 1] = temp;
   
   saveCombinedOrder(parent, order);
-  savePagesJSON(config, roomId);
+  await savePagesJSON(config, roomId);
   
   // Recargar vista
   const pageList = document.getElementById("page-list");
@@ -2776,7 +2853,7 @@ async function addCategoryToPageList(categoryPath, roomId) {
         }
       }
       
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       
       // Recargar la vista
       const pageList = document.getElementById("page-list");
@@ -2899,7 +2976,7 @@ async function editCategoryFromPageList(category, categoryPath, roomId) {
         }
       }
       
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       
       // Recargar la vista
       const pageList = document.getElementById("page-list");
@@ -3009,7 +3086,7 @@ async function editPageFromPageList(page, pageCategoryPath, roomId) {
         }
       }
       
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       
       // Recargar la vista
       const pageList = document.getElementById("page-list");
@@ -3078,7 +3155,7 @@ async function deleteCategoryFromPageList(category, categoryPath, roomId) {
       }
     }
     
-    savePagesJSON(config, roomId);
+    await savePagesJSON(config, roomId);
     
     // Recargar la vista
     const pageList = document.getElementById("page-list");
@@ -3116,7 +3193,7 @@ async function deletePageFromPageList(page, pageCategoryPath, roomId) {
     
     parent.pages.splice(pageIndex, 1);
     
-    savePagesJSON(config, roomId);
+    await savePagesJSON(config, roomId);
     
     // Recargar la vista
     const pageList = document.getElementById("page-list");
@@ -3157,7 +3234,7 @@ async function togglePageVisibility(page, pageCategoryPath, roomId) {
       currentPage.visibleToPlayers = true;
     }
     
-    savePagesJSON(config, roomId);
+    await savePagesJSON(config, roomId);
     
     // Recargar la vista
     const pageList = document.getElementById("page-list");
@@ -3201,7 +3278,7 @@ async function toggleCategoryVisibility(category, categoryPath, roomId, makeVisi
     }
     
     updatePagesRecursive(targetCategory);
-    savePagesJSON(config, roomId);
+    await savePagesJSON(config, roomId);
     
     // Recargar la vista
     const pageList = document.getElementById("page-list");
@@ -3315,7 +3392,7 @@ async function addPageToPageListWithCategorySelector(defaultCategoryPath, roomId
         }
       }
       
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       
       // Recargar la vista
       const pageList = document.getElementById("page-list");
@@ -3383,7 +3460,7 @@ async function addPageToPageListSimple(categoryPath, roomId) {
         }
       }
       
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       
       // Recargar la vista
       const pageList = document.getElementById("page-list");
@@ -4533,7 +4610,8 @@ async function showSettings() {
             }
             
             // Guardar la nueva configuración
-            if (savePagesJSON(parsed, currentRoomId)) {
+            const saveSuccess = await savePagesJSON(parsed, currentRoomId);
+            if (saveSuccess) {
               alert('✅ JSON loaded successfully. Configuration has been updated.');
               closeSettings();
               
@@ -5154,7 +5232,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
           }
         }
         
-        savePagesJSON(config, roomId);
+        await savePagesJSON(config, roomId);
         refreshEditor();
       }
     );
@@ -5203,7 +5281,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
           }
         }
         
-        savePagesJSON(config, roomId);
+        await savePagesJSON(config, roomId);
         refreshEditor();
       }
     );
@@ -5220,7 +5298,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
         const target = navigatePath(config, path);
         if (target) {
           target.name = data.name;
-          savePagesJSON(config, roomId);
+          await savePagesJSON(config, roomId);
           refreshEditor();
         }
       }
@@ -5261,7 +5339,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
           } else {
             delete target.visibleToPlayers;
           }
-          savePagesJSON(config, roomId);
+          await savePagesJSON(config, roomId);
           refreshEditor();
         }
       }
@@ -5276,7 +5354,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
     const parent = navigatePath(config, path.slice(0, -2));
     if (parent && parent[key]) {
       parent[key].splice(index, 1);
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       refreshEditor();
     }
   };
@@ -5289,7 +5367,7 @@ async function showVisualEditor(pagesConfig, roomId = null) {
     const parent = navigatePath(config, path.slice(0, -2));
     if (parent && parent[key]) {
       parent[key].splice(index, 1);
-      savePagesJSON(config, roomId);
+      await savePagesJSON(config, roomId);
       refreshEditor();
     }
   };
