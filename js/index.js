@@ -2637,14 +2637,14 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     const menuItems = [
       { 
         icon: 'img/folder-close.svg', 
-        text: 'Agregar carpeta', 
+        text: 'Add folder', 
         action: async () => {
           await addCategoryToPageList(categoryPath, roomId);
         }
       },
       { 
         icon: 'img/icon-page.svg', 
-        text: 'Agregar página', 
+        text: 'Add page', 
         action: async () => {
           // Pasar categoryPath para que se autocomplete en el modal
           await addPageToPageListWithCategorySelector(categoryPath, roomId);
@@ -3964,8 +3964,11 @@ async function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-state';
         emptyState.innerHTML = `
-          <p>No hay páginas compartidas</p>
-          <p style="font-size: 12px; color: #888; margin-top: 8px;">El DM aún no ha compartido ninguna página contigo</p>
+          <div class="notion-waiting">
+            <div class="notion-waiting-icon">📄</div>
+            <p class="notion-waiting-text">No shared pages</p>
+            <p class="notion-waiting-hint">The DM hasn't shared any pages with you yet</p>
+          </div>
         `;
         pageList.appendChild(emptyState);
       }
