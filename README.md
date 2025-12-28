@@ -17,7 +17,8 @@ This is an [Owlbear Rodeo](https://www.owlbear.rodeo/) extension that allows you
 - 📊 Nested folders with unlimited depth
 - 🎨 Automatic page icons from Notion
 - 🗑️ Cache management (clear all or per page)
-- 📄 **PDF support:** Any publicly accessible PDF file
+- 🔗 **Multi-service support:** Google Drive, Docs, Sheets, Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma, PDFs
+- 🔄 **Automatic URL conversion:** URLs are automatically converted to embed format
 - 📁 **Folder management:** Collapse/expand all folders, reorder items
 - ⚙️ **Settings panel:** Unified configuration interface
 - 🎯 **Token integration:** Link pages to scene tokens via context menu
@@ -191,11 +192,22 @@ You can link pages directly to tokens/characters in the scene:
 
 **Note:** Only the GM can link/unlink pages. All players can view linked pages.
 
-### Supported content
+### Supported external services
 
-- **Notion pages** - Private or public pages (shared with your integration)
+The extension automatically converts URLs to embed format for:
+
+- **Google Drive** - Publicly shared files
+- **Google Docs** - Publicly shared documents
+- **Google Sheets** - Publicly shared spreadsheets
+- **Google Slides** - Publicly shared presentations
+- **Dropbox** - Files with public links
+- **OneDrive** - Files with embed links
+- **YouTube** - Public videos
+- **Vimeo** - Public videos
+- **Figma** - Publicly shared files
 - **PDFs** - Any publicly accessible PDF file
-- **External URLs** - Any web page (with optional CSS selectors)
+
+**Note:** For Google services, files must be shared as "Anyone with the link can view" to work in iframes.
 
 ### 💡 Tips
 
@@ -214,9 +226,10 @@ You can link pages directly to tokens/characters in the scene:
 - Make sure the URL is complete (without `?source=...` parameters)
 - Check that the page is shared with your integration
 
-**External content doesn't load:**
-- For PDFs: Make sure the URL is publicly accessible
-- For external URLs: Some pages block iframes for security (CORS)
+**External service doesn't load:**
+- For Google services: Make sure the file is shared as "Anyone with the link can view"
+- For Dropbox/OneDrive: Verify the file has a public link
+- For YouTube/Vimeo: Ensure the video is public or unlisted (not private)
 - Check the browser console for CORS or iframe errors
 
 **Extension doesn't appear:**

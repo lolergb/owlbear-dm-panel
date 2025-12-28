@@ -3367,55 +3367,48 @@ function getLinkType(url) {
       return { type: 'dndbeyond', icon: 'icon-dnd.svg' };
     }
     
-    // ============================================================
-    // SERVICIOS EXTERNOS - DESHABILITADOS PARA SOFT LAUNCH
-    // Ver rama feature/multi-service para código completo
-    // ============================================================
+    // Google Drive
+    if (hostname.includes('drive.google.com')) {
+      return { type: 'google-drive', icon: 'icon-google-drive.svg' };
+    }
     
-    // Google Drive - PRÓXIMAMENTE
-    // if (hostname.includes('drive.google.com')) {
-    //   return { type: 'google-drive', icon: 'icon-google-drive.svg' };
-    // }
+    // Google Docs/Sheets/Slides
+    if (hostname.includes('docs.google.com')) {
+      if (pathname.includes('/document/')) {
+        return { type: 'google-docs', icon: 'icon-google-docs.svg' };
+      }
+      if (pathname.includes('/spreadsheets/')) {
+        return { type: 'google-sheets', icon: 'icon-google-sheets.svg' };
+      }
+      if (pathname.includes('/presentation/')) {
+        return { type: 'google-slides', icon: 'icon-google-slides.svg' };
+      }
+    }
     
-    // Google Docs/Sheets/Slides - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com')) {
-    //   if (pathname.includes('/document/')) {
-    //     return { type: 'google-docs', icon: 'icon-google-docs.svg' };
-    //   }
-    //   if (pathname.includes('/spreadsheets/')) {
-    //     return { type: 'google-sheets', icon: 'icon-google-sheets.svg' };
-    //   }
-    //   if (pathname.includes('/presentation/')) {
-    //     return { type: 'google-slides', icon: 'icon-google-slides.svg' };
-    //   }
-    // }
+    // YouTube
+    if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return { type: 'youtube', icon: 'icon-youtube.svg' };
+    }
     
-    // YouTube - PRÓXIMAMENTE
-    // if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
-    //   return { type: 'youtube', icon: 'icon-youtube.svg' };
-    // }
+    // Vimeo
+    if (hostname.includes('vimeo.com')) {
+      return { type: 'vimeo', icon: 'icon-vimeo.svg' };
+    }
     
-    // Vimeo - PRÓXIMAMENTE
-    // if (hostname.includes('vimeo.com')) {
-    //   return { type: 'vimeo', icon: 'icon-vimeo.svg' };
-    // }
+    // Figma
+    if (hostname.includes('figma.com')) {
+      return { type: 'figma', icon: 'icon-figma.svg' };
+    }
     
-    // Figma - PRÓXIMAMENTE
-    // if (hostname.includes('figma.com')) {
-    //   return { type: 'figma', icon: 'icon-figma.svg' };
-    // }
+    // Dropbox
+    if (hostname.includes('dropbox.com')) {
+      return { type: 'dropbox', icon: 'icon-dropbox.svg' };
+    }
     
-    // Dropbox - PRÓXIMAMENTE
-    // if (hostname.includes('dropbox.com')) {
-    //   return { type: 'dropbox', icon: 'icon-dropbox.svg' };
-    // }
-    
-    // OneDrive - PRÓXIMAMENTE
-    // if (hostname.includes('onedrive.live.com') || hostname.includes('1drv.ms')) {
-    //   return { type: 'onedrive', icon: 'icon-onedrive.svg' };
-    // }
-    
-    // ============================================================
+    // OneDrive
+    if (hostname.includes('onedrive.live.com') || hostname.includes('1drv.ms')) {
+      return { type: 'onedrive', icon: 'icon-onedrive.svg' };
+    }
     
     // CodePen - COMENTADO
     // if (hostname.includes('codepen.io')) {
@@ -3451,8 +3444,8 @@ function getLinkType(url) {
   }
 }
 
-// Función para convertir URLs de servicios externos a formato embed
-// SOFT LAUNCH: Solo PDF soportado. Ver rama feature/multi-service para más servicios.
+// Function to convert external service URLs to embed format
+// Supports: Google Drive, Google Docs/Sheets/Slides, Dropbox, OneDrive, YouTube, Vimeo, Figma
 function convertToEmbedUrl(url) {
   if (!url || typeof url !== 'string') {
     return { url, converted: false, service: null };
@@ -3463,135 +3456,128 @@ function convertToEmbedUrl(url) {
     const hostname = urlObj.hostname;
     const pathname = urlObj.pathname;
 
-    // ============================================================
-    // SERVICIOS EXTERNOS - DESHABILITADOS PARA SOFT LAUNCH
-    // Ver rama feature/multi-service para código completo
-    // ============================================================
+    // Google Drive
+    if (hostname.includes('drive.google.com') && pathname.includes('/file/d/')) {
+      const match = pathname.match(/\/file\/d\/([^/]+)/);
+      if (match) {
+        const fileId = match[1];
+        return {
+          url: `https://drive.google.com/file/d/${fileId}/preview`,
+          converted: true,
+          service: 'Google Drive'
+        };
+      }
+    }
 
-    // Google Drive - PRÓXIMAMENTE
-    // if (hostname.includes('drive.google.com') && pathname.includes('/file/d/')) {
-    //   const match = pathname.match(/\/file\/d\/([^/]+)/);
-    //   if (match) {
-    //     const fileId = match[1];
-    //     return {
-    //       url: `https://drive.google.com/file/d/${fileId}/preview`,
-    //       converted: true,
-    //       service: 'Google Drive'
-    //     };
-    //   }
-    // }
+    // Google Docs
+    if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
+      const match = pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const docId = match[1];
+        return {
+          url: `https://docs.google.com/document/d/${docId}/preview`,
+          converted: true,
+          service: 'Google Docs'
+        };
+      }
+    }
 
-    // Google Docs - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
-    //   const match = pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    //   if (match) {
-    //     const docId = match[1];
-    //     return {
-    //       url: `https://docs.google.com/document/d/${docId}/preview`,
-    //       converted: true,
-    //       service: 'Google Docs'
-    //     };
-    //   }
-    // }
+    // Google Sheets
+    if (hostname.includes('docs.google.com') && pathname.includes('/spreadsheets/d/')) {
+      const match = pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const sheetId = match[1];
+        return {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/preview`,
+          converted: true,
+          service: 'Google Sheets'
+        };
+      }
+    }
 
-    // Google Sheets - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com') && pathname.includes('/spreadsheets/d/')) {
-    //   const match = pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-    //   if (match) {
-    //     const sheetId = match[1];
-    //     return {
-    //       url: `https://docs.google.com/spreadsheets/d/${sheetId}/preview`,
-    //       converted: true,
-    //       service: 'Google Sheets'
-    //     };
-    //   }
-    // }
+    // Google Slides
+    if (hostname.includes('docs.google.com') && pathname.includes('/presentation/d/')) {
+      const match = pathname.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const slideId = match[1];
+        return {
+          url: `https://docs.google.com/presentation/d/${slideId}/embed`,
+          converted: true,
+          service: 'Google Slides'
+        };
+      }
+    }
 
-    // Google Slides - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com') && pathname.includes('/presentation/d/')) {
-    //   const match = pathname.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
-    //   if (match) {
-    //     const slideId = match[1];
-    //     return {
-    //       url: `https://docs.google.com/presentation/d/${slideId}/embed`,
-    //       converted: true,
-    //       service: 'Google Slides'
-    //     };
-    //   }
-    // }
+    // Dropbox - convert ?dl=0 to ?raw=1
+    if (hostname.includes('dropbox.com')) {
+      const newUrl = url.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1');
+      if (newUrl !== url) {
+        return {
+          url: newUrl,
+          converted: true,
+          service: 'Dropbox'
+        };
+      }
+    }
 
-    // Dropbox - PRÓXIMAMENTE
-    // if (hostname.includes('dropbox.com')) {
-    //   const newUrl = url.replace('?dl=0', '?raw=1').replace('&dl=0', '&raw=1');
-    //   if (newUrl !== url) {
-    //     return {
-    //       url: newUrl,
-    //       converted: true,
-    //       service: 'Dropbox'
-    //     };
-    //   }
-    // }
+    // OneDrive
+    if (hostname.includes('onedrive.live.com') && url.includes('resid=')) {
+      if (!url.includes('/embed')) {
+        const resid = urlObj.searchParams.get('resid');
+        if (resid) {
+          return {
+            url: `https://onedrive.live.com/embed?resid=${resid}`,
+            converted: true,
+            service: 'OneDrive'
+          };
+        }
+      }
+    }
 
-    // OneDrive - PRÓXIMAMENTE
-    // if (hostname.includes('onedrive.live.com') && url.includes('resid=')) {
-    //   if (!url.includes('/embed')) {
-    //     const resid = urlObj.searchParams.get('resid');
-    //     if (resid) {
-    //       return {
-    //         url: `https://onedrive.live.com/embed?resid=${resid}`,
-    //         converted: true,
-    //         service: 'OneDrive'
-    //       };
-    //     }
-    //   }
-    // }
+    // YouTube
+    if (hostname.includes('youtube.com') && pathname.includes('/watch')) {
+      const videoId = urlObj.searchParams.get('v');
+      if (videoId) {
+        return {
+          url: `https://www.youtube.com/embed/${videoId}`,
+          converted: true,
+          service: 'YouTube'
+        };
+      }
+    }
 
-    // YouTube - PRÓXIMAMENTE
-    // if (hostname.includes('youtube.com') && pathname.includes('/watch')) {
-    //   const videoId = urlObj.searchParams.get('v');
-    //   if (videoId) {
-    //     return {
-    //       url: `https://www.youtube.com/embed/${videoId}`,
-    //       converted: true,
-    //       service: 'YouTube'
-    //     };
-    //   }
-    // }
+    // YouTube short (youtu.be)
+    if (hostname === 'youtu.be') {
+      const videoId = pathname.substring(1);
+      if (videoId) {
+        return {
+          url: `https://www.youtube.com/embed/${videoId}`,
+          converted: true,
+          service: 'YouTube'
+        };
+      }
+    }
 
-    // YouTube corto (youtu.be) - PRÓXIMAMENTE
-    // if (hostname === 'youtu.be') {
-    //   const videoId = pathname.substring(1);
-    //   if (videoId) {
-    //     return {
-    //       url: `https://www.youtube.com/embed/${videoId}`,
-    //       converted: true,
-    //       service: 'YouTube'
-    //     };
-    //   }
-    // }
+    // Vimeo
+    if (hostname.includes('vimeo.com') && !pathname.includes('/video/')) {
+      const videoId = pathname.match(/\/(\d+)/);
+      if (videoId) {
+        return {
+          url: `https://player.vimeo.com/video/${videoId[1]}`,
+          converted: true,
+          service: 'Vimeo'
+        };
+      }
+    }
 
-    // Vimeo - PRÓXIMAMENTE
-    // if (hostname.includes('vimeo.com') && !pathname.includes('/video/')) {
-    //   const videoId = pathname.match(/\/(\d+)/);
-    //   if (videoId) {
-    //     return {
-    //       url: `https://player.vimeo.com/video/${videoId[1]}`,
-    //       converted: true,
-    //       service: 'Vimeo'
-    //     };
-    //   }
-    // }
-
-    // Figma - PRÓXIMAMENTE
-    // if (hostname.includes('figma.com') && (pathname.includes('/file/') || pathname.includes('/design/'))) {
-    //   return {
-    //     url: `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(url)}`,
-    //     converted: true,
-    //     service: 'Figma'
-    //   };
-    // }
-
-    // ============================================================
+    // Figma
+    if (hostname.includes('figma.com') && (pathname.includes('/file/') || pathname.includes('/design/'))) {
+      return {
+        url: `https://www.figma.com/embed?embed_host=share&url=${encodeURIComponent(url)}`,
+        converted: true,
+        service: 'Figma'
+      };
+    }
 
     // CodePen - COMENTADO
     // if (hostname.includes('codepen.io') && pathname.includes('/pen/')) {
