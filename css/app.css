@@ -1161,3 +1161,14 @@
     margin: 0 0 var(--spacing-md) 0;
     color: var(--color-text-muted);
   }
+
+  @media (max-width: 399px) {
+    .category-title,
+    .page-name-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-right: 32px;
+    }
+    .category-title { margin-right: 72px}
+  }
