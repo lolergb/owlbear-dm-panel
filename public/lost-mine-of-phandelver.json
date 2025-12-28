@@ -15,8 +15,12 @@
               "url": "https://5e.tools/adventure.html#lmop,1,goblin-ambush,0"
             },
             {
-              "name": "Map – Sword Coast Region (Reference)",
-              "url": "https://5e.tools/img/adventure/LMoP/Sword%20Coast.webp"
+              "name": "Map – Sword Coast (DM)",
+              "url": "https://5e.tools/img/adventure/LMoP/The%20Sword%20Coast.webp"
+            },
+            {
+              "name": "Map – Sword Coast (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/The%20Sword%20Coast%20(Player).webp"
             },
             {
               "name": "Enemy – Goblin",
@@ -32,8 +36,12 @@
               "url": "https://5e.tools/adventure.html#lmop,1,cragmaw-hideout,0"
             },
             {
-              "name": "Map – Cragmaw Hideout",
+              "name": "Map – Cragmaw Hideout (DM)",
               "url": "https://5e.tools/img/adventure/LMoP/Cragmaw%20Hideout.webp"
+            },
+            {
+              "name": "Map – Cragmaw Hideout (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/Cragmaw%20Hideout%20(Player).webp"
             },
             {
               "name": "Enemy – Goblin",
@@ -55,45 +63,36 @@
       "name": "Act II – Phandalin & Redbrands",
       "categories": [
         {
-          "name": "Encounter – Arrive in Phandalin (Social Hub)",
+          "name": "Encounter – Arrive in Phandalin",
           "pages": [
             {
               "name": "Story – Phandalin",
               "url": "https://5e.tools/adventure.html#lmop,2,phandalin,0"
             },
             {
-              "name": "Map – Phandalin",
+              "name": "Map – Phandalin (DM)",
               "url": "https://5e.tools/img/adventure/LMoP/Phandalin.webp"
+            },
+            {
+              "name": "Map – Phandalin (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/Phandalin%20(Player).webp"
             }
           ]
         },
         {
-          "name": "Encounter – Redbrand Street Fight",
-          "pages": [
-            {
-              "name": "Story – Redbrand Ruffians",
-              "url": "https://5e.tools/adventure.html#lmop,2,redbrand-ruffians,0"
-            },
-            {
-              "name": "Map – Phandalin",
-              "url": "https://5e.tools/img/adventure/LMoP/Phandalin.webp"
-            },
-            {
-              "name": "Enemy – Bandit (Redbrand Ruffian)",
-              "url": "https://5e.tools/bestiary.html#bandit_mm,bookview:true"
-            }
-          ]
-        },
-        {
-          "name": "Encounter – Redbrand Hideout (Dungeon)",
+          "name": "Encounter – Redbrand Hideout",
           "pages": [
             {
               "name": "Story – Redbrand Hideout",
               "url": "https://5e.tools/adventure.html#lmop,2,redbrand-hideout,0"
             },
             {
-              "name": "Map – Redbrand Hideout",
+              "name": "Map – Redbrand Hideout (DM)",
               "url": "https://5e.tools/img/adventure/LMoP/Redbrand%20Hideout.webp"
+            },
+            {
+              "name": "Map – Redbrand Hideout (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/Redbrand%20Hideout%20(Player).webp"
             },
             {
               "name": "Enemy – Bandit (Redbrand Ruffian)",
@@ -115,15 +114,6 @@
       "name": "Act III – The Spider’s Web",
       "categories": [
         {
-          "name": "Encounter – The Spider’s Web (Chapter Start)",
-          "pages": [
-            {
-              "name": "Story – The Spider’s Web",
-              "url": "https://5e.tools/adventure.html#lmop,3,the-spiders-web,0"
-            }
-          ]
-        },
-        {
           "name": "Encounter – Cragmaw Castle",
           "pages": [
             {
@@ -131,8 +121,12 @@
               "url": "https://5e.tools/adventure.html#lmop,3,cragmaw-castle,0"
             },
             {
-              "name": "Map – Cragmaw Castle",
+              "name": "Map – Cragmaw Castle (DM)",
               "url": "https://5e.tools/img/adventure/LMoP/Cragmaw%20Castle.webp"
+            },
+            {
+              "name": "Map – Cragmaw Castle (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/Cragmaw%20Castle%20(Player).webp"
             },
             {
               "name": "Enemy – Goblin",
@@ -153,11 +147,19 @@
           ]
         },
         {
-          "name": "Encounter – Thundertree (Venomfang)",
+          "name": "Encounter – Thundertree",
           "pages": [
             {
               "name": "Story – Thundertree",
               "url": "https://5e.tools/adventure.html#lmop,3,thundertree,0"
+            },
+            {
+              "name": "Map – Thundertree (DM)",
+              "url": "https://5e.tools/img/adventure/LMoP/Ruins%20of%20Thundertree.webp"
+            },
+            {
+              "name": "Map – Thundertree (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/Ruins%20of%20Thundertree%20(Player).webp"
             },
             {
               "name": "Enemy – Young Green Dragon (Venomfang)",
@@ -171,7 +173,7 @@
       "name": "Act IV – Wave Echo Cave",
       "categories": [
         {
-          "name": "Encounter – Wave Echo Cave (Final Dungeon)",
+          "name": "Encounter – Wave Echo Cave",
           "pages": [
             {
               "name": "Story – Wave Echo Cave",
@@ -182,8 +184,12 @@
               "url": "https://5e.tools/adventure.html#lmop,4,forge-of-spells,0"
             },
             {
-              "name": "Map – Wave Echo Cave",
+              "name": "Map – Wave Echo Cave (DM)",
               "url": "https://5e.tools/img/adventure/LMoP/Wave%20Echo%20Cave.webp"
+            },
+            {
+              "name": "Map – Wave Echo Cave (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/Wave%20Echo%20Cave%20(Player).webp"
             },
             {
               "name": "Enemy – Stirge",
