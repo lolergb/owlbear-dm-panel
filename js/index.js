@@ -3964,11 +3964,9 @@ async function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
         const emptyState = document.createElement('div');
         emptyState.className = 'empty-state';
         emptyState.innerHTML = `
-          <div class="notion-waiting">
-            <div class="notion-waiting-icon">📄</div>
-            <p class="notion-waiting-text">No shared pages</p>
-            <p class="notion-waiting-hint">The DM hasn't shared any pages with you yet</p>
-          </div>
+          <div class="empty-state-icon">📄</div>
+          <p class="empty-state-text">No shared pages</p>
+          <p class="empty-state-hint">The DM hasn't shared any pages with you yet</p>
         `;
         pageList.appendChild(emptyState);
       }

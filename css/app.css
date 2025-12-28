@@ -1135,3 +1135,29 @@
     flex: 1;
   }
   
+  /* ==========================================================================
+    Empty State
+    ========================================================================== */
+
+  .notion-content .empty-state {
+    text-align: center;
+    padding: calc(var(--spacing-xl) + var(--spacing-lg));
+    color: var(--color-text-secondary);
+  }
+  
+  .notion-content .empty-state-icon {
+    font-size: 2.5rem;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .notion-content .empty-state-text {
+    font-size: var(--font-size-lg);
+    margin: 0 0 var(--spacing-sm) 0;
+    color: var(--color-text-primary);
+  }
+  
+  .notion-content .empty-state-hint {
+    font-size: var(--font-size-sm);
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--color-text-muted);
+  }
