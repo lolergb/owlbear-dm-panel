@@ -31,7 +31,23 @@ exports.handler = async (event, context) => {
   try {
     // Obtener la variable de entorno DEBUG_MODE
     // Solo tú puedes configurarla en Netlify (Site settings → Environment variables)
-    const DEBUG_MODE = process.env.DEBUG_MODE === 'true' || process.env.DEBUG_MODE === '1';
+    const DEBUG_MODE_ENV = process.env.DEBUG_MODE === 'true' || process.env.DEBUG_MODE === '1';
+    
+    // Obtener el token del usuario desde los query parameters
+    const userToken = event.queryStringParameters?.token;
+    
+    // Si hay OWNER_TOKEN configurado, solo activar DEBUG_MODE para el dueño
+    const OWNER_TOKEN = process.env.OWNER_TOKEN;
+    let DEBUG_MODE = false;
+    
+    if (OWNER_TOKEN) {
+      // Si hay OWNER_TOKEN, DEBUG_MODE solo funciona para el dueño
+      // Verificar que el token del usuario coincida con el token del dueño
+      DEBUG_MODE = DEBUG_MODE_ENV && userToken === OWNER_TOKEN;
+    } else {
+      // Si no hay OWNER_TOKEN, usar el comportamiento anterior (solo DEBUG_MODE_ENV)
+      DEBUG_MODE = DEBUG_MODE_ENV;
+    }
     
     return {
       statusCode: 200,

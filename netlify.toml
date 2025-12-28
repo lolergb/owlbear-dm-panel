@@ -64,8 +64,13 @@
   publish = "."
 
 # Variables de entorno (configúralas en Netlify Dashboard)
+# OWNER_TOKEN: (Recomendado) Tu token de Notion personal
+#   - Si está configurado, DEBUG_MODE solo funcionará para tu cuenta
+#   - Esto garantiza que solo tú veas el botón "Ver JSON" y los logs de debug
+#   - Es la forma más segura de activar el modo debug solo para ti
 # DEBUG_MODE: Configura en Site settings → Environment variables
 #   - Valor: "true" o "1" para activar logs de debug
-#   - Valor: "false" o sin configurar para desactivar logs
-#   - Solo tú puedes configurarla desde el dashboard de Netlify
+#   - Valor: "false" o "0" para desactivar logs
+#   - Si OWNER_TOKEN está configurado, DEBUG_MODE solo funciona para tu token
+#   - Si OWNER_TOKEN NO está configurado, DEBUG_MODE funciona para todos (menos seguro)
 

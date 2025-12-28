@@ -12,7 +12,15 @@ async function initDebugMode() {
   try {
     // Intentar obtener la variable de entorno desde Netlify Function
     if (window.location.origin.includes('netlify.app') || window.location.origin.includes('netlify.com')) {
-      const response = await fetch('/.netlify/functions/get-debug-mode');
+      // Obtener el token del usuario para verificar si es tu cuenta
+      const userToken = getUserToken();
+      // Construir URL con el token si existe
+      let url = '/.netlify/functions/get-debug-mode';
+      if (userToken) {
+        url += `?token=${encodeURIComponent(userToken)}`;
+      }
+      
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         DEBUG_MODE = data.debug === true;
@@ -4154,7 +4162,8 @@ async function showSettings() {
   const loadJsonBtn = document.getElementById('load-json-btn');
   const downloadJsonBtn = document.getElementById('download-json-btn');
   
-  // Mostrar botón "Ver JSON" solo en modo debug
+  // Mostrar botón "Ver JSON" solo si es tu cuenta (DEBUG_MODE activado)
+  // Esto se controla desde Netlify Environment Variables (DEBUG_MODE=true)
   if (viewJsonBtn && DEBUG_MODE) {
     viewJsonBtn.classList.remove('hidden');
   }
@@ -4192,7 +4201,7 @@ async function showSettings() {
   // Guardar token - evitar múltiples listeners
   if (saveBtn && !saveBtn.dataset.listenerAdded) {
     saveBtn.dataset.listenerAdded = 'true';
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
       const token = tokenInput ? tokenInput.value.trim() : '';
       
       if (!token) {
@@ -4206,6 +4215,16 @@ async function showSettings() {
       if (saveUserToken(token)) {
         if (errorDiv) errorDiv.classList.remove('form__error--visible');
         alert('✅ Token guardado exitosamente. Ahora puedes usar tus propias páginas de Notion.');
+        // Actualizar el modo debug con el nuevo token
+        await initDebugMode();
+        // Actualizar visibilidad del botón "Ver JSON" si es necesario
+        if (viewJsonBtn) {
+          if (DEBUG_MODE) {
+            viewJsonBtn.classList.remove('hidden');
+          } else {
+            viewJsonBtn.classList.add('hidden');
+          }
+        }
         closeSettings();
         // Actualizar el título del botón de token sin recargar la página
         const settingsButton = document.querySelector('.icon-button[title*="Token"]');
@@ -4225,9 +4244,15 @@ async function showSettings() {
   // Eliminar token - evitar múltiples listeners
   if (clearBtn && !clearBtn.dataset.listenerAdded) {
     clearBtn.dataset.listenerAdded = 'true';
-    clearBtn.addEventListener('click', () => {
+    clearBtn.addEventListener('click', async () => {
       if (confirm('¿Eliminar el token? Volverás a usar el token del servidor (si está configurado).')) {
         if (saveUserToken('')) {
+          // Actualizar el modo debug después de eliminar el token
+          await initDebugMode();
+          // Ocultar el botón "Ver JSON" si ya no es tu cuenta
+          if (viewJsonBtn) {
+            viewJsonBtn.classList.add('hidden');
+          }
           alert('Token eliminado. Se usará el token del servidor.');
           closeSettings();
           // Actualizar el título del botón de token sin recargar la página
