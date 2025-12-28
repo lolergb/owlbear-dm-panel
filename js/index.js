@@ -1491,12 +1491,38 @@ async function renderTable(tableBlock) {
 // Función para mostrar imagen en modal usando Owlbear SDK
 async function showImageModal(imageUrl, caption) {
   try {
-    // Construir URL con parámetros
-    const viewerUrl = new URL('html/image-viewer.html', window.location.origin);
-    viewerUrl.searchParams.set('url', encodeURIComponent(imageUrl));
+    // Asegurarse de que imageUrl sea una URL absoluta
+    let absoluteImageUrl = imageUrl;
+    if (imageUrl && !imageUrl.match(/^https?:\/\//i)) {
+      // Si no es una URL absoluta, intentar construirla
+      try {
+        absoluteImageUrl = new URL(imageUrl, window.location.origin).toString();
+      } catch (e) {
+        console.warn('No se pudo construir URL absoluta, usando original:', imageUrl);
+        absoluteImageUrl = imageUrl;
+      }
+    }
+    
+    // Construir URL del viewer con parámetros
+    // Owlbear resuelve rutas relativas desde la raíz de la extensión
+    // Usar window.location.origin y construir la ruta correctamente
+    const currentPath = window.location.pathname;
+    // Obtener el directorio base (sin el archivo actual)
+    const baseDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+    const baseUrl = window.location.origin + baseDir;
+    
+    const viewerUrl = new URL('html/image-viewer.html', baseUrl);
+    viewerUrl.searchParams.set('url', encodeURIComponent(absoluteImageUrl));
     if (caption) {
       viewerUrl.searchParams.set('caption', encodeURIComponent(caption));
     }
+    
+    console.log('🔍 Abriendo modal de imagen:', {
+      imageUrl: absoluteImageUrl,
+      viewerUrl: viewerUrl.toString(),
+      baseUrl: baseUrl,
+      currentLocation: window.location.href
+    });
     
     // Abrir modal usando Owlbear SDK (modal grande fuera del popup)
     await OBR.modal.open({
@@ -3581,6 +3607,28 @@ async function renderPagesByCategories(pagesConfig, pageList, roomId = null) {
       }
       // En el nivel raíz normalmente solo hay categorías, pero esto permite páginas sueltas en el futuro
     });
+    
+    // Si es jugador y no hay contenido visible, mostrar empty state
+    if (!isGM) {
+      // Verificar si hay alguna categoría con contenido visible
+      const hasAnyVisibleContent = pagesConfig.categories && pagesConfig.categories.some(cat => 
+        hasVisibleContentForPlayers(cat)
+      );
+      
+      // Verificar si el pageList tiene contenido renderizado (categorías o páginas)
+      const hasRenderedContent = pageList.children.length > 0;
+      
+      if (!hasAnyVisibleContent || !hasRenderedContent) {
+        pageList.innerHTML = '';
+        const emptyState = document.createElement('div');
+        emptyState.className = 'empty-state';
+        emptyState.innerHTML = `
+          <p>No hay páginas compartidas</p>
+          <p style="font-size: 12px; color: #888; margin-top: 8px;">El DM aún no ha compartido ninguna página contigo</p>
+        `;
+        pageList.appendChild(emptyState);
+      }
+    }
   }, 0); // Permitir que el DOM se actualice
 }
 

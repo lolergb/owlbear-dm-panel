@@ -117,11 +117,25 @@
     
     // Obtener parámetros de la URL
     const urlParams = new URLSearchParams(window.location.search);
-    const imageUrl = urlParams.get('url');
+    let imageUrl = urlParams.get('url');
     const caption = urlParams.get('caption') || '';
     
     if (imageUrl) {
-      document.getElementById('viewer-image').src = decodeURIComponent(imageUrl);
+      // Decodificar la URL
+      imageUrl = decodeURIComponent(imageUrl);
+      
+      // Asegurarse de que sea una URL absoluta
+      // Si no empieza con http:// o https://, intentar construirla
+      if (!imageUrl.match(/^https?:\/\//i)) {
+        try {
+          // Si es una ruta relativa, construir URL absoluta desde el origen
+          imageUrl = new URL(imageUrl, window.location.origin).toString();
+        } catch (e) {
+          console.error('Error construyendo URL absoluta:', e);
+        }
+      }
+      
+      document.getElementById('viewer-image').src = imageUrl;
       document.getElementById('viewer-image').alt = caption;
       
       if (caption) {
