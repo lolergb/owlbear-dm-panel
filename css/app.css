@@ -369,6 +369,13 @@
     margin-bottom: var(--spacing-lg);
   }
   
+  /* Asegurar que header__actions use flexbox para el orden de botones */
+  .header__actions,
+  #header {
+    display: flex;
+    align-items: center;
+  }
+  
   .header__title {
     font-family: var(--font-family-base);
     font-size: var(--font-size-md);

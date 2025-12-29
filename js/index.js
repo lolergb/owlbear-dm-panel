@@ -5047,134 +5047,6 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         console.log('🔍 Filtro de tipos de bloques activado:', blockTypes);
       }
       
-      // Agregar o actualizar botón de menú contextual (solo para Notion, solo para GMs)
-      let contextMenuButton = document.getElementById("page-context-menu-button-header");
-      let isGMForHeader = false;
-      try {
-        const role = await OBR.player.getRole();
-        isGMForHeader = role === 'GM';
-      } catch (e) {
-        isGMForHeader = false;
-      }
-      
-      if (isGMForHeader) {
-        if (!contextMenuButton) {
-          contextMenuButton = document.createElement("button");
-          contextMenuButton.id = "page-context-menu-button-header";
-          contextMenuButton.className = "icon-button";
-          header.appendChild(contextMenuButton);
-        }
-        
-        contextMenuButton.innerHTML = "";
-        const contextMenuIcon = document.createElement("img");
-        contextMenuIcon.src = "img/icon-contextualmenu.svg";
-        contextMenuIcon.className = "icon-button-icon";
-        contextMenuButton.appendChild(contextMenuIcon);
-        contextMenuButton.title = "Menú";
-        
-        // Remover listeners anteriores
-        const newContextMenuButton = contextMenuButton.cloneNode(true);
-        contextMenuButton.parentNode.replaceChild(newContextMenuButton, contextMenuButton);
-        contextMenuButton = newContextMenuButton;
-        contextMenuButton.id = "page-context-menu-button-header";
-        contextMenuButton.className = "icon-button";
-        
-        // Configurar menú contextual
-        contextMenuButton.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const rect = contextMenuButton.getBoundingClientRect();
-          let roomId = null;
-          try {
-            roomId = OBR.room.id || await OBR.room.getId();
-          } catch (e) {}
-          
-          const config = getPagesJSON(roomId) || await getDefaultJSON();
-          const pageInfo = findPageInConfig(config, url, name);
-          
-          if (pageInfo) {
-            const pageCategoryPath = pageInfo.pageCategoryPath;
-            const parent = navigateConfigPath(config, pageCategoryPath);
-            const pageIndex = parent && parent.pages ? parent.pages.findIndex(p => p.name === pageInfo.page.name && p.url === pageInfo.page.url) : -1;
-            const combinedOrder = getCombinedOrder(parent);
-            const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === pageIndex);
-            const canMoveUp = currentPos > 0;
-            const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
-            
-            const menuItems = [
-              { 
-                icon: 'img/icon-edit.svg', 
-                text: 'Edit', 
-                action: async () => {
-                  await editPageFromPageList(pageInfo.page, pageCategoryPath, roomId);
-                }
-              },
-              { 
-                icon: 'img/icon-clone.svg', 
-                text: 'Duplicate', 
-                action: async () => {
-                  await duplicatePageFromPageList(pageInfo.page, pageCategoryPath, roomId);
-                }
-              },
-              { separator: true },
-            ];
-            
-            // Agregar opciones de mover si es posible
-            if (canMoveUp || canMoveDown) {
-              if (canMoveUp) {
-                menuItems.push({
-                  icon: 'img/icon-arrow.svg',
-                  text: 'Move up',
-                  action: async () => {
-                    await movePageInList(pageInfo.page, pageCategoryPath, roomId, 'up');
-                  }
-                });
-              }
-              if (canMoveDown) {
-                menuItems.push({
-                  icon: 'img/icon-arrow.svg',
-                  text: 'Move down',
-                  action: async () => {
-                    await movePageInList(pageInfo.page, pageCategoryPath, roomId, 'down');
-                  }
-                });
-              }
-              menuItems.push({ separator: true });
-            }
-            
-            menuItems.push({
-              icon: 'img/icon-trash.svg',
-              text: 'Delete',
-              action: async () => {
-                if (confirm(`¿Eliminar la página "${pageInfo.page.name}"?`)) {
-                  await deletePageFromPageList(pageInfo.page, pageCategoryPath, roomId);
-                  // Volver a la vista principal después de eliminar
-                  const notionContainer = document.getElementById("notion-container");
-                  if (notionContainer) {
-                    notionContainer.classList.add("hidden");
-                  }
-                  const pageList = document.getElementById("page-list");
-                  if (pageList) {
-                    pageList.classList.remove("hidden");
-                  }
-                }
-              }
-            });
-            
-            createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 4 }, () => {
-              contextMenuButton.classList.remove('context-menu-active');
-            });
-            
-            contextMenuButton.classList.add('context-menu-active');
-          }
-        });
-        
-        contextMenuButton.classList.remove("hidden");
-      } else {
-        if (contextMenuButton) {
-          contextMenuButton.classList.add("hidden");
-        }
-      }
-      
       // Agregar o actualizar botón de recargar (solo para Notion)
       let refreshButton = document.getElementById("refresh-page-button");
     if (!refreshButton) {
@@ -5297,69 +5169,151 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
       }
     }
     
-    if (!backButton.dataset.listenerAdded) {
-      backButton.addEventListener("click", () => {
-        const settingsContainer = document.getElementById("settings-container");
-        const isSettingsVisible = settingsContainer && !settingsContainer.classList.contains('hidden');
-        
-        if (isSettingsVisible) {
-          // Cerrar token config
-          settingsContainer.classList.add("hidden");
-        } else {
-          // Volver a la vista principal desde notion-container
-        notionContainer.classList.add("hidden");
-        notionContainer.classList.remove("show-content");
-        if (notionContent) {
-          notionContent.innerHTML = "";
-        }
-        // Limpiar iframe
-        const iframe = notionContainer.querySelector('#notion-iframe');
-        if (iframe) {
-          iframe.src = '';
-          iframe.style.display = 'none';
-        }
-        // Ocultar botón de menú contextual
-        const contextMenuButton = document.getElementById("page-context-menu-button-header");
-        if (contextMenuButton) {
-          contextMenuButton.classList.add("hidden");
-        }
-        // Ocultar botón de recargar
-        const refreshButton = document.getElementById("refresh-page-button");
-        if (refreshButton) {
-          refreshButton.classList.add("hidden");
-          }
-        // Ocultar botón de visibilidad
-        const visibilityButton = document.getElementById("page-visibility-button-header");
-        if (visibilityButton) {
-          visibilityButton.classList.add("hidden");
-        }
-        }
-        
-        // Restaurar vista principal
-        pageList.classList.remove("hidden");
-        backButton.classList.add("hidden");
-        pageTitle.textContent = "DM screen";
-        // Mostrar el button-container cuando se vuelve a la vista principal
-        const buttonContainer = document.querySelector('.button-container');
-        if (buttonContainer) {
-          buttonContainer.classList.remove("hidden");
-        }
-      });
-      backButton.dataset.listenerAdded = "true";
-    }
-    
-    // Agregar botón de visibilidad para GMs (después del refresh, antes del menú contextual)
-    let visibilityButton = document.getElementById("page-visibility-button-header");
-    if (!isGMForHeader) {
-      try {
-        const role = await OBR.player.getRole();
-        isGMForHeader = role === 'GM';
-      } catch (e) {
-        isGMForHeader = false;
-      }
+    // Agregar botón de menú contextual para GMs (solo si la página está en la configuración)
+    // Esto debe ejecutarse tanto para URLs de Notion como para otras URLs
+    let contextMenuButton = document.getElementById("page-context-menu-button-header");
+    let isGMForHeader = false;
+    try {
+      const role = await OBR.player.getRole();
+      isGMForHeader = role === 'GM';
+    } catch (e) {
+      isGMForHeader = false;
     }
     
     if (isGMForHeader) {
+      let roomId = null;
+      try {
+        roomId = OBR.room.id || await OBR.room.getId();
+      } catch (e) {}
+      
+      const config = getPagesJSON(roomId) || await getDefaultJSON();
+      const pageInfo = findPageInConfig(config, url, name);
+      
+      if (pageInfo) {
+        if (!contextMenuButton) {
+          contextMenuButton = document.createElement("button");
+          contextMenuButton.id = "page-context-menu-button-header";
+          contextMenuButton.className = "icon-button";
+          header.appendChild(contextMenuButton);
+        }
+        
+        contextMenuButton.innerHTML = "";
+        const contextMenuIcon = document.createElement("img");
+        contextMenuIcon.src = "img/icon-contextualmenu.svg";
+        contextMenuIcon.className = "icon-button-icon";
+        contextMenuButton.appendChild(contextMenuIcon);
+        contextMenuButton.title = "Menú";
+        
+        // Remover listeners anteriores
+        const newContextMenuButton = contextMenuButton.cloneNode(true);
+        contextMenuButton.parentNode.replaceChild(newContextMenuButton, contextMenuButton);
+        contextMenuButton = newContextMenuButton;
+        contextMenuButton.id = "page-context-menu-button-header";
+        contextMenuButton.className = "icon-button";
+        
+        // Configurar menú contextual
+        contextMenuButton.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const rect = contextMenuButton.getBoundingClientRect();
+          const pageCategoryPath = pageInfo.pageCategoryPath;
+          const parent = navigateConfigPath(config, pageCategoryPath);
+          const pageIndex = parent && parent.pages ? parent.pages.findIndex(p => p.name === pageInfo.page.name && p.url === pageInfo.page.url) : -1;
+          const combinedOrder = getCombinedOrder(parent);
+          const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === pageIndex);
+          const canMoveUp = currentPos > 0;
+          const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
+          
+          const menuItems = [
+            { 
+              icon: 'img/icon-edit.svg', 
+              text: 'Edit', 
+              action: async () => {
+                await editPageFromPageList(pageInfo.page, pageCategoryPath, roomId);
+              }
+            },
+            { 
+              icon: 'img/icon-clone.svg', 
+              text: 'Duplicate', 
+              action: async () => {
+                await duplicatePageFromPageList(pageInfo.page, pageCategoryPath, roomId);
+              }
+            },
+            { separator: true },
+          ];
+          
+          // Agregar opciones de mover si es posible
+          if (canMoveUp || canMoveDown) {
+            if (canMoveUp) {
+              menuItems.push({
+                icon: 'img/icon-arrow.svg',
+                text: 'Move up',
+                action: async () => {
+                  await movePageInList(pageInfo.page, pageCategoryPath, roomId, 'up');
+                }
+              });
+            }
+            if (canMoveDown) {
+              menuItems.push({
+                icon: 'img/icon-arrow.svg',
+                text: 'Move down',
+                action: async () => {
+                  await movePageInList(pageInfo.page, pageCategoryPath, roomId, 'down');
+                }
+              });
+            }
+            menuItems.push({ separator: true });
+          }
+          
+          menuItems.push({
+            icon: 'img/icon-trash.svg',
+            text: 'Delete',
+            action: async () => {
+              if (confirm(`¿Eliminar la página "${pageInfo.page.name}"?`)) {
+                await deletePageFromPageList(pageInfo.page, pageCategoryPath, roomId);
+                // Volver a la vista principal después de eliminar
+                const notionContainer = document.getElementById("notion-container");
+                if (notionContainer) {
+                  notionContainer.classList.add("hidden");
+                }
+                const pageList = document.getElementById("page-list");
+                if (pageList) {
+                  pageList.classList.remove("hidden");
+                }
+              }
+            }
+          });
+          
+          createContextMenu(menuItems, { x: rect.right + 8, y: rect.bottom + 4 }, () => {
+            contextMenuButton.classList.remove('context-menu-active');
+          });
+          
+          contextMenuButton.classList.add('context-menu-active');
+        });
+        
+        contextMenuButton.classList.remove("hidden");
+      } else {
+        if (contextMenuButton) {
+          contextMenuButton.classList.add("hidden");
+        }
+      }
+    } else {
+      if (contextMenuButton) {
+        contextMenuButton.classList.add("hidden");
+      }
+    }
+    
+    // Agregar botón de visibilidad para GMs (después del refresh, antes del menú contextual)
+    // Esto debe ejecutarse tanto para URLs de Notion como para otras URLs
+    let visibilityButton = document.getElementById("page-visibility-button-header");
+    let isGMForVisibility = false;
+    try {
+      const role = await OBR.player.getRole();
+      isGMForVisibility = role === 'GM';
+    } catch (e) {
+      isGMForVisibility = false;
+    }
+    
+    if (isGMForVisibility) {
       let roomId = null;
       try {
         roomId = OBR.room.id || await OBR.room.getId();
@@ -5418,6 +5372,58 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         visibilityButton.classList.add("hidden");
       }
     }
+    
+    if (!backButton.dataset.listenerAdded) {
+      backButton.addEventListener("click", () => {
+        const settingsContainer = document.getElementById("settings-container");
+        const isSettingsVisible = settingsContainer && !settingsContainer.classList.contains('hidden');
+        
+        if (isSettingsVisible) {
+          // Cerrar token config
+          settingsContainer.classList.add("hidden");
+        } else {
+          // Volver a la vista principal desde notion-container
+        notionContainer.classList.add("hidden");
+        notionContainer.classList.remove("show-content");
+        if (notionContent) {
+          notionContent.innerHTML = "";
+        }
+        // Limpiar iframe
+        const iframe = notionContainer.querySelector('#notion-iframe');
+        if (iframe) {
+          iframe.src = '';
+          iframe.style.display = 'none';
+        }
+        // Ocultar botón de menú contextual
+        const contextMenuButton = document.getElementById("page-context-menu-button-header");
+        if (contextMenuButton) {
+          contextMenuButton.classList.add("hidden");
+        }
+        // Ocultar botón de recargar
+        const refreshButton = document.getElementById("refresh-page-button");
+        if (refreshButton) {
+          refreshButton.classList.add("hidden");
+          }
+        // Ocultar botón de visibilidad
+        const visibilityButton = document.getElementById("page-visibility-button-header");
+        if (visibilityButton) {
+          visibilityButton.classList.add("hidden");
+        }
+        }
+        
+        // Restaurar vista principal
+        pageList.classList.remove("hidden");
+        backButton.classList.add("hidden");
+        pageTitle.textContent = "DM screen";
+        // Mostrar el button-container cuando se vuelve a la vista principal
+        const buttonContainer = document.querySelector('.button-container');
+        if (buttonContainer) {
+          buttonContainer.classList.remove("hidden");
+        }
+      });
+      backButton.dataset.listenerAdded = "true";
+    }
+    
   }
 }
 
