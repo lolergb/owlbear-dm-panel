@@ -102,7 +102,7 @@
 <body>
   <div class="toolbar gm-only">
     <button id="share-button" class="toolbar-button" title="Show this image to all players">
-      <img src="../img/icon-eye-open.svg" alt="Share" />
+      <img src="../img/icon-players.svg" alt="Share" />
       <span>Show to players</span>
     </button>
   </div>
@@ -118,7 +118,12 @@
     // Obtener parámetros de la URL
     const urlParams = new URLSearchParams(window.location.search);
     let imageUrl = urlParams.get('url');
-    const caption = urlParams.get('caption') || '';
+    let caption = urlParams.get('caption') || '';
+    
+    // Decodificar el caption si existe
+    if (caption) {
+      caption = decodeURIComponent(caption);
+    }
     
     if (imageUrl) {
       // Decodificar la URL
@@ -140,7 +145,7 @@
       
       if (caption) {
         const captionDiv = document.getElementById('viewer-caption');
-        captionDiv.textContent = decodeURIComponent(caption);
+        captionDiv.textContent = caption;
         captionDiv.style.display = 'block';
       }
     } else {

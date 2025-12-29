@@ -4964,6 +4964,20 @@ async function loadImageContent(url, container, name) {
       }
     }
     
+    // Asegurarse de que la URL sea absoluta
+    let absoluteImageUrl = imageUrl;
+    if (imageUrl && !imageUrl.match(/^https?:\/\//i)) {
+      try {
+        absoluteImageUrl = new URL(imageUrl, window.location.origin).toString();
+      } catch (e) {
+        console.warn('No se pudo construir URL absoluta, usando original:', imageUrl);
+        absoluteImageUrl = imageUrl;
+      }
+    }
+    
+    const caption = name || '';
+    const escapedCaption = caption.replace(/"/g, '&quot;');
+    
     contentDiv.innerHTML = `
       <div class="image-viewer-container" style="
         display: flex;
@@ -4973,20 +4987,53 @@ async function loadImageContent(url, container, name) {
         height: 100%;
         padding: 16px;
         gap: 16px;
+        position: relative;
       ">
-        <img 
-          src="${imageUrl}" 
-          alt="${name || 'Imagen'}"
-          class="notion-image-clickable"
-          style="
-            max-width: 100%;
-            max-height: calc(100vh - 150px);
-            object-fit: contain;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-          "
-        />
+        <div style="position: relative; display: inline-block;">
+          <img 
+            src="${absoluteImageUrl}" 
+            alt="${caption || 'Imagen'}"
+            class="notion-image-clickable"
+            data-image-url="${absoluteImageUrl}"
+            data-image-caption="${escapedCaption}"
+            style="
+              max-width: 100%;
+              max-height: calc(100vh - 150px);
+              object-fit: contain;
+              border-radius: 8px;
+              cursor: pointer;
+              transition: transform 0.2s ease;
+            "
+          />
+          <button class="notion-image-share-button" 
+                  data-image-url="${absoluteImageUrl}" 
+                  data-image-caption="${escapedCaption}"
+                  title="Show to players"
+                  style="
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    background: rgba(0, 0, 0, 0.8);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 6px;
+                    padding: 8px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0.6;
+                    transition: opacity 0.2s, background 0.2s;
+                    z-index: 10;
+                    min-width: 32px;
+                    min-height: 32px;
+                  "
+                  onmouseover="this.style.opacity='1'; this.style.background='rgba(0, 0, 0, 0.95)'; this.style.borderColor='rgba(255, 255, 255, 0.4)';"
+                  onmouseout="this.style.opacity='0.6'; this.style.background='rgba(0, 0, 0, 0.8)'; this.style.borderColor='rgba(255, 255, 255, 0.2)';"
+                  onmousedown="this.style.background='rgba(0, 0, 0, 1)';"
+                  onmouseup="this.style.background='rgba(0, 0, 0, 0.95)';">
+            <img src="img/icon-players.svg" alt="Share" style="width: 16px; height: 16px; filter: brightness(0) invert(1);" />
+          </button>
+        </div>
         <p style="color: var(--color-text-secondary); font-size: 14px;">Haz clic en la imagen para verla a tamaño completo</p>
       </div>
     `;
@@ -4995,9 +5042,12 @@ async function loadImageContent(url, container, name) {
     const img = contentDiv.querySelector('img');
     if (img) {
       img.addEventListener('click', () => {
-        showImageModal(imageUrl, name);
+        showImageModal(absoluteImageUrl, caption);
       });
     }
+    
+    // Añadir event listeners para el botón de compartir
+    await attachImageClickHandlers();
   }
 }
 
