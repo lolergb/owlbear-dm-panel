@@ -307,11 +307,11 @@ If you encounter any issues, have questions, or want to request a feature:
 1. **Check the README:** Most common questions are answered in this document
 2. **Check USER_FEATURES.md:** Complete guide to all UI features and functionality - see [docs/USER_FEATURES.md](docs/USER_FEATURES.md)
 3. **Check the troubleshooting section:** See above for common issues and solutions
-4. **GitHub Issues:** Open an issue on [GitHub](https://github.com/lolergb/owlbear-notion-embed/issues) for:
+4. **Notion support:** Open a ticket or leave a message at [this Notion link](https://solid-jingle-6ee.notion.site/2d8d4856c90e8129b5f7ebf776e82335?pvs=106) for:
    - Bug reports
    - Feature requests
    - Usage questions
-5. **GitHub Discussions:** Use [GitHub Discussions](https://github.com/lolergb/owlbear-notion-embed/discussions) for:
+5. **Notion support (Spanish):** Open a ticket or leave a message at [this Notion link](https://solid-jingle-6ee.notion.site/2d8d4856c90e8159a868f443366bfe77?pvs=106) for:
    - General questions
    - Sharing configurations
    - Community support
