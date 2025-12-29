@@ -24,6 +24,12 @@
   margin-top: calc(var(--spacing-xl) * -1);
   overflow: hidden;
   border-radius: 0;
+  position: relative;
+}
+
+.notion-page-cover .notion-image-container {
+  position: relative;
+  width: 100%;
 }
 
 .notion-cover-image {
@@ -184,10 +190,6 @@
 .notion-content .notion-image-share-button:hover {
   background: rgba(0, 0, 0, 0.95);
   border-color: rgba(255, 255, 255, 0.4);
-}
-
-.notion-content .notion-image-share-button:hover {
-  background: rgba(0, 0, 0, 0.9);
 }
 
 .notion-content .notion-image-share-button:active {

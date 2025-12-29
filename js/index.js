@@ -843,7 +843,15 @@ function renderPageCoverAndTitle(cover, pageTitle) {
       
       html += `
         <div class="notion-page-cover">
-          <img src="${coverUrl}" alt="Page cover" class="notion-cover-image" data-image-url="${coverUrl}" />
+          <div class="notion-image-container">
+            <img src="${coverUrl}" alt="Page cover" class="notion-cover-image" data-image-url="${coverUrl}" />
+            <button class="notion-image-share-button" 
+                    data-image-url="${coverUrl}" 
+                    data-image-caption=""
+                    title="Show to players">
+              <img src="img/icon-eye-open.svg" alt="Share" />
+            </button>
+          </div>
         </div>
       `;
     }
@@ -1970,8 +1978,10 @@ async function attachImageClickHandlers() {
       return;
     }
     
-    // Asegurarse de que el botón sea visible para GMs (aunque con opacity 0 hasta hover)
+    // Asegurarse de que el botón sea visible para GMs
     button.style.display = 'flex';
+    // Hacer el botón más visible por defecto para GMs
+    button.style.opacity = '0.7';
     
     // Click handler para compartir imagen
     button.addEventListener('click', async (e) => {
