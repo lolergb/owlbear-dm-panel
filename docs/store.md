@@ -1,5 +1,5 @@
 ---
-title: DM Screen
+title: DM Panel
 description: Bring your Notion notes, PDFs, and handouts into Owlbear Rodeo — share with players when it matters
 author: Lole
 image: https://owlbear-notion-embed.netlify.app/img/cover-dmscreen.jpg
@@ -13,9 +13,9 @@ manifest: https://owlbear-notion-embed.netlify.app/manifest.json
 learn-more: https://github.com/lolergb/owlbear-notion-embed
 ---
 
-# DM Screen
+# DM Panel
 
-DM Screen is a lightweight DM panel for Owlbear Rodeo.  
+DM Panel is a lightweight DM panel for Owlbear Rodeo.  
 Open **Notion pages**, **PDFs**, and **links** inside your room — keep notes **DM-only by default** and share selected content with players when the story needs it.
 
 ## Highlights

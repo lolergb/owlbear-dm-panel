@@ -1,13 +1,13 @@
 {
-  "name": "DM screen",
+  "name": "DM panel",
   "version": "1.0.0",
   "manifest_version": 1,
   "author": "lolergb",
-  "description": "A digital DM screen for Owlbear Rodeo. Keep notes, NPCs, and references inside the VTT during play.",
+  "description": "A digital DM panel for Owlbear Rodeo. Keep notes, NPCs, and references inside the VTT during play.",
   "homepage_url": "https://github.com/lolergb/owlbear-notion-embed",
   "icon": "/icon.svg",
   "action": {
-    "title": "DM screen",
+    "title": "DM panel",
     "icon": "/icon.svg",
     "popover": "/index.html",
     "height": 800,

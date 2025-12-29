@@ -5625,7 +5625,7 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         // Restaurar vista principal
         pageList.classList.remove("hidden");
         backButton.classList.add("hidden");
-        pageTitle.textContent = "DM screen";
+        pageTitle.textContent = "DM panel";
         // Mostrar el button-container cuando se vuelve a la vista principal
         const buttonContainer = document.querySelector('.button-container');
         if (buttonContainer) {
@@ -5707,7 +5707,7 @@ async function showSettings() {
       // Restaurar vista principal
       if (pageList) pageList.classList.remove("hidden");
       if (backButton) backButton.classList.add("hidden");
-      if (pageTitle) pageTitle.textContent = "DM screen";
+      if (pageTitle) pageTitle.textContent = "DM panel";
       // Mostrar el button-container cuando se vuelve a la vista principal
       const buttonContainer = document.querySelector('.button-container');
       if (buttonContainer) {
@@ -5764,7 +5764,7 @@ async function showSettings() {
     if (settingsContainer) settingsContainer.classList.add('hidden');
     if (pageList) pageList.classList.remove('hidden');
     if (backButton) backButton.classList.add('hidden');
-    if (pageTitle) pageTitle.textContent = 'DM screen';
+    if (pageTitle) pageTitle.textContent = 'DM panel';
     // Mostrar el button-container cuando se vuelve a la vista principal
     const buttonContainer = document.querySelector('.button-container');
     if (buttonContainer) {

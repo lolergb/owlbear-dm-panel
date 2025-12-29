@@ -1,4 +1,4 @@
-# 📚 DM screen for Owlbear Rodeo
+# 📚 DM panel for Owlbear Rodeo
 
 This is an [Owlbear Rodeo](https://www.owlbear.rodeo/) extension that allows you to embed Notion pages and external content directly in Owlbear Rodeo. It lets you share character sheets, additional documentation, and more with players, providing quick access to vital information and resources for everyone involved.
 
@@ -35,7 +35,7 @@ https://owlbear-notion-embed.netlify.app/manifest.json
 
 Or use the URL provided by the extension developer.
 
-## 📖 How to use DM screen
+## 📖 How to use DM panel
 
 > 💡 **New to the extension?** Check out the [complete UI features guide](docs/USER_FEATURES.md) for a detailed explanation of all buttons, menus, and functionality.
 
