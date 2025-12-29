@@ -1,9 +1,136 @@
 {
+  "order": [
+    {
+      "type": "category",
+      "index": 4
+    },
+    {
+      "type": "category",
+      "index": 0
+    },
+    {
+      "type": "category",
+      "index": 1
+    },
+    {
+      "type": "category",
+      "index": 2
+    },
+    {
+      "type": "category",
+      "index": 3
+    }
+  ],
   "categories": [
     {
-      "name": "General",
-      "pages": []
+      "name": "⭐ Start Here",
+      "order": [
+        {
+          "type": "page",
+          "index": 0
+        },
+        {
+          "type": "page",
+          "index": 2
+        },
+        {
+          "type": "page",
+          "index": 3
+        },
+        {
+          "type": "page",
+          "index": 1
+        }
+      ],
+      "pages": [
+        {
+          "url": "https://www.notion.so/Opening-Scene-2d8d4856c90e80f1b4e4ecff59e61dd5?source=copy_link",
+          "name": "Opening scene"
+        },
+        {
+          "url": "https://media.wizards.com/2018/dnd/downloads/DnD_BasicRules_2018.pdf",
+          "name": "Basic Rules DnD"
+        },
+        {
+          "url": "https://5e.tools/img/adventure/LMoP/The%20Sword%20Coast.webp",
+          "name": "Handout — Mysterious Map (Player)"
+        },
+        {
+          "url": "https://5e.tools/bestiary.html#goblin_mm,bookview:true",
+          "name": "Enemy — Goblin (Link to token)"
+        }
+      ],
+      "categories": []
+    },
+    {
+      "name": "Session",
+      "pages": [
+        {
+          "name": "Session Notes (Template)",
+          "url": "https://www.notion.so/Session-Notes-Template-2d8d4856c90e806eb8fffd6f055eaf3b?source=copy_link"
+        }
+      ],
+      "categories": [],
+      "order": [
+        {
+          "type": "page",
+          "index": 0
+        },
+        {
+          "type": "category",
+          "index": 0
+        }
+      ]
+    },
+    {
+      "name": "Act I",
+      "pages": [],
+      "categories": [
+        {
+          "name": "Encounter - The Watched Crossroads",
+          "pages": [
+            {
+              "name": "Map – Sword Coast (Player)",
+              "url": "https://5e.tools/img/adventure/LMoP/The%20Sword%20Coast%20(Player).webp"
+            },
+            {
+              "name": "Scene — The Watched Crossroads",
+              "url": "https://www.notion.so/Scene-The-Watched-Crossroads-2d8d4856c90e804185b4cf910d4817c1?source=copy_link"
+            }
+          ],
+          "categories": [],
+          "order": [
+            {
+              "type": "page",
+              "index": 1
+            },
+            {
+              "type": "page",
+              "index": 0
+            }
+          ]
+        },
+        {
+          "name": "NPC",
+          "pages": [
+            {
+              "name": "Maera",
+              "url": "https://www.notion.so/Maera-Manos-Secas-2d8d4856c90e8030b014dbbb7bf5306d?source=copy_link"
+            }
+          ],
+          "categories": []
+        },
+        {
+          "name": "Location",
+          "pages": [
+            {
+              "name": "The Watched Crossroads",
+              "url": "https://www.notion.so/Location-The-Watched-Crossroads-2d8d4856c90e80b99baac7655f406c48?source=copy_link"
+            }
+          ],
+          "categories": []
+        }
+      ]
     }
   ]
 }
-

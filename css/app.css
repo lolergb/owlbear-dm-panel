@@ -994,6 +994,7 @@
   /* Orden de botones de derecha a izquierda: menú contextual, refresh, visibility */
   #page-context-menu-button-header {
     order: 3; /* Más a la derecha */
+    margin-left: 0;
   }
   
   #refresh-page-button {

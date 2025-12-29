@@ -180,6 +180,68 @@ const ROOM_HTML_CACHE_KEY = 'com.dmscreen/htmlCache';
 const BROADCAST_CHANNEL_REQUEST = 'com.dmscreen/requestContent';
 const BROADCAST_CHANNEL_RESPONSE = 'com.dmscreen/responseContent';
 
+// Límite de tamaño para room metadata (16KB en bytes)
+const ROOM_METADATA_SIZE_LIMIT = 16 * 1024; // 16384 bytes
+const ROOM_METADATA_SAFE_LIMIT = ROOM_METADATA_SIZE_LIMIT - 1024; // Dejar 1KB de margen
+
+/**
+ * Calcula el tamaño aproximado de un objeto en bytes cuando se serializa a JSON
+ * @param {any} obj - Objeto a medir
+ * @returns {number} - Tamaño en bytes
+ */
+function getJsonSize(obj) {
+  try {
+    const jsonString = JSON.stringify(obj);
+    // Usar TextEncoder para obtener el tamaño real en bytes (UTF-8)
+    return new TextEncoder().encode(jsonString).length;
+  } catch (e) {
+    // Fallback: estimación basada en string length
+    return JSON.stringify(obj).length;
+  }
+}
+
+/**
+ * Comprime un objeto JSON eliminando espacios innecesarios
+ * @param {any} obj - Objeto a comprimir
+ * @returns {any} - Objeto comprimido (mismo objeto, JSON sin espacios)
+ */
+function compressJson(obj) {
+  try {
+    // Serializar sin espacios y volver a parsear
+    return JSON.parse(JSON.stringify(obj));
+  } catch (e) {
+    return obj;
+  }
+}
+
+/**
+ * Serializa JSON de forma compacta (sin espacios)
+ * @param {any} obj - Objeto a serializar
+ * @returns {string} - JSON string compacto
+ */
+function stringifyCompact(obj) {
+  return JSON.stringify(obj);
+}
+
+/**
+ * Valida si un objeto puede caber en room metadata
+ * @param {any} obj - Objeto a validar
+ * @param {boolean} compressed - Si true, valida el tamaño comprimido
+ * @returns {{fits: boolean, size: number, limit: number}} - Resultado de la validación
+ */
+function validateMetadataSize(obj, compressed = true) {
+  const testObj = compressed ? compressJson(obj) : obj;
+  const size = getJsonSize(testObj);
+  const fits = size <= ROOM_METADATA_SAFE_LIMIT;
+  
+  return {
+    fits,
+    size,
+    limit: ROOM_METADATA_SAFE_LIMIT,
+    percentage: (size / ROOM_METADATA_SAFE_LIMIT * 100).toFixed(1)
+  };
+}
+
 // Caché local de HTML renderizado (solo en memoria del GM)
 let localHtmlCache = {};
 
@@ -221,14 +283,31 @@ async function savePagesJSON(json, roomId) {
     log('💾 Guardando configuración con clave:', storageKey, 'para roomId:', roomId);
     localStorage.setItem(storageKey, JSON.stringify(json, null, 2));
     
-    // Guardar en OBR.room.metadata para compartir con todos los usuarios
-    try {
-      await OBR.room.setMetadata({
-        [ROOM_METADATA_KEY]: json
-      });
-      log('✅ Configuración sincronizada con room metadata');
-    } catch (e) {
-      console.warn('⚠️ No se pudo sincronizar con room metadata:', e);
+    // Validar tamaño antes de guardar en room metadata
+    const validation = validateMetadataSize(json);
+    
+    if (validation.fits) {
+      // Guardar en OBR.room.metadata para compartir con todos los usuarios
+      try {
+        const compressed = compressJson(json);
+        await OBR.room.setMetadata({
+          [ROOM_METADATA_KEY]: compressed
+        });
+        log(`✅ Configuración sincronizada con room metadata (${validation.percentage}% del límite)`);
+      } catch (e) {
+        // Si falla, puede ser por tamaño o por otro error
+        if (e.message && (e.message.includes('size') || e.message.includes('limit') || e.message.includes('16'))) {
+          logWarn('⚠️ La configuración es demasiado grande para room metadata (>16KB). Se guardó solo en localStorage.');
+          logWarn(`   Tamaño: ${(validation.size / 1024).toFixed(2)}KB / ${(ROOM_METADATA_SAFE_LIMIT / 1024).toFixed(2)}KB`);
+        } else {
+          console.warn('⚠️ No se pudo sincronizar con room metadata:', e);
+        }
+      }
+    } else {
+      // El tamaño excede el límite, solo guardar en localStorage
+      logWarn('⚠️ La configuración es demasiado grande para room metadata (>16KB). Se guardó solo en localStorage.');
+      logWarn(`   Tamaño: ${(validation.size / 1024).toFixed(2)}KB / ${(ROOM_METADATA_SAFE_LIMIT / 1024).toFixed(2)}KB`);
+      logWarn('   Sugerencia: Reduce el número de páginas configuradas o usa menos contenido por página.');
     }
     
     log('✅ Configuración guardada exitosamente para room:', roomId);
@@ -413,33 +492,94 @@ async function saveToSharedCache(pageId, blocks) {
     
     // Obtener el caché compartido actual
     const metadata = await OBR.room.getMetadata();
-    const sharedCache = (metadata && metadata[ROOM_CONTENT_CACHE_KEY]) || {};
+    let sharedCache = (metadata && metadata[ROOM_CONTENT_CACHE_KEY]) || {};
     
-    // Limitar el tamaño del caché compartido (máximo 50 entradas para páginas y bloques hijos)
+    // Crear la nueva entrada
+    const newEntry = {
+      blocks: blocks,
+      savedAt: new Date().toISOString()
+    };
+    
+    // Probar si cabe agregando la nueva entrada
+    const testCache = { ...sharedCache, [pageId]: newEntry };
+    const validation = validateMetadataSize(testCache);
+    
+    // Si no cabe, limpiar entradas antiguas hasta que quepa
+    if (!validation.fits) {
+      const cacheKeys = Object.keys(sharedCache);
+      if (cacheKeys.length > 0) {
+        // Ordenar por fecha (más antiguas primero)
+        const sortedKeys = cacheKeys.sort((a, b) => {
+          const dateA = sharedCache[a]?.savedAt ? new Date(sharedCache[a].savedAt) : new Date(0);
+          const dateB = sharedCache[b]?.savedAt ? new Date(sharedCache[b].savedAt) : new Date(0);
+          return dateA - dateB;
+        });
+        
+        // Eliminar entradas antiguas hasta que quepa
+        let reducedCache = { ...sharedCache };
+        let entriesRemoved = 0;
+        for (const key of sortedKeys) {
+          delete reducedCache[key];
+          entriesRemoved++;
+          const testReduced = { ...reducedCache, [pageId]: newEntry };
+          const reducedValidation = validateMetadataSize(testReduced);
+          if (reducedValidation.fits) {
+            sharedCache = reducedCache;
+            log(`🗑️ Eliminadas ${entriesRemoved} entradas antiguas del caché para hacer espacio`);
+            break;
+          }
+        }
+      }
+      
+      // Verificar si ahora cabe después de limpiar
+      const finalTestCache = { ...sharedCache, [pageId]: newEntry };
+      const finalTestValidation = validateMetadataSize(finalTestCache);
+      if (!finalTestValidation.fits) {
+        // Si aún no cabe después de limpiar, verificar tamaño de la entrada individual
+        const entryValidation = validateMetadataSize(newEntry);
+        if (!entryValidation.fits) {
+          logWarn(`⚠️ La página ${pageId} es demasiado grande (${(entryValidation.size / 1024).toFixed(2)}KB) para el caché compartido.`);
+          logWarn('   El contenido se compartirá vía broadcast cuando los jugadores lo soliciten.');
+          return; // No guardar esta entrada, se usará broadcast
+        }
+      }
+    }
+    
+    // Limitar el número de entradas (máximo 30 para dejar más margen de tamaño)
     const cacheKeys = Object.keys(sharedCache);
-    if (cacheKeys.length >= 50 && !sharedCache[pageId]) {
-      // Eliminar las 10 entradas más antiguas para hacer espacio
-      const sortedKeys = cacheKeys.sort((a, b) => 
-        new Date(sharedCache[a].savedAt) - new Date(sharedCache[b].savedAt)
-      );
-      for (let i = 0; i < 10 && i < sortedKeys.length; i++) {
+    if (cacheKeys.length >= 30 && !sharedCache[pageId]) {
+      // Eliminar las 5 entradas más antiguas para hacer espacio
+      const sortedKeys = cacheKeys.sort((a, b) => {
+        const dateA = sharedCache[a]?.savedAt ? new Date(sharedCache[a].savedAt) : new Date(0);
+        const dateB = sharedCache[b]?.savedAt ? new Date(sharedCache[b].savedAt) : new Date(0);
+        return dateA - dateB;
+      });
+      for (let i = 0; i < 5 && i < sortedKeys.length; i++) {
         delete sharedCache[sortedKeys[i]];
       }
     }
     
     // Guardar el contenido
-    sharedCache[pageId] = {
-      blocks: blocks,
-      savedAt: new Date().toISOString()
-    };
+    sharedCache[pageId] = newEntry;
     
-    await OBR.room.setMetadata({
-      [ROOM_CONTENT_CACHE_KEY]: sharedCache
-    });
-    console.log('💾 Contenido guardado en caché compartido para:', pageId);
+    // Validar tamaño final antes de guardar
+    const finalValidation = validateMetadataSize(sharedCache);
+    if (finalValidation.fits) {
+      await OBR.room.setMetadata({
+        [ROOM_CONTENT_CACHE_KEY]: compressJson(sharedCache)
+      });
+      log(`💾 Contenido guardado en caché compartido para: ${pageId} (${finalValidation.percentage}% del límite)`);
+    } else {
+      logWarn('⚠️ El caché compartido completo excede el límite. Algunas entradas no se guardaron.');
+    }
   } catch (e) {
-    // Ignorar errores silenciosamente - el caché compartido es opcional
-    console.debug('No se pudo guardar en caché compartido:', e);
+    // Si el error es por tamaño, es esperado
+    if (e.message && (e.message.includes('size') || e.message.includes('limit') || e.message.includes('16'))) {
+      log('ℹ️ El caché compartido está lleno. El contenido se compartirá vía broadcast.');
+    } else {
+      // Ignorar otros errores silenciosamente - el caché compartido es opcional
+      console.debug('No se pudo guardar en caché compartido:', e);
+    }
   }
 }
 
