@@ -1083,7 +1083,7 @@ function renderBlock(block) {
                       data-image-url="${imageUrl}" 
                       data-image-caption="${caption.replace(/"/g, '&quot;')}"
                       title="Show to players">
-                <img src="img/icon-eye-open.svg" alt="Share" />
+                <img src="img/icon-players.svg" alt="Share" />
               </button>
             </div>
             ${caption ? `<div class="notion-image-caption">${caption}</div>` : ''}
