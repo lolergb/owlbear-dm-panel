@@ -912,7 +912,7 @@
   .notion-image-error {
     padding: var(--spacing-lg);
     text-align: center;
-    background: var(--color-bg-overlay);
+    background: var(--color-bg-hover);
     border-radius: var(--radius-sm);
   }
   
