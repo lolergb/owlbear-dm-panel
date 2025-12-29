@@ -18,8 +18,8 @@
 
 /* Cover de página de Notion */
 .notion-page-cover {
-  width: 100%;
-  max-width: 100%;
+  width: calc(100% + var(--spacing-xl)*2);
+  max-width: calc(100% + var(--spacing-xl)*2);
   margin: calc(var(--spacing-xl) * -1) calc(var(--spacing-xl) * -1) var(--spacing-xl);
   margin-top: calc(var(--spacing-xl) * -1);
   overflow: hidden;
