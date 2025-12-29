@@ -4411,10 +4411,13 @@ function getLinkType(url) {
     // Ver rama feature/multi-service para código completo
     // ============================================================
     
-    // Google Drive - PRÓXIMAMENTE
-    // if (hostname.includes('drive.google.com')) {
-    //   return { type: 'google-drive', icon: 'icon-google-drive.svg' };
-    // }
+    // Google Drive - Activado solo para PDFs
+    if (hostname.includes('drive.google.com')) {
+      // Detectar si es un PDF en Google Drive
+      if (pathname.includes('/file/d/')) {
+        return { type: 'pdf', icon: 'icon-pdf.svg' };
+      }
+    }
     
     // Google Docs/Sheets/Slides - PRÓXIMAMENTE
     // if (hostname.includes('docs.google.com')) {
@@ -4491,7 +4494,7 @@ function getLinkType(url) {
 }
 
 // Función para convertir URLs de servicios externos a formato embed
-// SOFT LAUNCH: Solo PDF soportado. Ver rama feature/multi-service para más servicios.
+// PDFs directos y PDFs de Google Drive soportados. Ver rama feature/multi-service para más servicios.
 function convertToEmbedUrl(url) {
   if (!url || typeof url !== 'string') {
     return { url, converted: false, service: null };
@@ -4503,22 +4506,23 @@ function convertToEmbedUrl(url) {
     const pathname = urlObj.pathname;
 
     // ============================================================
-    // SERVICIOS EXTERNOS - DESHABILITADOS PARA SOFT LAUNCH
-    // Ver rama feature/multi-service para código completo
+    // SERVICIOS EXTERNOS - Google Drive activado solo para PDFs
+    // Ver rama feature/multi-service para más servicios
     // ============================================================
 
-    // Google Drive - PRÓXIMAMENTE
-    // if (hostname.includes('drive.google.com') && pathname.includes('/file/d/')) {
-    //   const match = pathname.match(/\/file\/d\/([^/]+)/);
-    //   if (match) {
-    //     const fileId = match[1];
-    //     return {
-    //       url: `https://drive.google.com/file/d/${fileId}/preview`,
-    //       converted: true,
-    //       service: 'Google Drive'
-    //     };
-    //   }
-    // }
+    // Google Drive - Activado solo para PDFs
+    if (hostname.includes('drive.google.com') && pathname.includes('/file/d/')) {
+      const match = pathname.match(/\/file\/d\/([^/]+)/);
+      if (match) {
+        const fileId = match[1];
+        // Convertir a formato preview para PDFs
+        return {
+          url: `https://drive.google.com/file/d/${fileId}/preview`,
+          converted: true,
+          service: 'Google Drive'
+        };
+      }
+    }
 
     // Google Docs - PRÓXIMAMENTE
     // if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
