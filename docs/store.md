@@ -1,7 +1,7 @@
 ---
 title: DM Panel
 description: Bring your Notion notes, PDFs, and handouts into Owlbear Rodeo — share with players when it matters
-author: Lole
+author: Lole Román - lolergb
 image: https://owlbear-notion-embed.netlify.app/img/cover-dmscreen.jpg
 icon: https://owlbear-notion-embed.netlify.app/icon.svg
 tags:
