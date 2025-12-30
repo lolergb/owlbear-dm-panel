@@ -30,7 +30,7 @@ This is an [Owlbear Rodeo](https://www.owlbear.rodeo/) extension that allows you
 The extension can be installed manually by pasting the manifest URL below in the "Add Extension" dialog.
 
 ```
-https://owlbear-notion-embed.netlify.app/manifest.json
+https://owlbear-dm-panel.netlify.app/manifest.json
 ```
 
 Or use the URL provided by the extension developer.

@@ -5,7 +5,7 @@ This guide is for developers who want to contribute, fork, or deploy their own v
 ## 📦 Project Structure
 
 ```
-owlbear-notion-embed/
+owlbear-dm-panel/
 ├── manifest.json              # Extension configuration
 ├── index.html                 # User interface
 ├── js/

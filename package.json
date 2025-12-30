@@ -1,5 +1,5 @@
 {
-  "name": "owlbear-notion-embed",
+  "name": "owlbear-dm-panel",
   "version": "1.0.0",
   "description": "Extensión para embebber páginas de Notion en Owlbear Rodeo",
   "type": "module",

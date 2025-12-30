@@ -366,7 +366,7 @@ function setupRoomMetadataListener(roomId) {
 async function getDefaultJSON() {
   try {
     // Intentar cargar desde URL pública de Netlify
-    const response = await fetch('https://owlbear-notion-embed.netlify.app/public/default-config.json');
+    const response = await fetch('https://owlbear-dm-panel.netlify.app/public/default-config.json');
     if (response.ok) {
       const config = await response.json();
       log('✅ Configuración por defecto cargada desde default-config.json');

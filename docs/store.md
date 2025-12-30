@@ -2,15 +2,15 @@
 title: DM Panel
 description: Bring your Notion notes, PDFs, and handouts into Owlbear Rodeo — share with players when it matters
 author: Lole Román - lolergb
-image: https://owlbear-notion-embed.netlify.app/img/cover-dmscreen.jpg
-icon: https://owlbear-notion-embed.netlify.app/icon.svg
+image: https://owlbear-dm-panel.netlify.app/img/cover-dmscreen.jpg
+icon: https://owlbear-dm-panel.netlify.app/icon.svg
 tags:
   - dm-tools
   - handouts
   - notion
   - reference
-manifest: https://owlbear-notion-embed.netlify.app/manifest.json
-learn-more: https://github.com/lolergb/owlbear-notion-embed
+manifest: https://owlbear-dm-panel.netlify.app/manifest.json
+learn-more: https://github.com/lolergb/owlbear-dm-panel
 ---
 
 # DM Panel
@@ -35,7 +35,7 @@ Open **Notion pages**, **PDFs**, and **links** inside your room — keep notes *
 4) Share anything with **👁️** when you’re ready
 
 Manifest:
-https://owlbear-notion-embed.netlify.app/manifest.json
+https://owlbear-dm-panel.netlify.app/manifest.json
 
 livecodeserver
 Copy code
