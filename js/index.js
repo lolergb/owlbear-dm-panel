@@ -3264,11 +3264,13 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       const index = item.index;
       const pageId = extractNotionPageId(page.url);
       const isNotion = isNotionUrl(page.url);
+      const isDemoHtml = isDemoHtmlFile(page.url);
       const isDndbeyondUrl = isDndbeyond(page.url);
       
       // Determinar icono de tipo de link usando getLinkType para detectar PDFs y otros tipos
       let linkIconHtml = '';
-      if (isNotion) {
+      if (isNotion || isDemoHtml) {
+        // Archivos HTML de demo también muestran el icono de Notion
         linkIconHtml = '<img src="img/icon-notion.svg" alt="Notion" class="page-link-icon">';
       } else if (isDndbeyondUrl) {
         linkIconHtml = '<img src="img/icon-dnd.svg" alt="D&D Beyond" class="page-link-icon">';
@@ -5232,6 +5234,80 @@ async function loadIframeContent(url, container, selector = null) {
   }
 }
 
+// Función para detectar si es un archivo HTML de demo local
+function isDemoHtmlFile(url) {
+  if (!url || typeof url !== 'string') return false;
+  // Detectar archivos HTML en content-demo
+  return url.includes('/content-demo/') && url.endsWith('.html');
+}
+
+// Función para cargar contenido HTML de demo directamente en el contenedor de Notion
+async function loadDemoHtmlContent(url, container) {
+  const contentDiv = container.querySelector('#notion-content');
+  const iframe = container.querySelector('#notion-iframe');
+  
+  if (!contentDiv) {
+    console.error('No se encontró el contenedor de contenido');
+    return;
+  }
+  
+  // Ocultar iframe y mostrar contenido
+  if (iframe) {
+    iframe.style.display = 'none';
+  }
+  
+  // Mostrar loading
+  contentDiv.innerHTML = `
+    <div class="empty-state notion-loading">
+      <div class="empty-state-icon">⏳</div>
+      <p class="empty-state-text">Cargando contenido...</p>
+    </div>
+  `;
+  contentDiv.style.display = 'block';
+  container.classList.add('show-content');
+  
+  try {
+    // Obtener el HTML del archivo
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error loading demo HTML: ${response.status}`);
+    }
+    
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    // Extraer solo el contenido del div #notion-content
+    const demoContent = doc.querySelector('#notion-content');
+    
+    if (demoContent) {
+      // Copiar el contenido HTML directamente
+      contentDiv.innerHTML = demoContent.innerHTML;
+      
+      // Copiar estilos si existen
+      const styles = doc.querySelectorAll('style');
+      styles.forEach(style => {
+        const styleElement = document.createElement('style');
+        styleElement.textContent = style.textContent;
+        document.head.appendChild(styleElement);
+      });
+      
+      // Agregar event listeners a las imágenes para abrirlas en modal
+      await attachImageClickHandlers();
+    } else {
+      throw new Error('No se encontró #notion-content en el archivo HTML de demo');
+    }
+  } catch (error) {
+    console.error('Error al cargar contenido HTML de demo:', error);
+    contentDiv.innerHTML = `
+      <div class="empty-state notion-loading">
+        <div class="empty-state-icon">❌</div>
+        <p class="empty-state-text">Error al cargar contenido de demo: ${error.message}</p>
+      </div>
+    `;
+  }
+}
+
 // Función para cargar contenido de una página
 async function loadPageContent(url, name, selector = null, blockTypes = null) {
   const pageList = document.getElementById("page-list");
@@ -5253,8 +5329,19 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     backButton.classList.remove("hidden");
     pageTitle.textContent = name;
     
-    // Detectar si es una URL de Notion o una URL genérica
-    if (isNotionUrl(url)) {
+    // Detectar si es un archivo HTML de demo local
+    if (isDemoHtmlFile(url)) {
+      // Es un archivo HTML de demo → cargar directamente
+      console.log('📄 Archivo HTML de demo detectado, cargando contenido local');
+      
+      // Ocultar botón de recargar si existe (solo para Notion)
+      let refreshButton = document.getElementById("refresh-page-button");
+      if (refreshButton) {
+        refreshButton.classList.add("hidden");
+      }
+      
+      await loadDemoHtmlContent(url, notionContainer);
+    } else if (isNotionUrl(url)) {
       // Es una URL de Notion → usar la API
       console.log('📝 URL de Notion detectada, usando API');
       if (blockTypes) {

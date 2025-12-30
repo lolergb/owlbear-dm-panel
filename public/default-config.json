@@ -44,7 +44,7 @@
       ],
       "pages": [
         {
-          "url": "https://www.notion.so/Opening-Scene-2d8d4856c90e80f1b4e4ecff59e61dd5?source=copy_link",
+          "url": "/content-demo/opening-scene.html",
           "name": "Opening scene"
         },
         {
@@ -67,7 +67,7 @@
       "pages": [
         {
           "name": "Session Notes (Template)",
-          "url": "https://www.notion.so/Session-Notes-Template-2d8d4856c90e806eb8fffd6f055eaf3b?source=copy_link"
+          "url": "/content-demo/session-notes.html"
         }
       ],
       "categories": [],
@@ -95,7 +95,7 @@
             },
             {
               "name": "Scene — The Watched Crossroads",
-              "url": "https://www.notion.so/Scene-The-Watched-Crossroads-2d8d4856c90e804185b4cf910d4817c1?source=copy_link"
+              "url": "/content-demo/scene-the-watched-crossroads.html"
             }
           ],
           "categories": [],
@@ -115,7 +115,7 @@
           "pages": [
             {
               "name": "Maera",
-              "url": "https://www.notion.so/Maera-Manos-Secas-2d8d4856c90e8030b014dbbb7bf5306d?source=copy_link"
+              "url": "/content-demo/manos-secas.html"
             }
           ],
           "categories": []
