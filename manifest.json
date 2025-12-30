@@ -5,7 +5,7 @@
   "author": "lolergb",
   "description": "A digital GM vault for Owlbear Rodeo. Keep notes, NPCs, and references inside the VTT during play.",
   "homepage_url": "https://github.com/lolergb/owlbear-gm-vault",
-  "icon": "https://owlbear-gm-vault.netlify.app/icon-store.svg",
+  "icon": "https://owlbear-gm-vault.netlify.app/img/icon-store.svg",
   "action": {
     "title": "GM vault",
     "icon": "https://owlbear-gm-vault.netlify.app/icon.svg",
