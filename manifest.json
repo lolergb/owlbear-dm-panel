@@ -5,7 +5,7 @@
   "author": "lolergb",
   "description": "A digital DM panel for Owlbear Rodeo. Keep notes, NPCs, and references inside the VTT during play.",
   "homepage_url": "https://github.com/lolergb/owlbear-dm-panel",
-  "icon": "/icon.svg",
+  "icon": "/icon-store.svg",
   "action": {
     "title": "DM panel",
     "icon": "/icon.svg",
