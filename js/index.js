@@ -2744,7 +2744,7 @@ try {
               const validPages = cat.pages.filter(p => 
                 p && p.url && 
                 !p.url.includes('...') && 
-                p.url.startsWith('http')
+                (p.url.startsWith('http') || p.url.startsWith('/'))
               );
               count += validPages.length;
             }
@@ -2997,7 +2997,7 @@ function hasVisibleContentForPlayers(category) {
     const hasVisiblePages = category.pages.some(page => 
       page.url && 
       !page.url.includes('...') && 
-      page.url.startsWith('http') &&
+      (page.url.startsWith('http') || page.url.startsWith('/')) &&
       page.visibleToPlayers === true
     );
     if (hasVisiblePages) return true;
@@ -3024,11 +3024,12 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
   
   // Filtrar páginas válidas (mantener el orden original)
   // Si el usuario es jugador (no GM), solo mostrar páginas marcadas como visibleToPlayers
+  // Aceptar URLs absolutas (http/https) y URLs relativas (que empiezan con /)
   let categoryPages = hasPages ? category.pages
     .filter(page => 
       page.url && 
       !page.url.includes('...') && 
-      page.url.startsWith('http')
+      (page.url.startsWith('http') || page.url.startsWith('/'))
     ) : [];
   
   // Si el usuario es jugador, filtrar solo las páginas visibles para jugadores
