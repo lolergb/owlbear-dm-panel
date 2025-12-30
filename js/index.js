@@ -5330,6 +5330,7 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     pageTitle.textContent = name;
     
     // Detectar si es un archivo HTML de demo local
+    console.log('🔍 Verificando URL:', url, '| isDemoHtmlFile:', isDemoHtmlFile(url), '| isNotionUrl:', isNotionUrl(url));
     if (isDemoHtmlFile(url)) {
       // Es un archivo HTML de demo → cargar directamente
       console.log('📄 Archivo HTML de demo detectado, cargando contenido local');
