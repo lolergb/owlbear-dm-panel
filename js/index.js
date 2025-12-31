@@ -5899,6 +5899,19 @@ async function showSettings() {
       if (isSettingsVisible) {
         // Cerrar token config
         settingsContainer.classList.add("hidden");
+        // Ocultar botones de página que podrían haber quedado visibles
+        const refreshButton = document.getElementById("refresh-page-button");
+        if (refreshButton) {
+          refreshButton.classList.add("hidden");
+        }
+        const contextMenuButton = document.getElementById("page-context-menu-button-header");
+        if (contextMenuButton) {
+          contextMenuButton.classList.add("hidden");
+        }
+        const visibilityButton = document.getElementById("page-visibility-button-header");
+        if (visibilityButton) {
+          visibilityButton.classList.add("hidden");
+        }
       } else if (isNotionContainerVisible) {
         // Volver a la vista principal desde notion-container
         notionContainer.classList.add("hidden");
@@ -5936,6 +5949,20 @@ async function showSettings() {
   const buttonContainer = document.querySelector('.button-container');
   if (buttonContainer) {
     buttonContainer.classList.add('hidden');
+  }
+  
+  // Ocultar botones de página que podrían haber quedado visibles
+  const refreshButton = document.getElementById("refresh-page-button");
+  if (refreshButton) {
+    refreshButton.classList.add("hidden");
+  }
+  const contextMenuButton = document.getElementById("page-context-menu-button-header");
+  if (contextMenuButton) {
+    contextMenuButton.classList.add("hidden");
+  }
+  const visibilityButton = document.getElementById("page-visibility-button-header");
+  if (visibilityButton) {
+    visibilityButton.classList.add("hidden");
   }
   
   const currentToken = getUserToken() || '';
