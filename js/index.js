@@ -231,6 +231,7 @@ async function initMixpanel() {
         
         console.log('📊 Mixpanel analytics enabled');
         console.log('📊 Token:', mixpanelToken ? mixpanelToken.substring(0, 10) + '...' : 'missing');
+        console.log('📊 Token length:', mixpanelToken ? mixpanelToken.length : 0, '(should be ~32 chars for project token)');
         console.log('📊 Distinct ID:', mixpanelDistinctId);
         // Track extension opened after successful initialization
         trackExtensionOpened();
@@ -306,13 +307,22 @@ async function trackEvent(eventName, properties = {}) {
       
       if (response.ok) {
         const result = await response.json();
+        console.log(`📊 Mixpanel response:`, result);
         if (result.status === 1) {
           console.log(`📊 Event tracked: ${eventName}`);
         } else {
           console.warn(`📊 Mixpanel error:`, result);
+          // Log the decoded payload for debugging
+          try {
+            const decoded = JSON.parse(atob(base64String));
+            console.log(`📊 Decoded payload:`, decoded);
+          } catch (e) {
+            console.warn(`📊 Could not decode payload:`, e);
+          }
         }
       } else {
-        console.warn(`📊 Mixpanel HTTP error: ${response.status}`);
+        const errorText = await response.text();
+        console.warn(`📊 Mixpanel HTTP error: ${response.status}`, errorText);
         // Fallback to image pixel
         throw new Error('HTTP error, using fallback');
       }
