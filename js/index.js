@@ -232,7 +232,13 @@ async function initMixpanel() {
         console.log('📊 Mixpanel analytics enabled');
         console.log('📊 Token:', mixpanelToken ? mixpanelToken.substring(0, 10) + '...' : 'missing');
         console.log('📊 Token length:', mixpanelToken ? mixpanelToken.length : 0, '(should be ~32 chars for project token)');
+        console.log('📊 Full token (first 20 chars):', mixpanelToken ? mixpanelToken.substring(0, 20) : 'missing');
         console.log('📊 Distinct ID:', mixpanelDistinctId);
+        
+        // Verify token format (should be alphanumeric, ~32 chars)
+        if (mixpanelToken && mixpanelToken.length < 20) {
+          console.warn('⚠️ Token seems too short - make sure you\'re using the PROJECT TOKEN, not the SECRET');
+        }
         // Track extension opened after successful initialization
         trackExtensionOpened();
       } else {
@@ -308,17 +314,22 @@ async function trackEvent(eventName, properties = {}) {
       if (response.ok) {
         const result = await response.json();
         console.log(`📊 Mixpanel response:`, result);
+        
+        // Always log decoded payload for debugging
+        try {
+          const decoded = JSON.parse(atob(base64String));
+          console.log(`📊 Decoded payload:`, decoded);
+          console.log(`📊 Event name:`, decoded[0]?.event);
+          console.log(`📊 Token in payload:`, decoded[0]?.properties?.token?.substring(0, 10) + '...');
+          console.log(`📊 Distinct ID:`, decoded[0]?.properties?.distinct_id);
+        } catch (e) {
+          console.warn(`📊 Could not decode payload:`, e);
+        }
+        
         if (result.status === 1) {
           console.log(`📊 Event tracked: ${eventName}`);
         } else {
           console.warn(`📊 Mixpanel error:`, result);
-          // Log the decoded payload for debugging
-          try {
-            const decoded = JSON.parse(atob(base64String));
-            console.log(`📊 Decoded payload:`, decoded);
-          } catch (e) {
-            console.warn(`📊 Could not decode payload:`, e);
-          }
         }
       } else {
         const errorText = await response.text();
