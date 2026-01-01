@@ -299,7 +299,8 @@ async function trackEvent(eventName, properties = {}) {
     console.log('📊 Tracking event:', eventName, '| Payload length:', base64String.length);
     
     // Send to Mixpanel via HTTP API using POST (more reliable than GET)
-    const trackUrl = 'https://api.mixpanel.com/track';
+    // Use EU endpoint to match the SDK configuration
+    const trackUrl = 'https://api-eu.mixpanel.com/track';
     
     // Try POST first (more reliable)
     try {
@@ -343,7 +344,9 @@ async function trackEvent(eventName, properties = {}) {
       // Fallback: use image pixel tracking (most reliable, works even with CORS issues)
       console.log(`📊 Using image pixel fallback for: ${eventName}`);
       const img = new Image();
-      img.src = `https://api.mixpanel.com/track?data=${encodeURIComponent(base64String)}&img=1`;
+      img.onload = () => console.log(`📊 Image pixel sent for: ${eventName}`);
+      img.onerror = () => console.warn(`📊 Image pixel failed for: ${eventName}`);
+      img.src = `https://api-eu.mixpanel.com/track?data=${encodeURIComponent(base64String)}&img=1`;
     }
   } catch (e) {
     // Silently fail - analytics should never break the app
