@@ -110,10 +110,98 @@ let mixpanelToken = null;
 let mixpanelEnabled = false;
 let mixpanelDistinctId = null;
 
+// Storage key for analytics consent
+const ANALYTICS_CONSENT_KEY = 'analytics_consent';
+
+/**
+ * Check if user has given consent for analytics
+ * @returns {boolean|null} - true if accepted, false if rejected, null if not set
+ */
+function getAnalyticsConsent() {
+  try {
+    const consent = localStorage.getItem(ANALYTICS_CONSENT_KEY);
+    if (consent === 'true') return true;
+    if (consent === 'false') return false;
+    return null; // Not set yet
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Save analytics consent preference
+ * @param {boolean} accepted - Whether user accepted analytics
+ */
+function setAnalyticsConsent(accepted) {
+  try {
+    localStorage.setItem(ANALYTICS_CONSENT_KEY, accepted ? 'true' : 'false');
+  } catch (e) {
+    console.error('Error saving analytics consent:', e);
+  }
+}
+
+/**
+ * Show cookie consent banner (only if consent not set)
+ */
+function showCookieConsentBanner() {
+  // Only show if consent hasn't been set
+  if (getAnalyticsConsent() !== null) {
+    return;
+  }
+  
+  const banner = document.createElement('div');
+  banner.id = 'cookie-consent-banner';
+  banner.className = 'cookie-consent-banner';
+  
+  banner.innerHTML = `
+    <div class="cookie-consent-content">
+      <p class="cookie-consent-text">
+        🍪 We use analytics to improve the extension. Do you want to help us by sharing anonymous usage data?
+      </p>
+      <div class="cookie-consent-actions">
+        <button id="cookie-accept" class="btn btn--primary btn--small">Accept</button>
+        <button id="cookie-reject" class="btn btn--ghost btn--small">Decline</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(banner);
+  
+  // Accept button
+  const acceptBtn = banner.querySelector('#cookie-accept');
+  acceptBtn.addEventListener('click', () => {
+    setAnalyticsConsent(true);
+    banner.remove();
+    // Initialize Mixpanel after consent
+    initMixpanel();
+  });
+  
+  // Reject button
+  const rejectBtn = banner.querySelector('#cookie-reject');
+  rejectBtn.addEventListener('click', () => {
+    setAnalyticsConsent(false);
+    banner.remove();
+  });
+}
+
 /**
  * Initialize Mixpanel tracking by fetching token from Netlify
+ * Only initializes if user has given consent
  */
 async function initMixpanel() {
+  // Check consent first
+  const consent = getAnalyticsConsent();
+  if (consent === false) {
+    console.log('📊 Mixpanel disabled (user declined)');
+    return;
+  }
+  
+  // If consent is null, show banner and wait
+  if (consent === null) {
+    showCookieConsentBanner();
+    return;
+  }
+  
   try {
     // Only fetch token if we're on Netlify
     if (!window.location.origin.includes('netlify.app') && !window.location.origin.includes('netlify.com')) {
@@ -142,6 +230,8 @@ async function initMixpanel() {
         }
         
         console.log('📊 Mixpanel analytics enabled');
+        // Track extension opened after successful initialization
+        trackExtensionOpened();
       }
     }
   } catch (e) {
@@ -3072,9 +3162,8 @@ initDebugMode();
 try {
   OBR.onReady(async () => {
     try {
-      // Initialize Mixpanel analytics
+      // Initialize Mixpanel analytics (will show consent banner if needed)
       await initMixpanel();
-      trackExtensionOpened();
       
       // Verificar rol primero para filtrar logs
       const isGM = await getUserRole();
