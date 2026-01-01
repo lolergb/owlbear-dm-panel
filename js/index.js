@@ -435,16 +435,23 @@ window.testMixpanel = async function() {
   console.log('🧪 Testing Mixpanel connection...');
   console.log('📊 Enabled:', mixpanelEnabled);
   console.log('📊 Token:', mixpanelToken ? mixpanelToken.substring(0, 10) + '...' : 'missing');
+  console.log('📊 Full Token:', mixpanelToken);
   console.log('📊 Distinct ID:', mixpanelDistinctId);
   
-  // Send a test event
+  // Send a test event with unique identifier
+  const testId = 'test_' + Date.now();
   await trackEvent('test_event', {
     test: true,
-    timestamp: new Date().toISOString()
+    test_id: testId,
+    timestamp: new Date().toISOString(),
+    user_agent: navigator.userAgent.substring(0, 50)
   });
   
-  console.log('🧪 Test event sent. Check Mixpanel Live View in 10-30 seconds.');
-  console.log('🧪 Go to: Mixpanel → Events → Live View');
+  console.log('🧪 Test event sent with ID:', testId);
+  console.log('🧪 Check Mixpanel Live View in 10-30 seconds:');
+  console.log('   https://mixpanel.com/project/[YOUR_PROJECT]/live');
+  console.log('🧪 Or search for event: test_event');
+  console.log('🧪 Test ID to search:', testId);
 };
 
 // La aplicación funciona con localStorage y default-config.json
