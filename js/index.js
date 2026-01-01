@@ -258,34 +258,46 @@ async function trackEvent(eventName, properties = {}) {
       userRole = role;
     } catch (e) {}
     
-    // Build the event payload
+    // Build the event payload (Mixpanel format)
     const eventData = {
       event: eventName,
       properties: {
         token: mixpanelToken,
         distinct_id: mixpanelDistinctId,
-        time: Date.now(),
+        time: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
         $insert_id: Math.random().toString(36).substring(2, 15),
         role: userRole,
         ...properties
       }
     };
     
-    // Send to Mixpanel via HTTP API (doesn't require SDK)
-    const payload = btoa(JSON.stringify(eventData));
+    // Send to Mixpanel via HTTP API
+    // Using the /track endpoint with base64 encoded data
+    const payload = btoa(JSON.stringify([eventData]));
+    const trackUrl = `https://api.mixpanel.com/track?data=${encodeURIComponent(payload)}&verbose=1`;
     
-    // Use sendBeacon for reliability (doesn't block)
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon(`https://api.mixpanel.com/track/?data=${payload}`);
-    } else {
-      // Fallback to fetch
-      fetch(`https://api.mixpanel.com/track/?data=${payload}`, {
+    // Use fetch with image pixel fallback for reliability
+    try {
+      const response = await fetch(trackUrl, {
         method: 'GET',
-        mode: 'no-cors'
-      }).catch(() => {});
+        mode: 'cors'
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.status === 1) {
+          console.log(`📊 Event tracked: ${eventName}`);
+        } else {
+          console.warn(`📊 Mixpanel error: ${result.error}`);
+        }
+      }
+    } catch (fetchError) {
+      // Fallback: use image pixel tracking
+      const img = new Image();
+      img.src = `https://api.mixpanel.com/track?data=${encodeURIComponent(payload)}&img=1`;
     }
   } catch (e) {
     // Silently fail - analytics should never break the app
+    console.warn('📊 Track error:', e);
   }
 }
 
