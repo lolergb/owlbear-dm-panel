@@ -271,10 +271,18 @@ async function trackEvent(eventName, properties = {}) {
       }
     };
     
+    // Convert to base64 with UTF-8 support (btoa doesn't handle Unicode)
+    const jsonString = JSON.stringify([eventData]);
+    const utf8Bytes = new TextEncoder().encode(jsonString);
+    // Convert bytes to binary string for btoa
+    let binaryString = '';
+    for (let i = 0; i < utf8Bytes.length; i++) {
+      binaryString += String.fromCharCode(utf8Bytes[i]);
+    }
+    const base64String = btoa(binaryString);
+    
     // Send to Mixpanel via HTTP API
-    // Using the /track endpoint with base64 encoded data
-    const payload = btoa(JSON.stringify([eventData]));
-    const trackUrl = `https://api.mixpanel.com/track?data=${encodeURIComponent(payload)}&verbose=1`;
+    const trackUrl = `https://api.mixpanel.com/track?data=${encodeURIComponent(base64String)}&verbose=1`;
     
     // Use fetch with image pixel fallback for reliability
     try {
@@ -293,7 +301,7 @@ async function trackEvent(eventName, properties = {}) {
     } catch (fetchError) {
       // Fallback: use image pixel tracking
       const img = new Image();
-      img.src = `https://api.mixpanel.com/track?data=${encodeURIComponent(payload)}&img=1`;
+      img.src = `https://api.mixpanel.com/track?data=${encodeURIComponent(base64String)}&img=1`;
     }
   } catch (e) {
     // Silently fail - analytics should never break the app
