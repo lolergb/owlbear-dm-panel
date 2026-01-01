@@ -560,8 +560,10 @@ function filterVisiblePagesForMetadata(config) {
     const filteredSubcategories = (category.categories || [])
       .map(filterCategory)
       .filter(subCat => 
-        (subCat.pages && subCat.pages.length > 0) || 
-        (subCat.categories && subCat.categories.length > 0)
+        subCat !== null && (
+          (subCat.pages && subCat.pages.length > 0) || 
+          (subCat.categories && subCat.categories.length > 0)
+        )
       );
     
     // Solo incluir la categoría si tiene contenido visible
