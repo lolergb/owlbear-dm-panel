@@ -300,6 +300,89 @@ You can link pages directly to tokens/characters in the scene:
 - GM must have the extension open for broadcast to work
 - Check browser console for broadcast errors
 
+## 📊 Analytics & Privacy
+
+This extension uses **Mixpanel** to collect anonymous usage analytics. This helps us understand how the extension is used and improve it.
+
+### What we track
+
+We track the following events to measure usage and identify popular features:
+
+**Core Usage:**
+- `extension_opened` - When you open the extension
+- `page_view` - When you view a page (includes page type: notion/image/video/etc)
+- `page_reloaded` - When you reload a page
+
+**Content Management:**
+- `folder_added` - When you add a folder
+- `page_added` - When you add a page (includes page type)
+- `folder_edited` - When you edit a folder name
+- `page_edited` - When you edit a page
+- `folder_deleted` - When you delete a folder
+- `page_deleted` - When you delete a page
+- `page_moved` - When you reorder pages
+
+**Configuration:**
+- `token_configured` - When you save your Notion token
+- `token_removed` - When you remove your Notion token
+- `json_imported` - When you import JSON configuration (includes item count)
+- `json_exported` - When you export JSON configuration (includes item count)
+
+**Sharing & Integration:**
+- `image_shared` - When GM shares an image with players
+- `visibility_toggled` - When GM changes page visibility
+- `page_linked_to_token` - When GM links a page to a scene token
+- `page_viewed_from_token` - When viewing a page from token context menu
+
+**Error & Limits:**
+- `storage_limit_reached` - When localStorage is full
+- `cache_cleared` - When you clear the cache
+- `gm_not_active` - When player can't access content (GM offline)
+- `content_too_large` - When content exceeds broadcast limits
+
+### What data is collected
+
+Each event includes:
+- **Event name** - The action performed
+- **User role** - Whether you're a GM or Player
+- **Distinct ID** - A unique identifier (your Owlbear player ID or an anonymous ID)
+- **Timestamp** - When the event occurred
+- **Event-specific properties** - Relevant context (e.g., page name, page type)
+
+**We do NOT collect:**
+- Personal information (names, emails, etc.)
+- Notion token or API keys
+- Page content or URLs
+- Any sensitive data
+
+### Consent & Control
+
+**Cookie Consent Banner:**
+- On first visit, you'll see a cookie consent banner
+- You can **Accept** to enable analytics or **Decline** to disable it
+- Your choice is saved in your browser's localStorage
+- You can change your preference by clearing your browser data
+
+**Opt-out:**
+- If you decline, no analytics data is sent
+- The extension works fully without analytics
+- You can opt-out at any time by clearing browser data
+
+**Data Storage:**
+- Analytics data is sent to Mixpanel (EU region)
+- Your consent preference is stored locally in your browser
+- No analytics data is stored on our servers
+
+### Privacy Commitment
+
+- **Anonymous:** We don't collect personally identifiable information
+- **Transparent:** All tracked events are listed above
+- **Optional:** You can opt-out at any time
+- **Secure:** Data is sent over HTTPS to Mixpanel's secure servers
+- **GDPR Compliant:** We follow GDPR requirements for analytics consent
+
+For questions about analytics or privacy, please contact us through the support links below.
+
 ## 💬 Support
 
 ### Getting help
