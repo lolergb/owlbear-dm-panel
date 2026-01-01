@@ -734,8 +734,8 @@ async function savePagesJSON(json, roomId) {
     
     if (validation.fits) {
       // Guardar en OBR.room.metadata para compartir con todos los usuarios (solo páginas visibles)
+      const compressed = compressJson(visibleOnlyConfig);
       try {
-        const compressed = compressJson(visibleOnlyConfig);
         await OBR.room.setMetadata({
           [ROOM_METADATA_KEY]: compressed
         });
