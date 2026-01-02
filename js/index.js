@@ -6365,6 +6365,12 @@ function hidePageHeaderButtons() {
     notionContainer.style.width = "";
   }
   
+  // Resetear el contenido de Notion
+  const notionContent = document.getElementById("notion-content");
+  if (notionContent) {
+    notionContent.style.maxWidth = "";
+  }
+  
   // Resetear estado expandido del panel completo
   document.body.classList.remove("panel-expanded");
   document.documentElement.classList.remove("panel-expanded");
@@ -6375,6 +6381,7 @@ function hidePageHeaderButtons() {
   if (container) {
     container.classList.remove("expanded");
     container.style.width = "";
+    container.style.maxWidth = "";
   }
   
   // Intentar resetear el tamaño del panel de OBR si es posible
@@ -6645,9 +6652,18 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         if (container) {
           container.classList.add("expanded");
           container.style.width = `calc(100% + ${NOTION_MODAL_EXPAND_WIDTH}px)`;
+          container.style.maxWidth = `${600 + NOTION_MODAL_EXPAND_WIDTH}px`;
         }
         
+        // Expandir el contenedor de Notion
         notionContainer.classList.add("expanded");
+        notionContainer.style.width = `calc(100% + ${NOTION_MODAL_EXPAND_WIDTH}px)`;
+        
+        // Expandir el contenido de Notion
+        const notionContent = document.getElementById("notion-content");
+        if (notionContent) {
+          notionContent.style.maxWidth = `${900 + NOTION_MODAL_EXPAND_WIDTH}px`;
+        }
       } else {
         // Contraer el panel completo de OBR
         try {
@@ -6673,9 +6689,18 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         if (container) {
           container.classList.remove("expanded");
           container.style.width = "";
+          container.style.maxWidth = "";
         }
         
+        // Contraer el contenedor de Notion
         notionContainer.classList.remove("expanded");
+        notionContainer.style.width = "";
+        
+        // Contraer el contenido de Notion
+        const notionContent = document.getElementById("notion-content");
+        if (notionContent) {
+          notionContent.style.maxWidth = "";
+        }
       }
       
       // Actualizar icono y título
