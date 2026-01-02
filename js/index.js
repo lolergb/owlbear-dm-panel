@@ -3557,32 +3557,45 @@ try {
           }
           
           // El notion-container ya está visible por CSS (html.modal-mode)
-          // Limpiar TODO el contenido anterior antes de cargar
+          // LIMPIAR TODO el contenido anterior INMEDIATAMENTE antes de cargar
+          // Esto es crítico porque OBR podría estar reutilizando la misma instancia
           const notionContainer = document.getElementById("notion-container");
           if (notionContainer) {
-            // Usar setNotionDisplayMode para limpiar correctamente
-            // Primero forzar limpieza completa
+            // FORZAR limpieza completa del contenido de Notion
             const notionContent = notionContainer.querySelector('#notion-content');
             if (notionContent) {
-              // Remover todos los hijos primero
+              // Método 1: Remover todos los hijos
               while (notionContent.firstChild) {
                 notionContent.removeChild(notionContent.firstChild);
               }
-              // Luego limpiar el innerHTML
+              // Método 2: Limpiar innerHTML
               notionContent.innerHTML = '';
+              // Método 3: Forzar reemplazo del elemento (más agresivo)
+              const newContent = document.createElement('div');
+              newContent.id = 'notion-content';
+              newContent.className = 'notion-container__content notion-content';
+              notionContent.parentNode.replaceChild(newContent, notionContent);
             }
             
-            // Limpiar completamente el iframe
+            // FORZAR limpieza completa del iframe
             const notionIframe = notionContainer.querySelector('#notion-iframe');
             if (notionIframe) {
+              // Método 1: Cambiar src a about:blank
               notionIframe.src = 'about:blank';
+              // Método 2: Remover y recrear el iframe (más agresivo)
+              const newIframe = document.createElement('iframe');
+              newIframe.id = 'notion-iframe';
+              newIframe.className = 'notion-container__iframe';
+              newIframe.setAttribute('frameborder', '0');
+              newIframe.setAttribute('allowfullscreen', '');
+              notionIframe.parentNode.replaceChild(newIframe, notionIframe);
             }
             
             // Remover la clase show-content para empezar en estado limpio
             notionContainer.classList.remove('show-content');
             
-            // Pequeño delay para asegurar que el navegador procese la limpieza
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Delay para asegurar que el navegador procese la limpieza
+            await new Promise(resolve => setTimeout(resolve, 150));
           }
           
           // Cargar el contenido de la página
@@ -6717,24 +6730,34 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
           if (selector) {
             modalUrl.searchParams.set('selector', encodeURIComponent(selector));
           }
-          // Agregar timestamp para evitar caché
+          // Agregar timestamp y un ID único para evitar caché del navegador
           const timestamp = Date.now();
+          const uniqueId = Math.random().toString(36).substring(2, 15);
           modalUrl.searchParams.set('_t', timestamp.toString());
+          modalUrl.searchParams.set('_id', uniqueId);
           
-          // Cerrar cualquier modal anterior antes de abrir uno nuevo
-          // Intentar cerrar todos los modales posibles (con diferentes IDs)
+          // Cerrar TODOS los modales anteriores antes de abrir uno nuevo
+          // OBR podría estar reutilizando modales, así que cerramos todos los posibles
           try {
-            // Intentar cerrar con el patrón de ID que usamos
-            const previousModalIds = ['notion-content-modal', `notion-content-modal-${timestamp - 1000}`, `notion-content-modal-${timestamp - 2000}`];
-            for (const modalId of previousModalIds) {
+            // Intentar cerrar todos los modales con el patrón que usamos
+            // Cerrar varios IDs posibles (últimos 5 segundos)
+            for (let i = 0; i < 10; i++) {
+              const previousTimestamp = timestamp - (i * 1000);
+              const previousModalId = `notion-content-modal-${previousTimestamp}`;
               try {
-                await OBR.modal.close(modalId);
+                await OBR.modal.close(previousModalId);
               } catch (e) {
                 // Ignorar errores si el modal no existe
               }
             }
-            // Pequeño delay para asegurar que el modal anterior se cierre
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // También intentar cerrar el ID base
+            try {
+              await OBR.modal.close('notion-content-modal');
+            } catch (e) {
+              // Ignorar errores
+            }
+            // Delay más largo para asegurar que los modales se cierren completamente
+            await new Promise(resolve => setTimeout(resolve, 200));
           } catch (e) {
             // Continuar aunque falle el cierre
           }
@@ -6743,6 +6766,7 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
           const modalId = `notion-content-modal-${timestamp}`;
           
           // Abrir modal usando Owlbear SDK
+          // La URL ya tiene timestamp y uniqueId para evitar caché del navegador
           await OBR.modal.open({
             id: modalId,
             url: modalUrl.toString(),
