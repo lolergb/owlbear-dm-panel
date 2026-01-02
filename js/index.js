@@ -5689,8 +5689,9 @@ function getLinkType(url) {
     }
     
     // ============================================================
-    // SERVICIOS EXTERNOS - DESHABILITADOS PARA SOFT LAUNCH
-    // Ver rama feature/multi-service para código completo
+    // SERVICIOS EXTERNOS
+    // Google Drive y Google Docs/Sheets/Slides activados
+    // Ver rama feature/multi-service para más servicios
     // ============================================================
     
     // Google Drive - Activado solo para PDFs
@@ -5701,18 +5702,18 @@ function getLinkType(url) {
       }
     }
     
-    // Google Docs/Sheets/Slides - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com')) {
-    //   if (pathname.includes('/document/')) {
-    //     return { type: 'google-docs', icon: 'icon-google-docs.svg' };
-    //   }
-    //   if (pathname.includes('/spreadsheets/')) {
-    //     return { type: 'google-sheets', icon: 'icon-google-sheets.svg' };
-    //   }
-    //   if (pathname.includes('/presentation/')) {
-    //     return { type: 'google-slides', icon: 'icon-google-slides.svg' };
-    //   }
-    // }
+    // Google Docs/Sheets/Slides
+    if (hostname.includes('docs.google.com')) {
+      if (pathname.includes('/document/')) {
+        return { type: 'google-docs', icon: 'icon-google-docs.svg' };
+      }
+      if (pathname.includes('/spreadsheets/')) {
+        return { type: 'google-sheets', icon: 'icon-google-sheets.svg' };
+      }
+      if (pathname.includes('/presentation/')) {
+        return { type: 'google-slides', icon: 'icon-google-slides.svg' };
+      }
+    }
     
     // YouTube - PRÓXIMAMENTE
     // if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
@@ -5788,7 +5789,7 @@ function convertToEmbedUrl(url) {
     const pathname = urlObj.pathname;
 
     // ============================================================
-    // SERVICIOS EXTERNOS - Google Drive activado solo para PDFs
+    // SERVICIOS EXTERNOS - Google Drive (PDFs) y Google Docs/Sheets/Slides activados
     // Ver rama feature/multi-service para más servicios
     // ============================================================
 
@@ -5806,44 +5807,44 @@ function convertToEmbedUrl(url) {
       }
     }
 
-    // Google Docs - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
-    //   const match = pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-    //   if (match) {
-    //     const docId = match[1];
-    //     return {
-    //       url: `https://docs.google.com/document/d/${docId}/preview`,
-    //       converted: true,
-    //       service: 'Google Docs'
-    //     };
-    //   }
-    // }
+    // Google Docs
+    if (hostname.includes('docs.google.com') && pathname.includes('/document/d/')) {
+      const match = pathname.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const docId = match[1];
+        return {
+          url: `https://docs.google.com/document/d/${docId}/preview`,
+          converted: true,
+          service: 'Google Docs'
+        };
+      }
+    }
 
-    // Google Sheets - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com') && pathname.includes('/spreadsheets/d/')) {
-    //   const match = pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-    //   if (match) {
-    //     const sheetId = match[1];
-    //     return {
-    //       url: `https://docs.google.com/spreadsheets/d/${sheetId}/preview`,
-    //       converted: true,
-    //       service: 'Google Sheets'
-    //     };
-    //   }
-    // }
+    // Google Sheets
+    if (hostname.includes('docs.google.com') && pathname.includes('/spreadsheets/d/')) {
+      const match = pathname.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const sheetId = match[1];
+        return {
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/preview`,
+          converted: true,
+          service: 'Google Sheets'
+        };
+      }
+    }
 
-    // Google Slides - PRÓXIMAMENTE
-    // if (hostname.includes('docs.google.com') && pathname.includes('/presentation/d/')) {
-    //   const match = pathname.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
-    //   if (match) {
-    //     const slideId = match[1];
-    //     return {
-    //       url: `https://docs.google.com/presentation/d/${slideId}/embed`,
-    //       converted: true,
-    //       service: 'Google Slides'
-    //     };
-    //   }
-    // }
+    // Google Slides
+    if (hostname.includes('docs.google.com') && pathname.includes('/presentation/d/')) {
+      const match = pathname.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        const slideId = match[1];
+        return {
+          url: `https://docs.google.com/presentation/d/${slideId}/embed`,
+          converted: true,
+          service: 'Google Slides'
+        };
+      }
+    }
 
     // Dropbox - PRÓXIMAMENTE
     // if (hostname.includes('dropbox.com')) {
