@@ -3064,6 +3064,8 @@ function setNotionDisplayMode(container, mode) {
       contentDiv.innerHTML = ''; // Limpiar para evitar contenido residual
     }
     container.classList.remove('show-content');
+    // Nota: El src del iframe se establecerá por la función que llama a setNotionDisplayMode
+    // No lo establecemos aquí para evitar conflictos
   }
 }
 
@@ -6162,6 +6164,17 @@ async function loadVideoContent(url, container, videoType) {
   // Usar la función centralizada para gestionar visibilidad
   setNotionDisplayMode(container, 'iframe');
   
+  // Forzar limpieza del iframe antes de cargar nuevo contenido
+  console.log('🎬 loadVideoContent: Limpiando iframe antes de cargar', url);
+  if (iframe) {
+    if (iframe.src && iframe.src !== 'about:blank') {
+      console.log('  - Iframe actual tiene src:', iframe.src);
+      iframe.src = 'about:blank';
+      // Pequeño delay para asegurar que el navegador procese el cambio
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+  }
+  
   // Convertir URL a formato embed
   const embedResult = convertToEmbedUrl(url);
   const embedUrl = embedResult.url;
@@ -6169,6 +6182,7 @@ async function loadVideoContent(url, container, videoType) {
   // Mostrar video en iframe con estilo mejorado
   if (iframe) {
     // Configurar el iframe para video
+    console.log('  - Estableciendo iframe src a:', embedUrl);
     iframe.src = embedUrl;
     iframe.style.width = '100%';
     iframe.style.height = '100%';
@@ -6191,6 +6205,16 @@ async function loadIframeContent(url, container, selector = null) {
   
   // Usar la función centralizada para gestionar visibilidad
   setNotionDisplayMode(container, 'iframe');
+  
+  // Forzar limpieza del iframe antes de cargar nuevo contenido
+  // Esto asegura que el iframe se recargue correctamente
+  console.log('🔄 loadIframeContent: Limpiando iframe antes de cargar', url);
+  if (iframe.src && iframe.src !== 'about:blank') {
+    console.log('  - Iframe actual tiene src:', iframe.src);
+    iframe.src = 'about:blank';
+    // Pequeño delay para asegurar que el navegador procese el cambio
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
   
   // Si hay un selector, intentar cargar solo ese elemento
   if (selector) {
@@ -6294,6 +6318,7 @@ async function loadIframeContent(url, container, selector = null) {
     }
     console.log('📄 Cargando URL en iframe:', embedResult.url);
     iframe.src = embedResult.url;
+    console.log('  - Iframe src establecido a:', iframe.src);
     // No usar estilos inline - CSS se encarga de la visibilidad
   }
 }
