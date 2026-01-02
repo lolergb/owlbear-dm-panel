@@ -6358,11 +6358,34 @@ function hidePageHeaderButtons() {
     visibilityButton.classList.add("hidden");
   }
   
-  // Resetear estado expandido del modal
+  // Resetear estado expandido del modal y del panel
   const notionContainer = document.getElementById("notion-container");
   if (notionContainer) {
     notionContainer.classList.remove("expanded");
     notionContainer.style.width = "";
+  }
+  
+  // Resetear estado expandido del panel completo
+  document.body.classList.remove("panel-expanded");
+  document.documentElement.classList.remove("panel-expanded");
+  document.body.style.width = "";
+  document.documentElement.style.width = "";
+  
+  const container = document.querySelector('.container');
+  if (container) {
+    container.classList.remove("expanded");
+    container.style.width = "";
+  }
+  
+  // Intentar resetear el tamaño del panel de OBR si es posible
+  try {
+    if (typeof OBR !== 'undefined' && OBR.action) {
+      OBR.action.setWidth(600).catch(() => {
+        // Ignorar errores si la API no está disponible
+      });
+    }
+  } catch (error) {
+    // Ignorar errores
   }
 }
 
@@ -6574,6 +6597,9 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     expandButton.id = "page-expand-button-header";
     expandButton.className = "icon-button";
     
+    // Asegurar que el botón esté visible (remover clase hidden si existe)
+    expandButton.classList.remove("hidden");
+    
     // Actualizar icono después de clonar
     const icon = expandButton.querySelector('img');
     if (icon) {
@@ -6582,16 +6608,74 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
     expandButton.title = isExpanded ? 'Contraer ancho del modal' : 'Expandir ancho del modal';
     
     // Agregar listener para toggle
-    expandButton.addEventListener('click', (e) => {
+    expandButton.addEventListener('click', async (e) => {
       e.stopPropagation();
       isExpanded = !isExpanded;
       
       if (isExpanded) {
+        // Expandir el panel completo de OBR
+        try {
+          // Intentar usar la API de OBR para cambiar el tamaño del panel si está disponible
+          if (typeof OBR !== 'undefined' && OBR.action) {
+            // Obtener el ancho actual del panel (600px por defecto según manifest)
+            const currentWidth = 600;
+            const newWidth = currentWidth + NOTION_MODAL_EXPAND_WIDTH;
+            
+            // Intentar actualizar el tamaño del panel (si la API lo permite)
+            // Nota: Esta funcionalidad puede no estar disponible en todas las versiones de OBR
+            try {
+              await OBR.action.setWidth(newWidth);
+            } catch (apiError) {
+              // Si la API no está disponible, usar método alternativo
+              console.log('API de OBR no disponible, usando método alternativo');
+            }
+          }
+        } catch (error) {
+          console.log('Error al intentar usar API de OBR:', error);
+        }
+        
+        // Expandir el body y html para que el contenido se vea más ancho
+        document.body.classList.add("panel-expanded");
+        document.documentElement.classList.add("panel-expanded");
+        document.body.style.width = `calc(100% + ${NOTION_MODAL_EXPAND_WIDTH}px)`;
+        document.documentElement.style.width = `calc(100% + ${NOTION_MODAL_EXPAND_WIDTH}px)`;
+        
+        // También expandir el contenedor principal
+        const container = document.querySelector('.container');
+        if (container) {
+          container.classList.add("expanded");
+          container.style.width = `calc(100% + ${NOTION_MODAL_EXPAND_WIDTH}px)`;
+        }
+        
         notionContainer.classList.add("expanded");
-        notionContainer.style.width = `calc(100% + ${NOTION_MODAL_EXPAND_WIDTH}px)`;
       } else {
+        // Contraer el panel completo de OBR
+        try {
+          if (typeof OBR !== 'undefined' && OBR.action) {
+            try {
+              await OBR.action.setWidth(600); // Volver al ancho original
+            } catch (apiError) {
+              console.log('API de OBR no disponible, usando método alternativo');
+            }
+          }
+        } catch (error) {
+          console.log('Error al intentar usar API de OBR:', error);
+        }
+        
+        // Contraer el body y html
+        document.body.classList.remove("panel-expanded");
+        document.documentElement.classList.remove("panel-expanded");
+        document.body.style.width = "";
+        document.documentElement.style.width = "";
+        
+        // También contraer el contenedor principal
+        const container = document.querySelector('.container');
+        if (container) {
+          container.classList.remove("expanded");
+          container.style.width = "";
+        }
+        
         notionContainer.classList.remove("expanded");
-        notionContainer.style.width = "";
       }
       
       // Actualizar icono y título

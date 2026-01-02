@@ -107,6 +107,17 @@
     flex-direction: column;
     overflow-x: hidden;
     background-color: var(--color-bg-overlay);
+    transition: width 0.3s ease;
+  }
+  
+  /* Estado expandido del panel */
+  body.panel-expanded,
+  html.panel-expanded {
+    overflow-x: auto;
+  }
+  
+  .container.expanded {
+    transition: width 0.3s ease;
   }
   
   /* ==========================================================================
@@ -1073,7 +1084,8 @@
       ========================================================================== */
   #page-context-menu-button-header,
   #refresh-page-button,
-  #page-visibility-button-header {
+  #page-visibility-button-header,
+  #page-expand-button-header {
     background: transparent;
     border: none;
     border-radius: var(--radius-full);
@@ -1088,31 +1100,38 @@
     margin-left: var(--spacing-sm);
   }
 
-  /* Orden de botones de derecha a izquierda: menú contextual, refresh, visibility */
+  /* Orden de botones de derecha a izquierda: menú contextual, refresh, visibility, expand */
   #page-context-menu-button-header {
-    order: 3; /* Más a la derecha */
+    order: 4; /* Más a la derecha */
     margin-left: 0;
   }
   
   #refresh-page-button {
-    order: 2; /* Medio */
+    order: 3; /* Medio-derecha */
     margin-left: 0;
   }
   
   #page-visibility-button-header {
+    order: 2; /* Medio-izquierda */
+    margin-left: 0;
+  }
+  
+  #page-expand-button-header {
     order: 1; /* Más a la izquierda */
     margin-left: 0;
   }
   
   #page-context-menu-button-header:hover,
   #refresh-page-button:hover,
-  #page-visibility-button-header:hover {
+  #page-visibility-button-header:hover,
+  #page-expand-button-header:hover {
     background: var(--color-bg-hover);
   }
   
   #page-context-menu-button-header:active,
   #refresh-page-button:active,
-  #page-visibility-button-header:active {
+  #page-visibility-button-header:active,
+  #page-expand-button-header:active {
     background: var(--color-bg-active);
   }
   
