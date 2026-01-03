@@ -3845,6 +3845,15 @@ try {
         }
       });
       
+      // Listener para recibir videos compartidos por el GM
+      OBR.broadcast.onMessage('com.dmscreen/showVideo', async (event) => {
+        const { url, caption, type } = event.data;
+        if (url) {
+          // Abrir el video en modal para este jugador
+          await showVideoModal(url, caption, type || 'youtube');
+        }
+      });
+      
     } catch (error) {
       console.error('❌ Error dentro de OBR.onReady:', error);
       console.error('Stack:', error.stack);
@@ -5809,15 +5818,15 @@ function getLinkType(url) {
       }
     }
     
-    // YouTube - PRÓXIMAMENTE
-    // if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
-    //   return { type: 'youtube', icon: 'icon-youtube.svg' };
-    // }
+    // YouTube
+    if (hostname.includes('youtube.com') || hostname === 'youtu.be') {
+      return { type: 'youtube', icon: 'icon-link.svg' };
+    }
     
-    // Vimeo - PRÓXIMAMENTE
-    // if (hostname.includes('vimeo.com')) {
-    //   return { type: 'vimeo', icon: 'icon-vimeo.svg' };
-    // }
+    // Vimeo
+    if (hostname.includes('vimeo.com')) {
+      return { type: 'vimeo', icon: 'icon-link.svg' };
+    }
     
     // Figma - PRÓXIMAMENTE
     // if (hostname.includes('figma.com')) {
@@ -6164,7 +6173,258 @@ async function loadImageContent(url, container, name) {
   }
 }
 
-// Función para cargar video en player dedicado
+// Función para extraer ID de video de YouTube o Vimeo
+function extractVideoId(url, videoType) {
+  try {
+    const urlObj = new URL(url);
+    
+    if (videoType === 'youtube') {
+      // YouTube: youtube.com/watch?v=ID o youtu.be/ID
+      if (urlObj.hostname === 'youtu.be') {
+        return urlObj.pathname.substring(1);
+      } else if (urlObj.hostname.includes('youtube.com')) {
+        return urlObj.searchParams.get('v') || urlObj.pathname.split('/').pop();
+      }
+    } else if (videoType === 'vimeo') {
+      // Vimeo: vimeo.com/ID
+      const match = urlObj.pathname.match(/\/(\d+)/);
+      return match ? match[1] : null;
+    }
+  } catch (e) {
+    console.error('Error extrayendo video ID:', e);
+  }
+  return null;
+}
+
+// Función para obtener thumbnail de video
+function getVideoThumbnail(url, videoType) {
+  const videoId = extractVideoId(url, videoType);
+  if (!videoId) return null;
+  
+  if (videoType === 'youtube') {
+    // YouTube: usar maxresdefault (mejor calidad), con fallback a hqdefault
+    // El navegador intentará cargar maxresdefault y si falla, podemos usar hqdefault
+    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  } else if (videoType === 'vimeo') {
+    // Vimeo: usar servicio externo vumbnail.com para obtener thumbnail
+    // Alternativa: usar la API de Vimeo (requiere token)
+    return `https://vumbnail.com/${videoId}.jpg`;
+  }
+  return null;
+}
+
+// Función para manejar error de carga de thumbnail (fallback)
+// Hacerla global para que funcione desde onerror inline
+window.handleThumbnailError = function(img, videoType, videoId) {
+  if (videoType === 'youtube') {
+    // Si maxresdefault falla, usar hqdefault
+    img.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  }
+  // Para Vimeo, si vumbnail falla, no hay fallback fácil sin API
+};
+
+// Función para obtener URL embed de video
+function getVideoEmbedUrl(url, videoType) {
+  const videoId = extractVideoId(url, videoType);
+  if (!videoId) return url;
+  
+  if (videoType === 'youtube') {
+    return `https://www.youtube.com/embed/${videoId}`;
+  } else if (videoType === 'vimeo') {
+    return `https://player.vimeo.com/video/${videoId}`;
+  }
+  return url;
+}
+
+// Función para cargar video como thumbnail (similar a imagen)
+async function loadVideoThumbnailContent(url, container, name, videoType) {
+  const contentDiv = container.querySelector('#notion-content');
+  
+  // Usar la función centralizada para gestionar visibilidad
+  setNotionDisplayMode(container, 'content');
+  
+  if (!contentDiv) return;
+  
+  const videoId = extractVideoId(url, videoType);
+  if (!videoId) {
+    contentDiv.innerHTML = `
+      <div class="empty-state notion-loading">
+        <div class="empty-state-icon">❌</div>
+        <p class="empty-state-text">No se pudo extraer el ID del video</p>
+      </div>
+    `;
+    return;
+  }
+  
+  const thumbnailUrl = getVideoThumbnail(url, videoType);
+  const embedUrl = getVideoEmbedUrl(url, videoType);
+  const caption = name || '';
+  const escapedCaption = caption.replace(/"/g, '&quot;');
+  
+  contentDiv.innerHTML = `
+    <div class="video-thumbnail-container" style="
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 16px;
+      gap: 16px;
+      position: relative;
+    ">
+      <div style="position: relative; display: inline-block; cursor: pointer;">
+        <img 
+          src="${thumbnailUrl}" 
+          alt="${caption || 'Video'}"
+          class="video-thumbnail-clickable"
+          data-video-url="${embedUrl}"
+          data-video-caption="${escapedCaption}"
+          data-video-type="${videoType}"
+          data-video-id="${videoId}"
+          onerror="handleThumbnailError(this, '${videoType}', '${videoId}')"
+          style="
+            max-width: 100%;
+            max-height: calc(100vh - 150px);
+            object-fit: contain;
+            border-radius: 8px;
+            transition: transform 0.2s ease;
+          "
+        />
+        <div class="video-play-overlay" style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 80px;
+          height: 80px;
+          background: rgba(0, 0, 0, 0.8);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          transition: transform 0.2s ease, background 0.2s ease;
+        ">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="white" style="margin-left: 4px;">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </div>
+        <button class="video-share-button" 
+                data-video-url="${embedUrl}" 
+                data-video-caption="${escapedCaption}"
+                data-video-type="${videoType}"
+                title="Show to players"
+                style="
+                  position: absolute;
+                  top: 8px;
+                  right: 8px;
+                  background: rgba(0, 0, 0, 0.8);
+                  border: 1px solid rgba(255, 255, 255, 0.2);
+                  border-radius: 6px;
+                  padding: 8px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  opacity: 0.6;
+                  transition: opacity 0.2s, background 0.2s;
+                  z-index: 10;
+                  min-width: 32px;
+                  min-height: 32px;
+                "
+                onmouseover="this.style.opacity='1'; this.style.background='rgba(0, 0, 0, 0.95)'; this.style.borderColor='rgba(255, 255, 255, 0.4)';"
+                onmouseout="this.style.opacity='0.6'; this.style.background='rgba(0, 0, 0, 0.8)'; this.style.borderColor='rgba(255, 255, 255, 0.2)';">
+          <img src="img/icon-players.svg" alt="Share" style="width: 16px; height: 16px; filter: brightness(0) invert(1);" />
+        </button>
+      </div>
+      <p style="color: var(--color-text-secondary); font-size: 14px;">Haz clic en el video para verlo a pantalla completa</p>
+    </div>
+  `;
+  
+  // Añadir handler para abrir en modal
+  const thumbnail = contentDiv.querySelector('.video-thumbnail-clickable');
+  if (thumbnail) {
+    thumbnail.addEventListener('click', () => {
+      showVideoModal(embedUrl, caption, videoType);
+    });
+    
+    // Efecto hover en el overlay de play
+    const container = thumbnail.closest('div');
+    const overlay = container.querySelector('.video-play-overlay');
+    container.addEventListener('mouseenter', () => {
+      overlay.style.transform = 'translate(-50%, -50%) scale(1.1)';
+      overlay.style.background = 'rgba(255, 0, 0, 0.9)';
+    });
+    container.addEventListener('mouseleave', () => {
+      overlay.style.transform = 'translate(-50%, -50%) scale(1)';
+      overlay.style.background = 'rgba(0, 0, 0, 0.8)';
+    });
+  }
+  
+  // Añadir handler para compartir video
+  const shareButton = contentDiv.querySelector('.video-share-button');
+  if (shareButton) {
+    shareButton.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const videoUrl = shareButton.dataset.videoUrl;
+      const videoCaption = shareButton.dataset.videoCaption;
+      const videoType = shareButton.dataset.videoType;
+      await shareVideoToPlayers(videoUrl, videoCaption, videoType, shareButton);
+    });
+  }
+}
+
+// Función para compartir video con jugadores
+async function shareVideoToPlayers(videoUrl, caption, videoType, shareButton) {
+  try {
+    await OBR.broadcast.sendMessage('com.dmscreen/showVideo', {
+      url: videoUrl,
+      caption: caption,
+      type: videoType
+    });
+    
+    // Feedback visual
+    if (shareButton) {
+      shareButton.style.background = 'rgba(45, 74, 45, 0.95)';
+      shareButton.style.borderColor = 'rgba(74, 106, 74, 0.4)';
+      setTimeout(() => {
+        shareButton.style.background = 'rgba(0, 0, 0, 0.8)';
+        shareButton.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      }, 2000);
+    }
+  } catch (error) {
+    console.error('Error al compartir video:', error);
+  }
+}
+
+// Función para mostrar video en modal (similar a showImageModal)
+async function showVideoModal(videoUrl, caption, videoType) {
+  try {
+    const baseDir = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+    const baseUrl = window.location.origin + baseDir;
+    
+    const viewerUrl = new URL('html/video-viewer.html', baseUrl);
+    viewerUrl.searchParams.set('url', encodeURIComponent(videoUrl));
+    viewerUrl.searchParams.set('type', videoType);
+    if (caption) {
+      viewerUrl.searchParams.set('caption', encodeURIComponent(caption));
+    }
+    
+    // Abrir modal usando Owlbear SDK
+    await OBR.modal.open({
+      id: 'notion-video-viewer',
+      url: viewerUrl.toString(),
+      height: 800,
+      width: 1200
+    });
+  } catch (error) {
+    console.error('Error al abrir modal de video:', error);
+    // Fallback: abrir en nueva ventana
+    window.open(videoUrl, '_blank', 'noopener,noreferrer');
+  }
+}
+
+// Función para cargar video en player dedicado (mantener para compatibilidad)
 function loadVideoContent(url, container, videoType) {
   const iframe = container.querySelector('#notion-iframe');
   if (!iframe) return;
@@ -6173,10 +6433,10 @@ function loadVideoContent(url, container, videoType) {
   setNotionDisplayMode(container, 'iframe');
   
   // Convertir URL a formato embed y cargar
-  const embedResult = convertToEmbedUrl(url);
+  const embedUrl = getVideoEmbedUrl(url, videoType);
   
   // Configurar iframe para video
-  iframe.src = embedResult.url;
+  iframe.src = embedUrl;
   iframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:8px';
   iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
   iframe.allowFullscreen = true;
@@ -6606,9 +6866,9 @@ async function loadPageContent(url, name, selector = null, blockTypes = null) {
         console.log('🖼️ Imagen detectada, abriendo en viewer');
         await loadImageContent(url, notionContainer, name);
       } else if (linkType.type === 'youtube' || linkType.type === 'vimeo') {
-        // Es un video → abrir en video player
-        console.log('🎬 Video detectado, abriendo en player');
-        await loadVideoContent(url, notionContainer, linkType.type);
+        // Es un video → mostrar thumbnail (similar a imagen)
+        console.log('🎬 Video detectado, mostrando thumbnail');
+        await loadVideoThumbnailContent(url, notionContainer, name, linkType.type);
       } else {
         // Cargar en iframe (con selector opcional)
         await loadIframeContent(url, notionContainer, selector);
