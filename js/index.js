@@ -2915,13 +2915,86 @@ async function showImageModal(imageUrl, caption) {
 }
 
 // Función global para refrescar la página cuando una imagen falla
-window.refreshImage = function(button) {
-  const refreshButton = document.getElementById("refresh-page-button");
-  if (refreshButton) {
-    refreshButton.click();
+window.refreshImage = async function(button) {
+  // Intentar obtener la información de la página actual para recargar el contenido
+  const openModalButton = document.getElementById("page-open-modal-button-header");
+  const pageTitle = document.getElementById("page-title");
+  const notionContainer = document.getElementById("notion-container");
+  
+  // Obtener URL y nombre de la página actual
+  let currentUrl = null;
+  let currentName = null;
+  let blockTypes = null;
+  
+  if (openModalButton && openModalButton.dataset.currentUrl) {
+    currentUrl = openModalButton.dataset.currentUrl;
+    currentName = openModalButton.dataset.currentName || (pageTitle ? pageTitle.textContent : null);
+    if (openModalButton.dataset.blockTypes) {
+      try {
+        blockTypes = JSON.parse(openModalButton.dataset.blockTypes);
+      } catch (e) {
+        console.warn('Error parsing blockTypes:', e);
+      }
+    }
+  } else if (pageTitle && notionContainer && !notionContainer.classList.contains('hidden')) {
+    // Si estamos viendo una página, intentar obtener la URL desde el contexto
+    // Buscar en la configuración actual
+    try {
+      const roomId = await OBR.room.getId();
+      const config = getPagesJSON(roomId) || await getDefaultJSON();
+      const pageName = pageTitle.textContent;
+      
+      // Buscar la página en la configuración
+      const findPage = (categories) => {
+        for (const cat of categories || []) {
+          for (const page of cat.pages || []) {
+            if (page.name === pageName) {
+              return page;
+            }
+          }
+          if (cat.categories) {
+            const found = findPage(cat.categories);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const page = findPage(config.categories);
+      if (page && isNotionUrl(page.url)) {
+        currentUrl = page.url;
+        currentName = page.name;
+        blockTypes = page.blockTypes || null;
+      }
+    } catch (e) {
+      console.warn('Error obteniendo información de la página:', e);
+    }
+  }
+  
+  // Si tenemos la URL y es una página de Notion, recargar el contenido
+  if (currentUrl && isNotionUrl(currentUrl) && notionContainer) {
+    const pageName = currentName || (pageTitle ? pageTitle.textContent : 'Page');
+    trackPageReloaded(pageName);
+    
+    // Limpiar caché de esta página ANTES de recargar
+    const pageId = extractNotionPageId(currentUrl);
+    if (pageId) {
+      const cacheKey = CACHE_PREFIX + pageId;
+      localStorage.removeItem(cacheKey);
+      console.log('🗑️ Caché limpiado para recarga:', pageId);
+    }
+    
+    // Recargar el contenido
+    await loadNotionContent(currentUrl, notionContainer, true, blockTypes);
   } else {
-    // Si no hay botón de refresh, recargar la página completa
-    location.reload();
+    // Fallback: intentar usar el botón de refresh si existe
+    const refreshButton = document.getElementById("refresh-page-button");
+    if (refreshButton) {
+      refreshButton.click();
+    } else {
+      // Si no hay botón de refresh, recargar la página completa
+      location.reload();
+    }
   }
 };
 
@@ -3828,13 +3901,18 @@ try {
         });
       });
       
-      // Solo mostrar botones de administración para GMs
+      // Añadir botones según el rol
+      // Settings y collapse para todos (GM y players)
+      buttonContainer.appendChild(settingsButton);
+      buttonContainer.appendChild(collapseAllButton);
+      
+      // Solo añadir botón de agregar para GMs
       if (isGM) {
-        buttonContainer.appendChild(settingsButton);
-        buttonContainer.appendChild(collapseAllButton);
         buttonContainer.appendChild(addButton);
-        header.appendChild(buttonContainer);
       }
+      
+      // Mostrar button-container para todos
+      header.appendChild(buttonContainer);
 
       // Renderizar páginas agrupadas por carpetas
       await renderPagesByCategories(pagesConfig, pageList, roomId);
@@ -4297,8 +4375,44 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
               await duplicatePageFromPageList(page, pageCategoryPath, roomId);
             }
           },
-          { separator: true },
         ];
+        
+        // Agregar opción de recargar si es Notion
+        const isNotionPage = isNotionUrl(page.url);
+        if (isNotionPage) {
+          menuItems.push({
+            icon: 'img/icon-reload.svg',
+            text: 'Reload content',
+            action: async () => {
+              // Obtener blockTypes si existen
+              const blockTypes = page.blockTypes || null;
+              trackPageReloaded(page.name);
+              
+              // Limpiar caché de esta página ANTES de recargar
+              const pageId = extractNotionPageId(page.url);
+              if (pageId) {
+                const cacheKey = CACHE_PREFIX + pageId;
+                localStorage.removeItem(cacheKey);
+                console.log('🗑️ Caché limpiado para recarga:', pageId);
+              }
+              
+              // Recargar el contenido si estamos viendo esta página
+              const notionContainer = document.getElementById("notion-container");
+              const pageTitle = document.getElementById("page-title");
+              if (notionContainer && !notionContainer.classList.contains('hidden') && pageTitle && pageTitle.textContent === page.name) {
+                await loadNotionContent(page.url, notionContainer, true, blockTypes);
+              } else {
+                // Si no estamos viendo la página, solo recargar la lista
+                const pageList = document.getElementById("page-list");
+                if (pageList) {
+                  await renderPagesByCategories(config, pageList, roomId);
+                }
+              }
+            }
+          });
+        }
+        
+        menuItems.push({ separator: true });
         
         // Agregar opciones de mover si es posible
         if (canMoveUp || canMoveDown) {
@@ -7460,6 +7574,29 @@ async function showSettings() {
   
   // Ocultar botones de página que podrían haber quedado visibles
   hidePageHeaderButtons();
+  
+  // Detectar si es GM o player
+  const isGM = await getUserRole();
+  
+  // Ocultar secciones que no son de feedback para players
+  const allForms = document.querySelectorAll('#settings-container .form');
+  
+  if (!isGM) {
+    // Si es player, ocultar todas las secciones excepto feedback (última)
+    allForms.forEach((form, index) => {
+      // La última sección es feedback, las demás se ocultan
+      if (index < allForms.length - 1) {
+        form.style.display = 'none';
+      } else {
+        form.style.display = '';
+      }
+    });
+  } else {
+    // Si es GM, mostrar todas las secciones
+    allForms.forEach(form => {
+      form.style.display = '';
+    });
+  }
   
   const currentToken = getUserToken() || '';
   const maskedToken = currentToken ? currentToken.substring(0, 8) + '...' + currentToken.substring(currentToken.length - 4) : '';
