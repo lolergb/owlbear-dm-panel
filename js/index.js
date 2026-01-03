@@ -7869,16 +7869,27 @@ async function showSettings() {
       return;
     }
     
-            // Usar el roomId obtenido al inicio de la función, o intentar obtenerlo de nuevo
-            let currentRoomId = roomId;
-            if (!currentRoomId) {
-              try {
-                if (typeof OBR !== 'undefined' && OBR.room && OBR.room.getId) {
-                  currentRoomId = await OBR.room.getId();
-                }
-              } catch (e) {
-                console.warn('No se pudo obtener roomId:', e);
+            // Obtener roomId - SIEMPRE intentar obtenerlo de OBR primero
+            let currentRoomId = null;
+            try {
+              if (typeof OBR !== 'undefined' && OBR.room && OBR.room.id) {
+                // Primero intentar con la propiedad directa (más confiable)
+                currentRoomId = OBR.room.id;
+                console.log('🔍 roomId obtenido de OBR.room.id:', currentRoomId);
               }
+              if (!currentRoomId && typeof OBR !== 'undefined' && OBR.room && OBR.room.getId) {
+                // Fallback al método async
+                currentRoomId = await OBR.room.getId();
+                console.log('🔍 roomId obtenido de OBR.room.getId():', currentRoomId);
+              }
+            } catch (e) {
+              console.warn('No se pudo obtener roomId de OBR:', e);
+            }
+            
+            // Fallback: usar el roomId del scope si lo tenemos
+            if (!currentRoomId && roomId) {
+              currentRoomId = roomId;
+              console.log('🔍 roomId obtenido del scope:', currentRoomId);
             }
             
             // Limpiar el cache antes de guardar para evitar conflictos
