@@ -3731,10 +3731,11 @@ try {
         roomMetadataConfig = await loadPagesFromRoomMetadata();
       }
       
-      // Si no hay configuración 'default' en localStorage, cargarla desde la URL y guardarla
-      // Solo el GM necesita cargar/guardar la configuración default
-      if (!defaultConfig && isGM) {
-        log('📥 [GM] No se encontró configuración "default" en localStorage, cargando desde URL pública...');
+      // Si no hay configuración 'default' en localStorage Y no hay configuración para el roomId,
+      // cargar desde la URL y guardarla. Solo el GM necesita cargar/guardar la configuración default.
+      // Si ya hay configuración para el roomId, NO cargar el default (el usuario ya tiene su vault)
+      if (!defaultConfig && !currentRoomConfig && isGM) {
+        log('📥 [GM] No hay configuración, cargando "default" desde URL pública...');
         defaultConfig = await getDefaultJSON();
         if (defaultConfig && defaultConfig.categories && defaultConfig.categories.length > 0) {
           await savePagesJSON(defaultConfig, 'default');
