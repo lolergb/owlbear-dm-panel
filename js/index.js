@@ -1995,7 +1995,7 @@ function renderBlock(block) {
                 data-image-url="${imageUrl}" 
                 data-image-caption="${caption.replace(/"/g, '&quot;')}"
                 data-block-id="${block.id}"
-                loading="lazy"
+                loading="eager"
                 onload="this.classList.add('loaded'); const loading = this.parentElement.querySelector('.image-loading'); if(loading) loading.remove();"
               />
               <button class="notion-image-share-button share-button" 

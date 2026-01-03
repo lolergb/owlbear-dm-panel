@@ -169,7 +169,6 @@
   position: relative;
   display: inline-block;
   max-width: 100%;
-  margin: var(--spacing-lg) 0;
   min-height: var(--min-height-image-container);
 }
 
