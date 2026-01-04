@@ -3478,9 +3478,9 @@ async function showPageSelectorForToken(itemId, pagesConfig, roomId) {
         // Agregar página con su información
         const page = category.pages[item.index];
         if (page.url) {
-          // Crear indentación visual (2 espacios por nivel, similar a 16px del vault)
-          // Usar caracteres visuales para mejor jerarquía: "  " por cada nivel
-          const indent = '  '.repeat(level);
+          // Crear indentación visual usando entidades HTML (&#8194; = en-space)
+          // 2 en-spaces por nivel para mejor visualización en el select
+          const indent = '&#8194;&#8194;'.repeat(level);
           const displayPath = currentPath.join(' / ');
           
           allPages.push({
