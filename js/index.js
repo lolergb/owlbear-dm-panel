@@ -8067,6 +8067,19 @@ async function showSettings() {
     });
   }
 
+  // Patreon button - evitar múltiples listeners
+  const patreonBtn = document.getElementById('patreon-btn');
+  if (patreonBtn && !patreonBtn.dataset.listenerAdded) {
+    patreonBtn.dataset.listenerAdded = 'true';
+    patreonBtn.addEventListener('click', () => {
+      const patreonUrl = 'https://patreon.com/usegmvault';
+      window.open(patreonUrl, '_blank', 'noopener,noreferrer');
+      trackEvent('patreon_opened', {
+        source: 'settings'
+      });
+    });
+  }
+
   // Feedback button - evitar múltiples listeners
   const feedbackBtn = document.getElementById('feedback-btn');
   if (feedbackBtn && !feedbackBtn.dataset.listenerAdded) {
