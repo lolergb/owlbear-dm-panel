@@ -3580,18 +3580,26 @@ async function showPageSelectorForToken(itemId, pagesConfig, roomId) {
         let statsApplied = false;
         if (is5eToolsUrl(selectedPage.url)) {
           const detected = detect5eToolsContent(selectedPage.url);
+          console.log('🔍 Contenido detectado:', detected);
           if (detected && detected.type === 'bestiary') {
             try {
               console.log('📊 Detectada página de bestiary, cargando stats...');
+              console.log('📊 Parámetros:', { source: detected.source, id: detected.id, itemId });
               const stats = await apply5eToolsStatsToToken(itemId, detected.source, detected.id);
-              if (stats) {
+              console.log('📊 Stats devueltas:', stats);
+              if (stats && (stats.hp !== null || stats.ac !== null)) {
                 statsApplied = true;
               }
             } catch (error) {
-              console.warn('⚠️ No se pudieron aplicar stats automáticamente:', error);
+              console.error('❌ Error aplicando stats:', error);
+              console.error('❌ Stack:', error.stack);
               // No mostrar error al usuario, solo log
             }
+          } else {
+            console.log('⚠️ No es un bestiary o no se detectó correctamente');
           }
+        } else {
+          console.log('ℹ️ No es una URL de 5e.tools');
         }
         
         // Mensaje de confirmación
@@ -3678,45 +3686,75 @@ async function apply5eToolsStatsToToken(itemId, source, monsterId) {
     const item = items[0];
     
     // Actualizar el token con las stats
-    // Stat Bubbles usa metadatos con namespace "com.bubbles"
-    const BUBBLES_METADATA_KEY = "com.bubbles";
+    // Stat Bubbles puede usar diferentes namespaces, probamos varios
+    const BUBBLES_NAMESPACES = [
+      "com.bubbles",
+      "com.bubbles.tracker", 
+      "bubbles",
+      "stat-bubbles"
+    ];
+    
+    console.log('🔧 Aplicando stats al token:', { itemId, hp, ac });
+    console.log('📦 Token antes de actualizar:', JSON.stringify(item, null, 2));
     
     await OBR.scene.items.updateItems([item], (updateItems) => {
       const token = updateItems[0];
       
-      // Inicializar metadatos de Stat Bubbles si no existen
-      if (!token.metadata[BUBBLES_METADATA_KEY]) {
-        token.metadata[BUBBLES_METADATA_KEY] = {};
-      }
-      
-      const bubblesData = token.metadata[BUBBLES_METADATA_KEY];
-      
-      // Actualizar HP si está disponible
-      if (hp !== null) {
-        // Stat Bubbles usa: hitPoints (current), maxHitPoints (max)
-        bubblesData.hitPoints = hp;
-        bubblesData.maxHitPoints = hp;
+      // Probar todos los namespaces posibles de Stat Bubbles
+      BUBBLES_NAMESPACES.forEach(namespace => {
+        if (!token.metadata[namespace]) {
+          token.metadata[namespace] = {};
+        }
         
-        // También guardar en formato alternativo para compatibilidad
+        const bubblesData = token.metadata[namespace];
+        
+        // Actualizar HP si está disponible
+        if (hp !== null) {
+          // Diferentes formatos posibles
+          bubblesData.hitPoints = hp;
+          bubblesData.maxHitPoints = hp;
+          bubblesData.hp = hp;
+          bubblesData.maxHp = hp;
+          bubblesData.currentHP = hp;
+          bubblesData.maxHP = hp;
+        }
+        
+        // Actualizar AC si está disponible
+        if (ac !== null) {
+          bubblesData.armorClass = ac;
+          bubblesData.ac = ac;
+          bubblesData.AC = ac;
+        }
+      });
+      
+      // También intentar directamente en el objeto (no en metadata)
+      if (hp !== null) {
         if (!token.dndStats) {
           token.dndStats = {};
         }
         token.dndStats.hitPoints = hp;
         token.dndStats.maxHitPoints = hp;
         
+        // Formato alternativo
+        if (!token.stats) {
+          token.stats = {};
+        }
+        token.stats.hp = hp;
+        token.stats.maxHp = hp;
+        
         console.log(`✅ HP configurado: ${hp} (current y max)`);
       }
       
-      // Actualizar AC si está disponible
       if (ac !== null) {
-        // Stat Bubbles usa: armorClass
-        bubblesData.armorClass = ac;
-        
-        // También guardar en formato alternativo para compatibilidad
         if (!token.dndStats) {
           token.dndStats = {};
         }
         token.dndStats.armorClass = ac;
+        
+        if (!token.stats) {
+          token.stats = {};
+        }
+        token.stats.ac = ac;
         
         console.log(`✅ AC configurado: ${ac}`);
       }
@@ -3729,6 +3767,8 @@ async function apply5eToolsStatsToToken(itemId, source, monsterId) {
       if (ac !== null) {
         token.metadata[`${METADATA_KEY}/monsterAC`] = ac;
       }
+      
+      console.log('📦 Token después de actualizar:', JSON.stringify(token.metadata, null, 2));
     });
     
     console.log('✅ Stats aplicadas al token:', { hp, ac });
