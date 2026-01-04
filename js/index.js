@@ -3367,8 +3367,8 @@ async function setupTokenContextMenus(pagesConfig, roomId) {
         // Pequeña espera para que el panel se abra
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Mostrar selector de páginas
-        showPageSelectorForToken(item.id, pagesConfig, roomId);
+        // Mostrar selector de páginas (obtiene la configuración más reciente)
+        await showPageSelectorForToken(item.id, pagesConfig, roomId);
       }
     });
     
@@ -3447,7 +3447,16 @@ async function setupTokenContextMenus(pagesConfig, roomId) {
 }
 
 // Función para mostrar selector de páginas para vincular a un token
-function showPageSelectorForToken(itemId, pagesConfig, roomId) {
+async function showPageSelectorForToken(itemId, pagesConfig, roomId) {
+  // Obtener la configuración más reciente cada vez que se llama
+  const currentConfig = getPagesJSONFromLocalStorage(roomId) || getPagesJSON(roomId) || await getDefaultJSON();
+  
+  // Verificar que la configuración sea válida
+  if (!currentConfig || !currentConfig.categories) {
+    alert('No pages configured. Add pages from the main panel.');
+    return;
+  }
+  
   // Recopilar todas las páginas de la configuración
   const allPages = [];
   
@@ -3476,7 +3485,7 @@ function showPageSelectorForToken(itemId, pagesConfig, roomId) {
     }
   }
   
-  collectPages(pagesConfig.categories);
+  collectPages(currentConfig.categories);
   
   if (allPages.length === 0) {
     alert('No pages configured. Add pages from the main panel.');
