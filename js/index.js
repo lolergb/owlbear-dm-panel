@@ -3598,8 +3598,22 @@ async function showPageSelectorForToken(itemId, pagesConfig, roomId) {
           } else {
             console.log('⚠️ No es un bestiary o no se detectó correctamente');
           }
+        } else if (isNotionUrl(selectedPage.url)) {
+          // Si es una página de Notion, intentar extraer HP y AC del contenido
+          try {
+            console.log('📊 Detectada página de Notion, buscando stats...');
+            const stats = await applyNotionStatsToToken(itemId, selectedPage.url);
+            console.log('📊 Stats devueltas de Notion:', stats);
+            if (stats && (stats.hp !== null || stats.ac !== null)) {
+              statsApplied = true;
+            }
+          } catch (error) {
+            console.error('❌ Error aplicando stats de Notion:', error);
+            console.error('❌ Stack:', error.stack);
+            // No mostrar error al usuario, solo log
+          }
         } else {
-          console.log('ℹ️ No es una URL de 5e.tools');
+          console.log('ℹ️ No es una URL de 5e.tools ni Notion');
         }
         
         // Mensaje de confirmación
@@ -3683,51 +3697,8 @@ async function apply5eToolsStatsToToken(itemId, source, monsterId) {
       return;
     }
     
-    const item = items[0];
-    
-    // Actualizar el token con las stats
-    // Stat Bubbles usa el namespace: "com.owlbear-rodeo-bubbles-extension/metadata"
-    const BUBBLES_METADATA_KEY = "com.owlbear-rodeo-bubbles-extension/metadata";
-    
-    console.log('🔧 Aplicando stats al token:', { itemId, hp, ac });
-    console.log('📦 Token antes de actualizar:', JSON.stringify(item.metadata, null, 2));
-    
-    await OBR.scene.items.updateItems([item], (updateItems) => {
-      const token = updateItems[0];
-      
-      // Inicializar metadatos de Stat Bubbles si no existen
-      if (!token.metadata[BUBBLES_METADATA_KEY]) {
-        token.metadata[BUBBLES_METADATA_KEY] = {};
-      }
-      
-      const bubblesData = token.metadata[BUBBLES_METADATA_KEY];
-      
-      // Actualizar HP si está disponible
-      // Stat Bubbles usa: "health" (current) y "max health" (max) - ¡con espacio!
-      if (hp !== null) {
-        bubblesData["health"] = hp;
-        bubblesData["max health"] = hp;
-        console.log(`✅ HP configurado: ${hp} (current y max)`);
-      }
-      
-      // Actualizar AC si está disponible
-      // Stat Bubbles usa: "armor class" - ¡con espacio!
-      if (ac !== null) {
-        bubblesData["armor class"] = ac;
-        console.log(`✅ AC configurado: ${ac}`);
-      }
-      
-      // Guardar también en nuestros metadatos para referencia
-      if (hp !== null) {
-        token.metadata[`${METADATA_KEY}/monsterHP`] = hp;
-        token.metadata[`${METADATA_KEY}/monsterMaxHP`] = hp;
-      }
-      if (ac !== null) {
-        token.metadata[`${METADATA_KEY}/monsterAC`] = ac;
-      }
-      
-      console.log('📦 Token después de actualizar:', JSON.stringify(token.metadata[BUBBLES_METADATA_KEY], null, 2));
-    });
+    // Usar la función compartida para aplicar las stats
+    await applyStatsToToken(itemId, hp, ac);
     
     console.log('✅ Stats aplicadas al token:', { hp, ac });
     
@@ -3738,6 +3709,180 @@ async function apply5eToolsStatsToToken(itemId, source, monsterId) {
     console.error('❌ Error aplicando stats al token:', error);
     throw error;
   }
+}
+
+/**
+ * Extraer HP y AC de una página de Notion y aplicarlos a un token
+ * @param {string} itemId - ID del token
+ * @param {string} notionUrl - URL de la página de Notion
+ */
+async function applyNotionStatsToToken(itemId, notionUrl) {
+  try {
+    // Extraer el pageId de la URL de Notion
+    const pageId = extractNotionPageId(notionUrl);
+    if (!pageId) {
+      console.warn('⚠️ No se pudo extraer el pageId de la URL de Notion');
+      return null;
+    }
+    
+    console.log('📖 Cargando bloques de Notion para extraer stats...');
+    
+    // Cargar bloques de Notion (sin caché para obtener datos frescos)
+    const blocks = await fetchNotionBlocks(pageId, false);
+    if (!blocks || blocks.length === 0) {
+      console.warn('⚠️ No se encontraron bloques en la página de Notion');
+      return null;
+    }
+    
+    // Buscar HP y AC en los bloques
+    let hp = null;
+    let ac = null;
+    
+    // Función recursiva para buscar en todos los bloques y sus hijos
+    const searchInBlocks = (blocksToSearch) => {
+      for (const block of blocksToSearch) {
+        // Buscar en el texto del bloque
+        if (block.paragraph || block.heading_1 || block.heading_2 || block.heading_3 || 
+            block.callout || block.bulleted_list_item || block.numbered_list_item) {
+          const richText = block.paragraph?.rich_text || 
+                          block.heading_1?.rich_text || 
+                          block.heading_2?.rich_text || 
+                          block.heading_3?.rich_text ||
+                          block.callout?.rich_text ||
+                          block.bulleted_list_item?.rich_text ||
+                          block.numbered_list_item?.rich_text;
+          
+          if (richText && Array.isArray(richText)) {
+            const text = richText.map(rt => rt.plain_text || '').join(' ').toLowerCase();
+            
+            // Buscar HP (Hit Points)
+            if (!hp) {
+              // Patrones: "Hit Points: 18", "HP: 18", "Hit Points 18", "18 HP"
+              const hpPatterns = [
+                /hit\s+points?[:\s]+(\d+)/i,
+                /hp[:\s]+(\d+)/i,
+                /(\d+)\s+hit\s+points?/i,
+                /(\d+)\s+hp/i
+              ];
+              
+              for (const pattern of hpPatterns) {
+                const match = text.match(pattern);
+                if (match) {
+                  hp = parseInt(match[1]);
+                  console.log(`✅ HP encontrado: ${hp} (patrón: ${pattern})`);
+                  break;
+                }
+              }
+            }
+            
+            // Buscar AC (Armor Class)
+            if (!ac) {
+              // Patrones: "Armor Class: 12", "AC: 12", "Armor Class 12", "12 AC"
+              const acPatterns = [
+                /armor\s+class[:\s]+(\d+)/i,
+                /ac[:\s]+(\d+)/i,
+                /(\d+)\s+armor\s+class/i,
+                /(\d+)\s+ac/i
+              ];
+              
+              for (const pattern of acPatterns) {
+                const match = text.match(pattern);
+                if (match) {
+                  ac = parseInt(match[1]);
+                  console.log(`✅ AC encontrado: ${ac} (patrón: ${pattern})`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        
+        // Buscar recursivamente en los hijos
+        if (block.children && Array.isArray(block.children) && block.children.length > 0) {
+          searchInBlocks(block.children);
+        }
+      }
+    };
+    
+    // Buscar en todos los bloques
+    searchInBlocks(blocks);
+    
+    if (!hp && !ac) {
+      console.log('⚠️ No se encontraron HP o AC en la página de Notion');
+      return null;
+    }
+    
+    console.log('📊 Stats extraídas de Notion:', { hp, ac });
+    
+    // Aplicar las stats al token usando la función compartida
+    await applyStatsToToken(itemId, hp, ac);
+    
+    return { hp, ac };
+    
+  } catch (error) {
+    console.error('❌ Error extrayendo stats de Notion:', error);
+    throw error;
+  }
+}
+
+/**
+ * Aplicar HP y AC a un token (función compartida)
+ * @param {string} itemId - ID del token
+ * @param {number|null} hp - Hit Points
+ * @param {number|null} ac - Armor Class
+ */
+async function applyStatsToToken(itemId, hp, ac) {
+  if (!hp && !ac) {
+    console.log('⚠️ No hay stats para aplicar');
+    return;
+  }
+  
+  // Obtener el token actual
+  const items = await OBR.scene.items.getItems([itemId]);
+  if (items.length === 0) {
+    console.warn('⚠️ Token no encontrado');
+    return;
+  }
+  
+  const item = items[0];
+  
+  // Stat Bubbles usa el namespace: "com.owlbear-rodeo-bubbles-extension/metadata"
+  const BUBBLES_METADATA_KEY = "com.owlbear-rodeo-bubbles-extension/metadata";
+  
+  console.log('🔧 Aplicando stats al token:', { itemId, hp, ac });
+  
+  await OBR.scene.items.updateItems([item], (updateItems) => {
+    const token = updateItems[0];
+    
+    // Inicializar metadatos de Stat Bubbles si no existen
+    if (!token.metadata[BUBBLES_METADATA_KEY]) {
+      token.metadata[BUBBLES_METADATA_KEY] = {};
+    }
+    
+    const bubblesData = token.metadata[BUBBLES_METADATA_KEY];
+    
+    // Actualizar HP si está disponible
+    if (hp !== null) {
+      bubblesData["health"] = hp;
+      bubblesData["max health"] = hp;
+      console.log(`✅ HP configurado: ${hp} (current y max)`);
+    }
+    
+    // Actualizar AC si está disponible
+    if (ac !== null) {
+      bubblesData["armor class"] = ac;
+      console.log(`✅ AC configurado: ${ac}`);
+    }
+    
+    // Guardar también en nuestros metadatos para referencia
+    if (hp !== null) {
+      token.metadata[`${METADATA_KEY}/monsterHP`] = hp;
+      token.metadata[`${METADATA_KEY}/monsterMaxHP`] = hp;
+    }
+    if (ac !== null) {
+      token.metadata[`${METADATA_KEY}/monsterAC`] = ac;
+    }
+  });
 }
 
 // Intentar inicializar Owlbear con manejo de errores
