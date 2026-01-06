@@ -8508,10 +8508,16 @@ async function showSettings() {
   const viewJsonBtn = document.getElementById('view-json-btn');
   const loadJsonBtn = document.getElementById('load-json-btn');
   const downloadJsonBtn = document.getElementById('download-json-btn');
+  const loadJsonUrlBtn = document.getElementById('load-json-url-btn');
+  const loadJsonUrlInput = document.getElementById('load-json-url-input');
   
-  // Ocultar botón "Load vault" para Co-GM (solo lectura)
+  // Ocultar botones de cargar vault para Co-GM (solo lectura)
   if (loadJsonBtn && isCoGMGlobal) {
     loadJsonBtn.style.display = 'none';
+  }
+  if (loadJsonUrlBtn && isCoGMGlobal) {
+    loadJsonUrlBtn.style.display = 'none';
+    if (loadJsonUrlInput) loadJsonUrlInput.style.display = 'none';
   }
   
   // Mostrar botón "Ver JSON" solo si es tu cuenta (DEBUG_MODE activado)
@@ -8850,6 +8856,127 @@ async function showSettings() {
       } catch (e) {
         console.error('Error al cargar JSON:', e);
         alert('❌ Error loading JSON: ' + e.message);
+      }
+    });
+  }
+  
+  // Cargar JSON desde URL
+  if (loadJsonUrlBtn && loadJsonUrlInput && !loadJsonUrlBtn.dataset.listenerAdded) {
+    loadJsonUrlBtn.dataset.listenerAdded = 'true';
+    
+    // Función compartida para cargar JSON (usada tanto por botón como por Enter)
+    const loadJSONFromURL = async (url) => {
+      if (!url || !url.trim()) {
+        alert('❌ Please enter a valid URL');
+        return;
+      }
+      
+      try {
+        // Añadir indicador de carga
+        loadJsonUrlBtn.disabled = true;
+        loadJsonUrlBtn.textContent = 'Loading...';
+        
+        // Hacer fetch a la URL
+        const response = await fetch(url.trim());
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const parsed = await response.json();
+        
+        // Validar estructura básica
+        if (!parsed.categories || !Array.isArray(parsed.categories)) {
+          throw new Error('JSON must have a "categories" array');
+        }
+        
+        // Obtener roomId
+        let currentRoomId = null;
+        try {
+          if (typeof OBR !== 'undefined' && OBR.room && OBR.room.id) {
+            currentRoomId = OBR.room.id;
+            log('🔍 roomId obtenido de OBR.room.id:', currentRoomId);
+          }
+          if (!currentRoomId && typeof OBR !== 'undefined' && OBR.room && OBR.room.getId) {
+            currentRoomId = await OBR.room.getId();
+            log('🔍 roomId obtenido de OBR.room.getId():', currentRoomId);
+          }
+        } catch (e) {
+          console.warn('No se pudo obtener roomId de OBR:', e);
+        }
+        
+        if (!currentRoomId && roomId) {
+          currentRoomId = roomId;
+          log('🔍 roomId obtenido del scope:', currentRoomId);
+        }
+        
+        // Limpiar el cache antes de guardar
+        pagesConfigCache = null;
+        
+        // Borrar default si tenemos un roomId válido
+        if (currentRoomId) {
+          const defaultStorageKey = 'notion-pages-json-default';
+          try {
+            localStorage.removeItem(defaultStorageKey);
+            log('🗑️ Default eliminado del localStorage (nuevo vault cargado desde URL para roomId:', currentRoomId, ')');
+          } catch (e) {
+            console.error('❌ Error al borrar default:', e);
+          }
+        } else {
+          console.warn('⚠️ No hay roomId, el vault se guardará como default');
+        }
+        
+        // Guardar la nueva configuración
+        const saveSuccess = await savePagesJSON(parsed, currentRoomId);
+        if (saveSuccess) {
+          // Count items for tracking
+          const countItems = (config) => {
+            let count = 0;
+            const countRecursive = (cats) => {
+              if (!cats) return;
+              cats.forEach(cat => {
+                if (cat.pages) count += cat.pages.length;
+                if (cat.categories) countRecursive(cat.categories);
+              });
+            };
+            if (config.categories) countRecursive(config.categories);
+            return count;
+          };
+          trackJSONImported(countItems(parsed));
+          
+          alert('✅ Vault loaded successfully from URL. Configuration has been updated.');
+          closeSettings();
+          
+          // Actualizar la vista principal
+          const pageList = document.getElementById("page-list");
+          if (pageList) {
+            await renderPagesByCategories(parsed, pageList, currentRoomId);
+          } else {
+            window.location.reload();
+          }
+        } else {
+          alert('❌ Error saving vault. Check the console for details.');
+        }
+      } catch (e) {
+        console.error('Error al cargar vault desde URL:', e);
+        alert('❌ Error loading vault from URL: ' + e.message);
+      } finally {
+        // Restaurar botón
+        loadJsonUrlBtn.disabled = false;
+        loadJsonUrlBtn.textContent = 'Load from URL';
+      }
+    };
+    
+    // Click handler para el botón
+    loadJsonUrlBtn.addEventListener('click', async () => {
+      const url = loadJsonUrlInput.value.trim();
+      await loadJSONFromURL(url);
+    });
+    
+    // Enter key handler para el input
+    loadJsonUrlInput.addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter') {
+        const url = loadJsonUrlInput.value.trim();
+        await loadJSONFromURL(url);
       }
     });
   }
