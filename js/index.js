@@ -780,10 +780,12 @@ async function scanNotionPageRecursive(pageId, onProgress) {
     
     if (childPages.length === 0) {
       // Es una página hoja (sin subpáginas) → es una "page" en el vault
+      // Usar la URL que devuelve la API de Notion (incluye el título en la URL)
+      const pageUrl = pageInfo.url || `https://www.notion.so/${id}`;
       return {
         type: 'page',
         name: title,
-        url: buildNotionPageUrl(id),
+        url: pageUrl,
         id: id
       };
     } else {
