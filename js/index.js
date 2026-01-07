@@ -743,52 +743,6 @@ function extractNotionPageTitle(page) {
 }
 
 /**
- * Extrae el ID de página de una URL de Notion
- */
-function extractNotionPageId(url) {
-  // Formatos soportados:
-  // https://www.notion.so/workspace/Page-Title-abc123def456...
-  // https://notion.so/Page-Title-abc123def456...
-  // https://www.notion.so/abc123def456...
-  // abc123def456... (ID directo)
-  
-  // Limpiar la URL
-  url = url.trim();
-  
-  // Si ya es un ID (32 caracteres hex sin guiones, o con guiones)
-  const idRegex = /^[a-f0-9]{32}$/i;
-  const idWithDashesRegex = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-  
-  if (idRegex.test(url)) {
-    return url;
-  }
-  if (idWithDashesRegex.test(url)) {
-    return url.replace(/-/g, '');
-  }
-  
-  // Extraer de URL
-  // El ID está al final, después del último guión del título
-  const urlMatch = url.match(/([a-f0-9]{32})(?:\?|$)/i);
-  if (urlMatch) {
-    return urlMatch[1];
-  }
-  
-  // Intentar extraer ID con guiones de la URL
-  const urlMatchDashes = url.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?:\?|$)/i);
-  if (urlMatchDashes) {
-    return urlMatchDashes[1].replace(/-/g, '');
-  }
-  
-  // Último intento: buscar 32 caracteres hexadecimales en cualquier parte
-  const anyIdMatch = url.match(/[a-f0-9]{32}/i);
-  if (anyIdMatch) {
-    return anyIdMatch[0];
-  }
-  
-  return null;
-}
-
-/**
  * Construye la URL de Notion para una página
  */
 function buildNotionPageUrl(pageId) {
