@@ -1,0 +1,471 @@
+/**
+ * @fileoverview Renderizador de bloques de Notion a HTML
+ * 
+ * Convierte los bloques de la API de Notion a HTML.
+ */
+
+import { log, logWarn } from '../utils/logger.js';
+
+/**
+ * Renderizador de contenido de Notion
+ */
+export class NotionRenderer {
+  constructor() {
+    // Referencia al NotionService para obtener bloques hijos
+    this.notionService = null;
+  }
+
+  /**
+   * Inyecta dependencias
+   * @param {Object} deps - Dependencias
+   */
+  setDependencies({ notionService }) {
+    if (notionService) this.notionService = notionService;
+  }
+
+  /**
+   * Renderiza rich text de Notion a HTML
+   * @param {Array} richTextArray - Array de rich text
+   * @returns {string}
+   */
+  renderRichText(richTextArray) {
+    if (!richTextArray || richTextArray.length === 0) return '';
+    
+    return richTextArray.map(text => {
+      let content = text.plain_text || '';
+      
+      // Convertir saltos de línea a <br>
+      content = content.replace(/\n/g, '<br>');
+      
+      if (text.annotations) {
+        if (text.annotations.bold) content = `<strong class="notion-text-bold">${content}</strong>`;
+        if (text.annotations.italic) content = `<em class="notion-text-italic">${content}</em>`;
+        if (text.annotations.underline) content = `<u class="notion-text-underline">${content}</u>`;
+        if (text.annotations.strikethrough) content = `<s class="notion-text-strikethrough">${content}</s>`;
+        if (text.annotations.code) content = `<code class="notion-text-code">${content}</code>`;
+        
+        if (text.href) {
+          content = `<a href="${text.href}" class="notion-text-link" target="_blank" rel="noopener noreferrer">${content}</a>`;
+        }
+      }
+      
+      return content;
+    }).join('');
+  }
+
+  /**
+   * Renderiza un bloque individual
+   * @param {Object} block - Bloque de Notion
+   * @returns {string}
+   */
+  renderBlock(block) {
+    const type = block.type;
+    
+    switch (type) {
+      case 'paragraph':
+        const paragraphText = this.renderRichText(block.paragraph?.rich_text);
+        return `<p class="notion-paragraph">${paragraphText || '<br>'}</p>`;
+      
+      case 'heading_1':
+        return `<h1>${this.renderRichText(block.heading_1?.rich_text)}</h1>`;
+      
+      case 'heading_2':
+        return `<h2>${this.renderRichText(block.heading_2?.rich_text)}</h2>`;
+      
+      case 'heading_3':
+        return `<h3>${this.renderRichText(block.heading_3?.rich_text)}</h3>`;
+      
+      case 'bulleted_list_item':
+        return `<li class="notion-bulleted-list-item">${this.renderRichText(block.bulleted_list_item?.rich_text)}</li>`;
+      
+      case 'numbered_list_item':
+        return `<li class="notion-numbered-list-item">${this.renderRichText(block.numbered_list_item?.rich_text)}</li>`;
+      
+      case 'image':
+        return this._renderImage(block);
+      
+      case 'divider':
+        return '<div class="notion-divider"></div>';
+      
+      case 'code':
+        const codeText = this.renderRichText(block.code?.rich_text);
+        return `<pre class="notion-code"><code>${codeText}</code></pre>`;
+      
+      case 'quote':
+        return `<div class="notion-quote">${this.renderRichText(block.quote?.rich_text)}</div>`;
+      
+      case 'callout':
+        return this._renderCallout(block);
+      
+      case 'table':
+        return `<div class="notion-table-container" data-table-id="${block.id}">Loading table...</div>`;
+      
+      case 'child_database':
+        return '<div class="notion-database-placeholder">[Base de datos - Requiere implementación adicional]</div>';
+      
+      case 'column_list':
+        return '<div class="notion-column-list">[Columnas - Procesando...]</div>';
+      
+      case 'column':
+        return '<div class="notion-column">[Columna - Procesando...]</div>';
+      
+      case 'to_do':
+        const todo = block.to_do;
+        const todoText = this.renderRichText(todo?.rich_text);
+        const checked = todo?.checked ? 'checked' : '';
+        return `<div class="notion-todo"><input type="checkbox" ${checked} disabled> ${todoText}</div>`;
+      
+      case 'toggle':
+        const toggle = block.toggle;
+        const toggleText = this.renderRichText(toggle?.rich_text);
+        return `<details class="notion-toggle"><summary>${toggleText}</summary><div class="notion-toggle-content" data-toggle-id="${block.id}">Loading content...</div></details>`;
+      
+      case 'bookmark':
+        return this._renderBookmark(block);
+      
+      case 'video':
+        return this._renderVideo(block);
+      
+      case 'embed':
+        return this._renderEmbed(block);
+      
+      case 'link_preview':
+        return this._renderLinkPreview(block);
+      
+      default:
+        logWarn('Tipo de bloque no soportado:', type);
+        return '';
+    }
+  }
+
+  /**
+   * Renderiza una imagen
+   * @private
+   */
+  _renderImage(block) {
+    const image = block.image;
+    let imageUrl = null;
+    let imageType = null;
+    
+    if (image?.external?.url) {
+      imageUrl = image.external.url;
+      imageType = 'external';
+    } else if (image?.file?.url) {
+      imageUrl = image.file.url;
+      imageType = 'file';
+    }
+    
+    const caption = image?.caption ? this.renderRichText(image.caption) : '';
+    
+    if (imageUrl) {
+      const imageId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      log('🖼️ Renderizando imagen:', {
+        type: imageType,
+        url: imageUrl.substring(0, 80) + (imageUrl.length > 80 ? '...' : ''),
+        hasCaption: !!caption
+      });
+      
+      return `
+        <div class="notion-image" data-block-id="${block.id}">
+          <div class="notion-image-container">
+            <div class="image-loading">
+              <div class="loading-spinner"></div>
+            </div>
+            <img 
+              src="${imageUrl}" 
+              alt="${caption || 'Imagen de Notion'}" 
+              class="notion-image-clickable" 
+              data-image-id="${imageId}" 
+              data-image-url="${imageUrl}" 
+              data-image-caption="${caption.replace(/"/g, '&quot;')}"
+              data-block-id="${block.id}"
+              loading="eager"
+              onload="this.classList.add('loaded'); const loading = this.parentElement.querySelector('.image-loading'); if(loading) loading.remove();"
+              onerror="this.style.opacity='0.5';"
+            />
+            <button class="notion-image-share-button share-button" 
+                    data-image-url="${imageUrl}" 
+                    data-image-caption="${caption.replace(/"/g, '&quot;')}"
+                    title="Show to players">
+              <img src="img/icon-players.svg" alt="Share" />
+            </button>
+          </div>
+          ${caption ? `<div class="notion-image-caption">${caption}</div>` : ''}
+        </div>
+      `;
+    } else {
+      logWarn('Bloque de imagen sin URL válida:', block.id);
+      return '<div class="notion-image-unavailable">[Imagen no disponible]</div>';
+    }
+  }
+
+  /**
+   * Renderiza un callout
+   * @private
+   */
+  _renderCallout(block) {
+    const callout = block.callout;
+    const icon = callout?.icon?.emoji || '💡';
+    const calloutText = this.renderRichText(callout?.rich_text);
+    return `
+      <div class="notion-callout">
+        <div class="notion-callout-icon">${icon}</div>
+        <div class="notion-callout-content">${calloutText}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * Renderiza un bookmark
+   * @private
+   */
+  _renderBookmark(block) {
+    const url = block.bookmark?.url || '';
+    const caption = block.bookmark?.caption ? this.renderRichText(block.bookmark.caption) : '';
+    return `
+      <div class="notion-bookmark">
+        <a href="${url}" target="_blank" rel="noopener noreferrer">${caption || url}</a>
+      </div>
+    `;
+  }
+
+  /**
+   * Renderiza un video
+   * @private
+   */
+  _renderVideo(block) {
+    const video = block.video;
+    let videoUrl = video?.external?.url || video?.file?.url || '';
+    
+    if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+      // Convertir URL de YouTube a embed
+      const videoId = this._extractYouTubeId(videoUrl);
+      if (videoId) {
+        return `
+          <div class="notion-video">
+            <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>
+          </div>
+        `;
+      }
+    }
+    
+    return `
+      <div class="notion-video">
+        <video controls src="${videoUrl}"></video>
+      </div>
+    `;
+  }
+
+  /**
+   * Renderiza un embed
+   * @private
+   */
+  _renderEmbed(block) {
+    const url = block.embed?.url || '';
+    return `
+      <div class="notion-embed">
+        <iframe src="${url}" frameborder="0"></iframe>
+      </div>
+    `;
+  }
+
+  /**
+   * Renderiza un link preview
+   * @private
+   */
+  _renderLinkPreview(block) {
+    const url = block.link_preview?.url || '';
+    return `
+      <div class="notion-link-preview">
+        <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>
+      </div>
+    `;
+  }
+
+  /**
+   * Extrae el ID de YouTube de una URL
+   * @private
+   */
+  _extractYouTubeId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  }
+
+  /**
+   * Renderiza múltiples bloques con manejo de listas
+   * @param {Array} blocks - Array de bloques
+   * @param {Array|string} blockTypes - Tipos a filtrar (opcional)
+   * @param {number} headingLevelOffset - Offset para niveles de heading
+   * @returns {Promise<string>}
+   */
+  async renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0) {
+    let html = '';
+    let inList = false;
+    let listType = null;
+    let listItems = [];
+
+    const typesArray = blockTypes ? (Array.isArray(blockTypes) ? blockTypes : [blockTypes]) : null;
+
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const type = block.type;
+
+      // Filtrar por tipo si hay filtro activo
+      if (typesArray && !this._matchesFilter(block, typesArray)) {
+        continue;
+      }
+
+      // Manejo de listas
+      if (type === 'bulleted_list_item' || type === 'numbered_list_item') {
+        const currentListType = type === 'bulleted_list_item' ? 'ul' : 'ol';
+        
+        if (!inList || listType !== currentListType) {
+          // Cerrar lista anterior si existe
+          if (inList && listItems.length > 0) {
+            html += `<${listType} class="notion-list">${listItems.join('')}</${listType}>`;
+            listItems = [];
+          }
+          inList = true;
+          listType = currentListType;
+        }
+        
+        listItems.push(this.renderBlock(block));
+        continue;
+      } else if (inList) {
+        // Cerrar lista si el siguiente bloque no es de lista
+        html += `<${listType} class="notion-list">${listItems.join('')}</${listType}>`;
+        listItems = [];
+        inList = false;
+        listType = null;
+      }
+
+      // Manejar toggle
+      if (type === 'toggle' && block.has_children) {
+        html += await this._renderToggleWithChildren(block, typesArray, headingLevelOffset);
+        continue;
+      }
+
+      // Manejar column_list
+      if (type === 'column_list') {
+        const result = await this._renderColumnList(block, blocks, i, typesArray, headingLevelOffset);
+        html += result.html;
+        i += result.siblingColumnsCount;
+        continue;
+      }
+
+      // Renderizar bloque normal
+      html += this.renderBlock(block);
+    }
+
+    // Cerrar lista pendiente
+    if (inList && listItems.length > 0) {
+      html += `<${listType} class="notion-list">${listItems.join('')}</${listType}>`;
+    }
+
+    return html;
+  }
+
+  /**
+   * Verifica si un bloque coincide con el filtro
+   * @private
+   */
+  _matchesFilter(block, typesArray) {
+    if (!typesArray) return true;
+    
+    // Los toggles y column_list siempre se procesan para buscar contenido filtrado
+    if (block.type === 'toggle' || block.type === 'column_list') {
+      return true;
+    }
+    
+    return typesArray.includes(block.type);
+  }
+
+  /**
+   * Renderiza un toggle con sus hijos
+   * @private
+   */
+  async _renderToggleWithChildren(block, typesArray, headingLevelOffset) {
+    const toggleText = this.renderRichText(block.toggle?.rich_text);
+    let toggleContent = '';
+
+    if (block.has_children && this.notionService) {
+      const children = await this.notionService.fetchChildBlocks(block.id);
+      if (children.length > 0) {
+        toggleContent = await this.renderBlocks(children, typesArray, headingLevelOffset);
+      }
+    }
+
+    // Si hay filtro y el toggle no tiene contenido filtrado, no mostrarlo
+    if (typesArray && !typesArray.includes('toggle') && !toggleContent.trim()) {
+      return '';
+    }
+
+    return `
+      <details class="notion-toggle">
+        <summary class="notion-toggle-summary">${toggleText}</summary>
+        <div class="notion-toggle-content">${toggleContent}</div>
+      </details>
+    `;
+  }
+
+  /**
+   * Renderiza una lista de columnas
+   * @private
+   */
+  async _renderColumnList(columnListBlock, allBlocks, currentIndex, typesArray, headingLevelOffset) {
+    let columns = [];
+    let siblingColumnsCount = 0;
+
+    // Buscar columnas como hijos
+    if (columnListBlock.has_children && this.notionService) {
+      const children = await this.notionService.fetchChildBlocks(columnListBlock.id);
+      columns = children.filter(b => b.type === 'column');
+    }
+
+    // O como bloques hermanos
+    if (columns.length === 0) {
+      let index = currentIndex + 1;
+      while (index < allBlocks.length && allBlocks[index].type === 'column') {
+        columns.push(allBlocks[index]);
+        siblingColumnsCount++;
+        index++;
+      }
+    }
+
+    if (columns.length === 0) {
+      return { html: '<div class="notion-column-list">[Sin columnas]</div>', siblingColumnsCount: 0 };
+    }
+
+    const columnHtmls = await Promise.all(columns.map(async (col) => {
+      let content = '';
+      if (col.has_children && this.notionService) {
+        const children = await this.notionService.fetchChildBlocks(col.id);
+        content = await this.renderBlocks(children, typesArray, headingLevelOffset);
+      }
+      
+      if (typesArray && !content.trim()) {
+        return '';
+      }
+      
+      return `<div class="notion-column">${content}</div>`;
+    }));
+
+    const validColumns = columnHtmls.filter(h => h);
+    if (validColumns.length === 0) {
+      return { html: '', siblingColumnsCount };
+    }
+
+    const html = `
+      <div class="notion-column-list" style="--column-count: ${validColumns.length}">
+        ${validColumns.join('')}
+      </div>
+    `;
+
+    return { html, siblingColumnsCount };
+  }
+}
+
+export default NotionRenderer;
+
