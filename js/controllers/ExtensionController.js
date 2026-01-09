@@ -1288,25 +1288,27 @@ export class ExtensionController {
     log('📄 Cargando archivo HTML de demo:', page.url);
 
     try {
-      // Resolver URL - si es absoluta pero apunta a producción, ajustar al entorno actual
-      let fetchUrl = page.url;
+      // Para archivos de demo, siempre usar el origen actual + path relativo
+      // Esto evita problemas de CORS entre deploy-preview y producción
       const currentOrigin = window.location.origin;
+      let fetchUrl;
       
-      log('📄 URL original:', fetchUrl);
-      log('📄 Current origin:', currentOrigin);
-      
-      // Detectar si estamos en deploy-preview (tiene formato: deploy-preview-X--nombre.netlify.app)
-      const isDeployPreview = currentOrigin.includes('deploy-preview-');
-      
-      // Si la URL apunta a producción pero estamos en deploy-preview, ajustar
-      if (isDeployPreview && fetchUrl.includes('owlbear-gm-vault.netlify.app')) {
-        fetchUrl = fetchUrl.replace('https://owlbear-gm-vault.netlify.app', currentOrigin);
-        log('📄 Ajustando URL para deploy-preview:', fetchUrl);
+      // Extraer solo el path del archivo de demo
+      if (page.url.includes('/content-demo/')) {
+        // Extraer el path desde /content-demo/
+        const pathMatch = page.url.match(/\/content-demo\/[^?#]+/);
+        if (pathMatch) {
+          fetchUrl = currentOrigin + pathMatch[0];
+        } else {
+          fetchUrl = page.url;
+        }
+      } else {
+        fetchUrl = this._resolveAppUrl(page.url);
       }
       
-      // Si es relativa, resolver
-      fetchUrl = this._resolveAppUrl(fetchUrl);
-      log('📄 Fetching URL final:', fetchUrl);
+      log('📄 URL original:', page.url);
+      log('📄 Current origin:', currentOrigin);
+      log('📄 Fetching URL:', fetchUrl);
 
       // Fetch del HTML
       const response = await fetch(fetchUrl);
