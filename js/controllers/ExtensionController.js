@@ -1235,102 +1235,89 @@ export class ExtensionController {
   }
 
   /**
-   * Obtiene la URL base de la app
+   * Obtiene la URL base de la app (copiado del código original)
    * @private
    */
   _getAppBaseUrl() {
     const currentOrigin = window.location.origin;
-    log('🌐 Current origin:', currentOrigin);
-    
+    // Si estamos en localhost, usar el origen actual
     if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
       return currentOrigin;
     }
-    // Detectar cualquier deploy de Netlify (incluyendo deploy-preview)
-    if (currentOrigin.includes('netlify.app') || currentOrigin.includes('owlbear-gm-vault')) {
+    // Si estamos en Netlify o cualquier otro dominio de la app
+    if (currentOrigin.includes('owlbear-gm-vault.netlify.app')) {
       return currentOrigin;
     }
-    // Si estamos en un iframe (Owlbear), usar URL de Netlify
+    // Si estamos en un iframe (como dentro de Owlbear), usar la URL de Netlify
     return 'https://owlbear-gm-vault.netlify.app';
   }
 
   /**
-   * Resuelve una URL relativa a absoluta
+   * Resuelve una URL relativa a absoluta (copiado del código original)
    * @private
    */
   _resolveAppUrl(url) {
-    if (!url) return url;
-    
-    // Si ya es absoluta, devolverla tal cual
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      log('🔗 URL ya es absoluta:', url);
-      return url;
-    }
-    
+    if (!url || typeof url !== 'string') return url;
+    // Si ya es una URL absoluta, retornarla tal cual
+    if (url.match(/^https?:\/\//i)) return url;
+    // Si es una URL relativa, resolverla con la base de la app
     const baseUrl = this._getAppBaseUrl();
-    let resolved;
-    if (url.startsWith('/')) {
-      resolved = baseUrl + url;
-    } else {
-      resolved = baseUrl + '/' + url;
-    }
-    log('🔗 URL resuelta:', url, '→', resolved);
-    return resolved;
+    return new URL(url, baseUrl).toString();
   }
 
   /**
    * Renderiza una página HTML de demo (cargando contenido directamente)
+   * Copiado del código original con ajustes mínimos
    * @private
    */
   async _renderDemoHtmlPage(page) {
     const notionContent = document.getElementById('notion-content');
-    if (!notionContent) return;
+    if (!notionContent) {
+      logError('No se encontró el contenedor de contenido');
+      return;
+    }
 
-    log('📄 Cargando archivo HTML de demo:', page.url);
+    // Mostrar loading
+    notionContent.innerHTML = `
+      <div class="empty-state notion-loading">
+        <div class="empty-state-icon">⏳</div>
+        <p class="empty-state-text">Loading content...</p>
+      </div>
+    `;
 
     try {
-      // Para archivos de demo, siempre usar el origen actual + path relativo
-      // Esto evita problemas de CORS entre deploy-preview y producción
+      // Resolver la URL - si es absoluta apuntando a producción pero estamos en deploy-preview, ajustar
+      let urlToFetch = page.url;
       const currentOrigin = window.location.origin;
-      let fetchUrl;
       
-      // Extraer solo el path del archivo de demo
-      if (page.url.includes('/content-demo/')) {
-        // Extraer el path desde /content-demo/
-        const pathMatch = page.url.match(/\/content-demo\/[^?#]+/);
-        if (pathMatch) {
-          fetchUrl = currentOrigin + pathMatch[0];
-        } else {
-          fetchUrl = page.url;
-        }
-      } else {
-        fetchUrl = this._resolveAppUrl(page.url);
+      // Si la URL es absoluta y apunta a producción, pero estamos en deploy-preview, reemplazar dominio
+      if (urlToFetch.includes('https://owlbear-gm-vault.netlify.app') && 
+          currentOrigin.includes('deploy-preview-')) {
+        urlToFetch = urlToFetch.replace('https://owlbear-gm-vault.netlify.app', currentOrigin);
+        log('📄 Ajustando URL de producción a deploy-preview:', urlToFetch);
       }
       
-      log('📄 URL original:', page.url);
-      log('📄 Current origin:', currentOrigin);
-      log('📄 Fetching URL:', fetchUrl);
-
-      // Fetch del HTML
-      const response = await fetch(fetchUrl);
-      log('📄 Response status:', response.status, response.ok);
+      // Resolver la URL relativa a absoluta (igual que el código original)
+      const absoluteUrl = this._resolveAppUrl(urlToFetch);
+      log('📄 Cargando demo HTML desde:', absoluteUrl);
       
+      // Obtener el HTML del archivo
+      const response = await fetch(absoluteUrl);
       if (!response.ok) {
-        throw new Error(`Error loading demo HTML: ${response.status} ${response.statusText}`);
+        throw new Error(`Error loading demo HTML: ${response.status}`);
       }
-
-      const html = await response.text();
-      log('📄 HTML recibido, longitud:', html.length);
       
+      const html = await response.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-
+      
       // Extraer solo el contenido del div #notion-content
       const demoContent = doc.querySelector('#notion-content');
-      log('📄 Contenido #notion-content encontrado:', !!demoContent);
-
+      
       if (demoContent) {
+        // Copiar el contenido HTML directamente
         notionContent.innerHTML = demoContent.innerHTML;
-
+        
         // Copiar estilos si existen
         const styles = doc.querySelectorAll('style');
         styles.forEach(style => {
@@ -1338,25 +1325,18 @@ export class ExtensionController {
           styleElement.textContent = style.textContent;
           document.head.appendChild(styleElement);
         });
-
+        
         // Attach event handlers para imágenes
         this._attachImageHandlers(notionContent);
       } else {
-        // Si no hay #notion-content, usar todo el body
-        log('⚠️ No se encontró #notion-content, usando body completo');
-        const body = doc.querySelector('body');
-        notionContent.innerHTML = body ? body.innerHTML : html;
-        this._attachImageHandlers(notionContent);
+        throw new Error('No se encontró #notion-content en el archivo HTML de demo');
       }
-
-      log('✅ Contenido HTML de demo cargado correctamente');
-    } catch (e) {
-      logError('❌ Error cargando HTML de demo:', e);
+    } catch (error) {
+      logError('Error al cargar contenido HTML de demo:', error);
       notionContent.innerHTML = `
-        <div class="error-container">
-          <h2>Error loading demo content</h2>
-          <p class="error-message">${e.message}</p>
-          <p>URL: ${page.url}</p>
+        <div class="empty-state notion-loading">
+          <div class="empty-state-icon">❌</div>
+          <p class="empty-state-text">Error loading demo content: ${error.message}</p>
         </div>
       `;
     }
