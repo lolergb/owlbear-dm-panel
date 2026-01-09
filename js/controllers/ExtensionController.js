@@ -150,13 +150,18 @@ export class ExtensionController {
    * Abre una página de contenido
    * @param {Object} page - Página a abrir
    */
-  async openPage(pageData) {
+  async openPage(pageData, categoryPath = [], pageIndex = 0) {
     if (!this.contentContainer) return;
 
     // Convertir objeto plano a instancia Page si es necesario
     const page = pageData instanceof Page ? pageData : Page.fromJSON(pageData);
 
     log('📖 Abriendo página:', page.name);
+
+    // Guardar referencia a la página actual
+    this.currentPage = page;
+    this.currentCategoryPath = categoryPath;
+    this.currentPageIndex = pageIndex;
 
     // Mostrar el contenedor de Notion y ocultar la lista
     const notionContainer = document.getElementById('notion-container');
@@ -170,6 +175,9 @@ export class ExtensionController {
     if (backButton) backButton.classList.remove('hidden');
     if (pageTitle) pageTitle.textContent = page.name;
     if (buttonContainer) buttonContainer.classList.add('hidden');
+
+    // Crear botones del header para la página de detalle
+    this._createPageDetailButtons(page);
 
     // Mostrar loading
     const notionContent = document.getElementById('notion-content');
@@ -188,12 +196,17 @@ export class ExtensionController {
       if (page.isNotionPage() && pageId) {
         await this._renderNotionPage(page, pageId);
       } else if (page.isImage()) {
-        this._renderImagePage(page);
+        await this._renderImagePage(page);
+      } else if (page.isVideo()) {
+        await this._renderVideoPage(page);
       } else if (page.isGoogleDoc()) {
         this._renderGoogleDocPage(page);
       } else {
         this._renderExternalPage(page);
       }
+
+      // Después de renderizar, adjuntar handlers de imágenes
+      this._attachImageHandlers();
     } catch (e) {
       logError('Error al abrir página:', e);
       if (notionContent) {
@@ -703,6 +716,289 @@ export class ExtensionController {
     if (backButton) backButton.classList.add('hidden');
     if (pageTitle) pageTitle.textContent = 'GM vault';
     if (buttonContainer) buttonContainer.classList.remove('hidden');
+
+    // Ocultar botones de página de detalle
+    this._hidePageDetailButtons();
+
+    // Limpiar referencia a página actual
+    this.currentPage = null;
+  }
+
+  /**
+   * Crea los botones del header para la página de detalle
+   * @param {Page} page - La página actual
+   * @private
+   */
+  _createPageDetailButtons(page) {
+    const header = document.getElementById('header');
+    if (!header) return;
+
+    // Ocultar botones anteriores primero
+    this._hidePageDetailButtons();
+
+    // Solo crear botones si no estamos en modo modal
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('modal') === 'true') return;
+
+    // Botón Open Modal (para todos)
+    let openModalBtn = document.getElementById('page-open-modal-button-header');
+    if (!openModalBtn) {
+      openModalBtn = document.createElement('button');
+      openModalBtn.id = 'page-open-modal-button-header';
+      openModalBtn.className = 'icon-button';
+      openModalBtn.innerHTML = '<img src="img/open-modal.svg" class="icon-button-icon" alt="Open modal" />';
+      openModalBtn.title = 'Open in modal';
+      header.appendChild(openModalBtn);
+    }
+    openModalBtn.classList.remove('hidden');
+    openModalBtn.dataset.currentUrl = page.url;
+    openModalBtn.dataset.currentName = page.name;
+    
+    // Remover listener anterior y agregar nuevo
+    const newOpenModalBtn = openModalBtn.cloneNode(true);
+    openModalBtn.parentNode.replaceChild(newOpenModalBtn, openModalBtn);
+    newOpenModalBtn.addEventListener('click', () => this._openPageInModal(page));
+
+    // Solo para GM: Botón de Visibilidad
+    if (this.isGM) {
+      let visibilityBtn = document.getElementById('page-visibility-button-header');
+      if (!visibilityBtn) {
+        visibilityBtn = document.createElement('button');
+        visibilityBtn.id = 'page-visibility-button-header';
+        visibilityBtn.className = 'icon-button';
+        header.appendChild(visibilityBtn);
+      }
+      visibilityBtn.classList.remove('hidden');
+      const isVisible = page.visibleToPlayers === true;
+      visibilityBtn.innerHTML = `<img src="img/${isVisible ? 'icon-eye-open' : 'icon-eye-close'}.svg" class="icon-button-icon" alt="Visibility" />`;
+      visibilityBtn.title = isVisible ? 'Visible to players (click to hide)' : 'Hidden from players (click to show)';
+      
+      // Remover listener anterior y agregar nuevo
+      const newVisibilityBtn = visibilityBtn.cloneNode(true);
+      visibilityBtn.parentNode.replaceChild(newVisibilityBtn, visibilityBtn);
+      newVisibilityBtn.addEventListener('click', async () => {
+        const newVisibility = !page.visibleToPlayers;
+        await this._handleVisibilityChange(page, this.currentCategoryPath, this.currentPageIndex, newVisibility);
+        // Actualizar icono
+        newVisibilityBtn.innerHTML = `<img src="img/${newVisibility ? 'icon-eye-open' : 'icon-eye-close'}.svg" class="icon-button-icon" alt="Visibility" />`;
+        newVisibilityBtn.title = newVisibility ? 'Visible to players (click to hide)' : 'Hidden from players (click to show)';
+        page.visibleToPlayers = newVisibility;
+      });
+
+      // Botón Menú Contextual (solo GM)
+      let contextMenuBtn = document.getElementById('page-context-menu-button-header');
+      if (!contextMenuBtn) {
+        contextMenuBtn = document.createElement('button');
+        contextMenuBtn.id = 'page-context-menu-button-header';
+        contextMenuBtn.className = 'icon-button';
+        contextMenuBtn.innerHTML = '<img src="img/icon-contextualmenu.svg" class="icon-button-icon" alt="Menu" />';
+        contextMenuBtn.title = 'Page options';
+        header.appendChild(contextMenuBtn);
+      }
+      contextMenuBtn.classList.remove('hidden');
+      
+      // Remover listener anterior y agregar nuevo
+      const newContextMenuBtn = contextMenuBtn.cloneNode(true);
+      contextMenuBtn.parentNode.replaceChild(newContextMenuBtn, contextMenuBtn);
+      newContextMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._showPageDetailContextMenu(newContextMenuBtn, page);
+      });
+    }
+
+    // Botón Refresh (solo para Notion)
+    if (page.isNotionPage()) {
+      let refreshBtn = document.getElementById('refresh-page-button');
+      if (!refreshBtn) {
+        refreshBtn = document.createElement('button');
+        refreshBtn.id = 'refresh-page-button';
+        refreshBtn.className = 'icon-button';
+        refreshBtn.innerHTML = '<img src="img/icon-reload.svg" class="icon-button-icon" alt="Refresh" />';
+        refreshBtn.title = 'Refresh content';
+        header.appendChild(refreshBtn);
+      }
+      refreshBtn.classList.remove('hidden');
+      
+      // Remover listener anterior y agregar nuevo
+      const newRefreshBtn = refreshBtn.cloneNode(true);
+      refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
+      newRefreshBtn.addEventListener('click', async () => {
+        const pageId = page.getNotionPageId();
+        if (pageId) {
+          // Forzar recarga sin caché
+          await this._renderNotionPage(page, pageId, true);
+        }
+      });
+    }
+  }
+
+  /**
+   * Oculta los botones de la página de detalle
+   * @private
+   */
+  _hidePageDetailButtons() {
+    const buttonIds = [
+      'page-open-modal-button-header',
+      'page-visibility-button-header',
+      'page-context-menu-button-header',
+      'refresh-page-button'
+    ];
+    buttonIds.forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.add('hidden');
+    });
+  }
+
+  /**
+   * Muestra el menú contextual de la página de detalle
+   * @private
+   */
+  _showPageDetailContextMenu(button, page) {
+    // Cerrar menú existente
+    const existing = document.getElementById('context-menu');
+    if (existing) existing.remove();
+
+    const rect = button.getBoundingClientRect();
+    
+    const menuItems = [
+      { 
+        icon: 'img/icon-edit.svg', 
+        text: 'Edit page',
+        action: () => this._showEditPageModal(page)
+      },
+      { separator: true },
+      { 
+        icon: 'img/icon-delete.svg', 
+        text: 'Delete page',
+        action: () => {
+          if (confirm(`Delete "${page.name}"?`)) {
+            this._handlePageDelete(page, this.currentCategoryPath, this.currentPageIndex);
+            this._goBackToList();
+          }
+        }
+      }
+    ];
+
+    const menu = this._createContextMenu(menuItems, { x: rect.left, y: rect.bottom + 4 }, () => {
+      button.classList.remove('context-menu-active');
+    });
+    button.classList.add('context-menu-active');
+  }
+
+  /**
+   * Abre la página actual en un modal de OBR
+   * @private
+   */
+  async _openPageInModal(page) {
+    if (!this.OBR || !this.OBR.modal) {
+      window.open(page.url, '_blank');
+      return;
+    }
+
+    try {
+      const currentPath = window.location.pathname;
+      const baseDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+      const baseUrl = window.location.origin + baseDir;
+
+      const modalUrl = new URL('index.html', baseUrl);
+      modalUrl.searchParams.set('modal', 'true');
+      modalUrl.searchParams.set('url', encodeURIComponent(page.url));
+      modalUrl.searchParams.set('name', encodeURIComponent(page.name));
+
+      await this.OBR.modal.open({
+        id: 'gm-vault-page-modal',
+        url: modalUrl.toString(),
+        height: 800,
+        width: 1200
+      });
+    } catch (e) {
+      logError('Error abriendo modal:', e);
+      window.open(page.url, '_blank');
+    }
+  }
+
+  /**
+   * Muestra modal para editar página desde la vista de detalle
+   * @private
+   */
+  _showEditPageModal(page) {
+    this._showModalForm('Edit Page', [
+      { name: 'name', label: 'Name', type: 'text', value: page.name, required: true },
+      { name: 'url', label: 'URL', type: 'url', value: page.url, required: true },
+      { name: 'visibleToPlayers', label: 'Visible to players', type: 'checkbox', value: page.visibleToPlayers }
+    ], async (data) => {
+      await this._handlePageEdit(page, this.currentCategoryPath, this.currentPageIndex, data);
+      // Actualizar título si cambió
+      const pageTitle = document.getElementById('page-title');
+      if (pageTitle && data.name) {
+        pageTitle.textContent = data.name;
+      }
+    });
+  }
+
+  /**
+   * Crea un menú contextual genérico
+   * @private
+   */
+  _createContextMenu(items, position, onClose) {
+    const existing = document.getElementById('context-menu');
+    if (existing) existing.remove();
+
+    const menu = document.createElement('div');
+    menu.id = 'context-menu';
+    menu.style.left = `${position.x}px`;
+    menu.style.top = `${position.y}px`;
+
+    const closeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+        if (onClose) onClose();
+      }
+    };
+
+    items.forEach(item => {
+      if (item.separator) {
+        const separator = document.createElement('div');
+        separator.className = 'context-menu__separator';
+        menu.appendChild(separator);
+        return;
+      }
+
+      const menuItem = document.createElement('div');
+      menuItem.className = 'context-menu__item';
+      
+      let iconHtml = '';
+      if (item.icon && item.icon.startsWith('img/')) {
+        const rotation = item.rotation ? `transform: ${item.rotation};` : '';
+        iconHtml = `<img src="${item.icon}" alt="" class="context-menu__icon" style="${rotation}" />`;
+      }
+      menuItem.innerHTML = `${iconHtml}<span>${item.text}</span>`;
+
+      menuItem.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+        if (onClose) onClose();
+        if (item.action) await item.action();
+      });
+
+      menu.appendChild(menuItem);
+    });
+
+    setTimeout(() => document.addEventListener('click', closeMenu), 0);
+    document.body.appendChild(menu);
+
+    // Ajustar posición si se sale de pantalla
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      menu.style.left = `${position.x - rect.width}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      menu.style.top = `${position.y - rect.height}px`;
+    }
+
+    return menu;
   }
 
   /**
@@ -788,9 +1084,16 @@ export class ExtensionController {
     const patreonBtn = document.getElementById('patreon-btn');
     const feedbackBtn = document.getElementById('feedback-btn');
 
-    // Mostrar token actual enmascarado
+    // Mostrar token actual en el input y enmascarado
     const currentToken = this.storageService.getUserToken() || '';
     const tokenMasked = document.getElementById('token-masked');
+    
+    // Rellenar el input con el token actual
+    if (tokenInput) {
+      tokenInput.value = currentToken;
+    }
+    
+    // Mostrar versión enmascarada
     if (tokenMasked && currentToken) {
       tokenMasked.textContent = `Current: ${currentToken.substring(0, 8)}...${currentToken.slice(-4)}`;
     }
@@ -1064,7 +1367,7 @@ export class ExtensionController {
     // Conectar UI Renderer con Event Handlers
     this.uiRenderer.setCallbacks({
       onPageClick: (page, categoryPath, pageIndex) => {
-        this.openPage(page);
+        this.openPage(page, categoryPath, pageIndex);
       },
       onVisibilityChange: (page, categoryPath, pageIndex, visible) => {
         this._handleVisibilityChange(page, categoryPath, pageIndex, visible);
@@ -1411,6 +1714,197 @@ export class ExtensionController {
    * Renderiza una página de Google Docs
    * @private
    */
+  /**
+   * Renderiza una página de video (YouTube, Vimeo)
+   * @private
+   */
+  async _renderVideoPage(page) {
+    // Mostrar contenido en notion-content (no iframe)
+    this._setNotionDisplayMode('notion');
+    
+    const notionContent = document.getElementById('notion-content');
+    if (!notionContent) return;
+
+    const url = page.url;
+    const videoType = url.includes('youtube.com') || url.includes('youtu.be') ? 'youtube' : 'vimeo';
+    
+    // Extraer ID del video
+    let videoId = null;
+    if (videoType === 'youtube') {
+      const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+      videoId = match ? match[1] : null;
+    } else if (videoType === 'vimeo') {
+      const match = url.match(/vimeo\.com\/(\d+)/);
+      videoId = match ? match[1] : null;
+    }
+
+    if (!videoId) {
+      notionContent.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">❌</div>
+          <p class="empty-state-text">Could not extract video ID</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Obtener thumbnail y embed URL
+    const thumbnailUrl = videoType === 'youtube'
+      ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+      : `https://vumbnail.com/${videoId}.jpg`;
+    
+    const embedUrl = videoType === 'youtube'
+      ? `https://www.youtube.com/embed/${videoId}?autoplay=1`
+      : `https://player.vimeo.com/video/${videoId}?autoplay=1`;
+
+    const caption = page.name || '';
+    const escapedCaption = caption.replace(/"/g, '&quot;');
+
+    notionContent.classList.add('centered-content');
+    notionContent.innerHTML = `
+      <div class="video-thumbnail-container" style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding: var(--spacing-lg);
+        gap: var(--spacing-lg);
+        position: relative;
+      ">
+        <div style="position: relative; display: inline-block; cursor: pointer;">
+          <img 
+            src="${thumbnailUrl}" 
+            alt="${caption || 'Video'}"
+            class="video-thumbnail-clickable"
+            data-video-url="${embedUrl}"
+            data-video-type="${videoType}"
+            style="
+              max-width: 100%;
+              max-height: calc(100vh - 150px);
+              object-fit: contain;
+              border-radius: var(--radius-lg);
+              transition: transform var(--transition-normal);
+            "
+          />
+          <div class="video-play-overlay" style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+          ">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          ${this.isGM ? `
+            <button class="video-share-button share-button" 
+                    data-video-url="${url}" 
+                    data-video-type="${videoType}"
+                    data-video-caption="${escapedCaption}"
+                    title="Show to players"
+                    style="
+                      position: absolute;
+                      top: 10px;
+                      right: 10px;
+                      background: rgba(0,0,0,0.7);
+                      border: none;
+                      border-radius: 50%;
+                      width: 40px;
+                      height: 40px;
+                      cursor: pointer;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    ">
+              <img src="img/icon-players.svg" alt="Share" style="width: 24px; height: 24px;" />
+            </button>
+          ` : ''}
+        </div>
+        <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm);">Click to play video</p>
+      </div>
+    `;
+
+    // Handler para abrir video en modal
+    const thumbnail = notionContent.querySelector('.video-thumbnail-clickable');
+    if (thumbnail) {
+      thumbnail.addEventListener('click', () => {
+        this._openVideoModal(embedUrl, caption, videoType);
+      });
+    }
+
+    // Handler para compartir video
+    const shareBtn = notionContent.querySelector('.video-share-button');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._shareVideoToPlayers(url, caption, videoType);
+      });
+    }
+  }
+
+  /**
+   * Abre un video en modal de OBR
+   * @private
+   */
+  async _openVideoModal(embedUrl, caption, videoType) {
+    if (!this.OBR || !this.OBR.modal) {
+      window.open(embedUrl, '_blank');
+      return;
+    }
+
+    try {
+      const currentPath = window.location.pathname;
+      const baseDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+      const baseUrl = window.location.origin + baseDir;
+
+      const viewerUrl = new URL('html/video-viewer.html', baseUrl);
+      viewerUrl.searchParams.set('url', encodeURIComponent(embedUrl));
+      viewerUrl.searchParams.set('type', videoType);
+      if (caption) {
+        viewerUrl.searchParams.set('caption', encodeURIComponent(caption));
+      }
+
+      await this.OBR.modal.open({
+        id: 'gm-vault-video-modal',
+        url: viewerUrl.toString(),
+        height: 600,
+        width: 1000
+      });
+    } catch (e) {
+      logError('Error abriendo video modal:', e);
+      window.open(embedUrl, '_blank');
+    }
+  }
+
+  /**
+   * Comparte un video con los jugadores
+   * @private
+   */
+  async _shareVideoToPlayers(url, caption, videoType) {
+    if (!this.OBR || !this.OBR.broadcast) return;
+
+    try {
+      await this.OBR.broadcast.sendMessage('com.dmscreen/showVideo', {
+        url: url,
+        caption: caption || '',
+        type: videoType
+      });
+      log('📤 Video compartido con jugadores');
+      this._showFeedback('🎬 Video shared with players!');
+    } catch (e) {
+      logError('Error compartiendo video:', e);
+    }
+  }
+
   _renderGoogleDocPage(page) {
     // Cambiar a modo iframe
     this._setNotionDisplayMode('iframe');
@@ -1555,18 +2049,29 @@ export class ExtensionController {
    * @private
    */
   async _shareImageToPlayers(url, caption) {
-    if (!this.isGM) {
-      log('Solo el GM puede compartir imágenes');
+    if (!this.OBR || !this.OBR.broadcast) {
+      logError('OBR.broadcast no disponible');
       return;
     }
 
     try {
-      await this.broadcastService.sendMessage('SHOW_IMAGE', {
-        url: url,
-        caption: caption || '',
-        sharedBy: this.playerName || 'GM'
+      // Asegurarse de que la URL sea absoluta
+      let absoluteImageUrl = url;
+      if (url && !url.match(/^https?:\/\//i)) {
+        try {
+          absoluteImageUrl = new URL(url, window.location.origin).toString();
+        } catch (e) {
+          absoluteImageUrl = url;
+        }
+      }
+
+      // Usar el canal correcto como en el original
+      await this.OBR.broadcast.sendMessage('com.dmscreen/showImage', {
+        url: absoluteImageUrl,
+        caption: caption || ''
       });
       
+      log('📤 Imagen compartida con jugadores:', absoluteImageUrl.substring(0, 80));
       this._showFeedback('📸 Image shared with players!');
     } catch (e) {
       logError('Error compartiendo imagen:', e);

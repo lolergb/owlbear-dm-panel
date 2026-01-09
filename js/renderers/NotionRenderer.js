@@ -294,6 +294,79 @@ export class NotionRenderer {
   }
 
   /**
+   * Renderiza una tabla completa de Notion
+   * @param {Object} tableBlock - Bloque de tabla
+   * @returns {Promise<string>}
+   */
+  async renderTable(tableBlock) {
+    try {
+      if (!this.notionService) {
+        logWarn('NotionService no disponible para renderizar tabla');
+        return '<div class="notion-table-placeholder">[Tabla - NotionService no disponible]</div>';
+      }
+
+      // Obtener las filas de la tabla
+      const rows = await this.notionService.fetchBlocks(tableBlock.id);
+      
+      if (!rows || rows.length === 0) {
+        return `
+          <div class="empty-state notion-table-placeholder">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">Empty table</p>
+          </div>
+        `;
+      }
+      
+      // Obtener el número de columnas de la primera fila
+      const firstRow = rows[0];
+      const columnCount = firstRow?.table_row?.cells?.length || 0;
+      
+      if (columnCount === 0) {
+        return `
+          <div class="empty-state notion-table-placeholder">
+            <div class="empty-state-icon">📊</div>
+            <p class="empty-state-text">Table without columns</p>
+          </div>
+        `;
+      }
+      
+      let tableHtml = '<table class="notion-table">';
+      
+      // Renderizar cada fila
+      rows.forEach((rowBlock, rowIndex) => {
+        if (rowBlock.type === 'table_row') {
+          const cells = rowBlock.table_row?.cells || [];
+          tableHtml += '<tr>';
+          
+          // Renderizar cada celda
+          for (let i = 0; i < columnCount; i++) {
+            const cell = cells[i] || [];
+            const cellContent = this.renderRichText(cell);
+            // La primera fila suele ser el encabezado
+            const isHeader = rowIndex === 0;
+            const tag = isHeader ? 'th' : 'td';
+            tableHtml += `<${tag}>${cellContent || '&nbsp;'}</${tag}>`;
+          }
+          
+          tableHtml += '</tr>';
+        }
+      });
+      
+      tableHtml += '</table>';
+      return tableHtml;
+    } catch (error) {
+      logWarn('Error al renderizar tabla:', error);
+      return `
+        <div class="empty-state notion-table-placeholder">
+          <div class="empty-state-icon">⚠️</div>
+          <p class="empty-state-text">Error loading table</p>
+          <p class="empty-state-hint">${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  /**
    * Renderiza múltiples bloques con manejo de listas
    * @param {Array} blocks - Array de bloques
    * @param {Array|string} blockTypes - Tipos a filtrar (opcional)
@@ -352,6 +425,24 @@ export class NotionRenderer {
         const result = await this._renderColumnList(block, blocks, i, typesArray, headingLevelOffset);
         html += result.html;
         i += result.siblingColumnsCount;
+        continue;
+      }
+
+      // Manejar tablas
+      if (type === 'table') {
+        try {
+          const tableHtml = await this.renderTable(block);
+          html += tableHtml;
+          log('✅ Tabla renderizada:', block.id);
+        } catch (error) {
+          log('❌ Error al renderizar tabla:', error);
+          html += `
+            <div class="empty-state notion-table-placeholder">
+              <div class="empty-state-icon">⚠️</div>
+              <p class="empty-state-text">Error loading table</p>
+            </div>
+          `;
+        }
         continue;
       }
 
