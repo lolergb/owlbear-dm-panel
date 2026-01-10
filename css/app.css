@@ -648,33 +648,82 @@
     width: 32px;
     height: 32px;
     margin-left: auto;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-xs);
   }
+  
   .page-context-menu-button { z-index: 10; }
   
-  /* Botones de visibilidad para páginas y carpetas */
-  .category-visibility-button,
-  .page-visibility-button {
+  .page-context-menu-button img {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+  }
+  
+  /* Mostrar botones de acción en hover */
+  .page-button:hover .page-share-button,
+  .page-button:hover .page-visibility-button,
+  .page-button:hover .page-context-menu-button {
+    opacity: 1;
+  }
+  
+  /* Botones de compartir para páginas */
+  .page-share-button {
     position: absolute;
-    right: 40px; /* A la izquierda del botón de menú contextual */
+    right: calc(var(--spacing-sm) * 7); /* A la izquierda del botón de visibilidad */
     top: 50%;
     transform: translateY(-50%);
     opacity: 0;
     transition: opacity var(--transition-fast);
     width: 32px;
     height: 32px;
-  }
-  .page-visibility-button { 
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-xs);
     z-index: 10;
-    margin-right: var(--spacing-xs);
   }
   
-  /* Mantener visible el botón cuando el menú contextual está activo */
-  /* Usar !important para sobreescribir los estilos inline de opacity */
+  .page-share-button img {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+  }
+  
+  /* Botones de visibilidad para páginas y carpetas */
+  .category-visibility-button,
+  .page-visibility-button {
+    position: absolute;
+    right: calc(var(--spacing-sm) * 4); /* A la izquierda del botón de menú contextual */
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-xs);
+  }
+  
+  .page-visibility-button { 
+    z-index: 10;
+  }
+  
+  .page-visibility-button img {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+  }
+  
+  /* Mantener visible los botones cuando el menú contextual está activo */
   .category-context-menu-button.context-menu-active,
   .page-context-menu-button.context-menu-active,
   .category-title-container.context-menu-open .category-context-menu-button,
+  .page-button.context-menu-open .page-share-button,
+  .page-button.context-menu-open .page-visibility-button,
   .page-button.context-menu-open .page-context-menu-button {
-    opacity: 1 !important;
+    opacity: 1;
   }
   
   /* Mantener el hover visible en el padre cuando el menú está activo */
@@ -750,8 +799,8 @@
   }
   
   .context-menu__icon {
-    width: var(--icon-size-md);
-    height: var(--icon-size-md);
+    width: var(--icon-size-lg);
+    height: var(--icon-size-lg);
   }
   
   .context-menu__icon--rotate-up {

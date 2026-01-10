@@ -58,7 +58,7 @@ export class UIRenderer {
    */
   setCallbacks(callbacks) {
     const keys = [
-      'onPageClick', 'onVisibilityChange', 'onPageEdit', 'onPageDelete', 
+      'onPageClick', 'onVisibilityChange', 'onPageShare', 'onPageEdit', 'onPageDelete', 
       'onPageMove', 'onPageDuplicate', 'onCategoryEdit', 'onCategoryDelete',
       'onCategoryMove', 'onCategoryDuplicate', 'onAddPage', 'onAddCategory', 'onShowModal'
     ];
@@ -266,12 +266,24 @@ export class UIRenderer {
 
     // Botones de acción (solo GM)
     if (isGM) {
+      // Botón de compartir con players
+      const shareButton = document.createElement('button');
+      shareButton.className = 'page-share-button';
+      shareButton.innerHTML = '<img src="img/icon-players.svg" alt="Share">';
+      shareButton.title = 'Share with players';
+      
+      shareButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.onPageShare) {
+          this.onPageShare(page, categoryPath, pageIndex);
+        }
+      });
+
       // Botón de visibilidad
       const visibilityButton = document.createElement('button');
       visibilityButton.className = 'page-visibility-button';
       visibilityButton.innerHTML = `<img src="img/${page.visibleToPlayers ? 'icon-eye-open' : 'icon-eye-close'}.svg" alt="Visibility">`;
       visibilityButton.title = page.visibleToPlayers ? 'Visible to players' : 'Hidden from players';
-      visibilityButton.style.cssText = 'position: absolute; right: 32px; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity 0.2s; background: transparent; border: none; cursor: pointer; padding: 4px;';
       
       visibilityButton.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -285,33 +297,24 @@ export class UIRenderer {
       contextMenuButton.className = 'page-context-menu-button';
       contextMenuButton.innerHTML = '<img src="img/icon-contextualmenu.svg" alt="Menu">';
       contextMenuButton.title = 'Options';
-      contextMenuButton.style.cssText = 'position: absolute; right: 8px; top: 50%; transform: translateY(-50%); opacity: 0; transition: opacity 0.2s; background: transparent; border: none; cursor: pointer; padding: 4px;';
       
       contextMenuButton.addEventListener('click', (e) => {
         e.stopPropagation();
         this._showPageContextMenu(contextMenuButton, page, categoryPath, pageIndex);
       });
 
-      button.style.position = 'relative';
+      button.appendChild(shareButton);
       button.appendChild(visibilityButton);
       button.appendChild(contextMenuButton);
-
-      // Mostrar botones en hover
-      button.addEventListener('mouseenter', () => {
-        visibilityButton.style.opacity = '1';
-        contextMenuButton.style.opacity = '1';
-      });
-      button.addEventListener('mouseleave', () => {
-        if (!button.classList.contains('context-menu-open')) {
-          visibilityButton.style.opacity = '0';
-          contextMenuButton.style.opacity = '0';
-        }
-      });
+      // Los estilos de hover se manejan con CSS (.page-button:hover .page-*-button)
     }
 
     // Click para abrir página
     button.addEventListener('click', (e) => {
-      if (e.target.closest('.page-visibility-button')) return;
+      // Ignorar clicks en los botones de acción
+      if (e.target.closest('.page-share-button') || 
+          e.target.closest('.page-visibility-button') ||
+          e.target.closest('.page-context-menu-button')) return;
       
       if (this.onPageClick) {
         this.onPageClick(page, categoryPath, pageIndex);

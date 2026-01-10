@@ -449,7 +449,63 @@ export class ExtensionController {
   }
 
   /**
-   * Maneja el movimiento de una página
+   * Obtiene el orden combinado de elementos en un nivel
+   * @param {Object} parent - El nivel (config o categoría)
+   * @returns {Array} Array de {type: 'category'|'page', index: number}
+   * @private
+   */
+  _getCombinedOrder(parent) {
+    if (!parent) return [];
+    
+    // Si existe un orden guardado, usarlo
+    if (parent.order && Array.isArray(parent.order)) {
+      // Validar que todos los elementos del orden existen
+      const validOrder = parent.order.filter(item => {
+        if (item.type === 'category') {
+          return parent.categories && parent.categories[item.index];
+        } else if (item.type === 'page') {
+          return parent.pages && parent.pages[item.index];
+        }
+        return false;
+      });
+      
+      // Agregar elementos nuevos que no estén en el orden
+      const categories = parent.categories || [];
+      const pages = parent.pages || [];
+      
+      categories.forEach((cat, index) => {
+        if (!validOrder.some(o => o.type === 'category' && o.index === index)) {
+          validOrder.push({ type: 'category', index });
+        }
+      });
+      
+      pages.forEach((p, index) => {
+        if (!validOrder.some(o => o.type === 'page' && o.index === index)) {
+          validOrder.push({ type: 'page', index });
+        }
+      });
+      
+      return validOrder;
+    }
+    
+    // Si no hay orden guardado, generar uno por defecto (carpetas primero, luego páginas)
+    const order = [];
+    const categories = parent.categories || [];
+    const pages = parent.pages || [];
+    
+    categories.forEach((cat, index) => {
+      order.push({ type: 'category', index });
+    });
+    
+    pages.forEach((p, index) => {
+      order.push({ type: 'page', index });
+    });
+    
+    return order;
+  }
+
+  /**
+   * Maneja el movimiento de una página usando orden combinado
    * @param {Object} page - Página a mover
    * @param {Array} categoryPath - Ruta de categorías
    * @param {number} pageIndex - Índice de la página
@@ -474,29 +530,38 @@ export class ExtensionController {
     }
 
     const pages = currentLevel.pages || [];
-    const currentIndex = pages.findIndex(p => p.name === page.name);
+    const actualPageIndex = pages.findIndex(p => p.name === page.name);
     
-    if (currentIndex === -1) {
+    if (actualPageIndex === -1) {
       logError('No se encontró la página:', page.name);
       return;
     }
 
-    // Calcular nuevo índice
-    let newIndex;
-    if (direction === 'up') {
-      newIndex = currentIndex - 1;
-    } else {
-      newIndex = currentIndex + 1;
+    // Obtener orden combinado
+    const combinedOrder = this._getCombinedOrder(currentLevel);
+    const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === actualPageIndex);
+    
+    if (currentPos === -1) {
+      logError('No se encontró la página en el orden combinado');
+      return;
     }
 
+    // Calcular nueva posición
+    const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+
     // Verificar límites
-    if (newIndex < 0 || newIndex >= pages.length) {
+    if (newPos < 0 || newPos >= combinedOrder.length) {
       log('No se puede mover más en esa dirección');
       return;
     }
 
-    // Intercambiar posiciones
-    [pages[currentIndex], pages[newIndex]] = [pages[newIndex], pages[currentIndex]];
+    // Intercambiar posiciones en el orden combinado
+    const temp = combinedOrder[currentPos];
+    combinedOrder[currentPos] = combinedOrder[newPos];
+    combinedOrder[newPos] = temp;
+
+    // Guardar el nuevo orden
+    currentLevel.order = combinedOrder;
     
     await this.saveConfig(this.config);
   }
@@ -578,7 +643,7 @@ export class ExtensionController {
   }
 
   /**
-   * Maneja mover una categoría
+   * Maneja mover una categoría usando orden combinado
    * @private
    */
   async _handleCategoryMove(category, categoryPath, direction) {
@@ -586,6 +651,7 @@ export class ExtensionController {
 
     log(`↕️ Moviendo carpeta ${direction}:`, category.name);
 
+    // Navegar al nivel padre
     let currentLevel = this.config;
     for (let i = 0; i < categoryPath.length - 1; i++) {
       const catName = categoryPath[i];
@@ -595,14 +661,36 @@ export class ExtensionController {
     }
 
     const categories = currentLevel.categories || [];
-    const currentIndex = categories.findIndex(c => c.name === category.name);
+    const actualCategoryIndex = categories.findIndex(c => c.name === category.name);
     
-    if (currentIndex === -1) return;
+    if (actualCategoryIndex === -1) return;
 
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= categories.length) return;
+    // Obtener orden combinado
+    const combinedOrder = this._getCombinedOrder(currentLevel);
+    const currentPos = combinedOrder.findIndex(o => o.type === 'category' && o.index === actualCategoryIndex);
+    
+    if (currentPos === -1) {
+      logError('No se encontró la categoría en el orden combinado');
+      return;
+    }
 
-    [categories[currentIndex], categories[newIndex]] = [categories[newIndex], categories[currentIndex]];
+    // Calcular nueva posición
+    const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+
+    // Verificar límites
+    if (newPos < 0 || newPos >= combinedOrder.length) {
+      log('No se puede mover más en esa dirección');
+      return;
+    }
+
+    // Intercambiar posiciones en el orden combinado
+    const temp = combinedOrder[currentPos];
+    combinedOrder[currentPos] = combinedOrder[newPos];
+    combinedOrder[newPos] = temp;
+
+    // Guardar el nuevo orden
+    currentLevel.order = combinedOrder;
+
     await this.saveConfig(this.config);
   }
 
@@ -1293,6 +1381,12 @@ export class ExtensionController {
    * @private
    */
   async _openPageInModal(page) {
+    // Validar que page tenga url
+    if (!page || !page.url) {
+      logError('Error: página sin URL para abrir modal');
+      return;
+    }
+
     if (!this.OBR || !this.OBR.modal) {
       window.open(page.url, '_blank');
       return;
@@ -1305,8 +1399,13 @@ export class ExtensionController {
 
       const modalUrl = new URL('index.html', baseUrl);
       modalUrl.searchParams.set('modal', 'true');
-      modalUrl.searchParams.set('url', encodeURIComponent(page.url));
-      modalUrl.searchParams.set('name', encodeURIComponent(page.name));
+      modalUrl.searchParams.set('url', encodeURIComponent(page.url || ''));
+      modalUrl.searchParams.set('name', encodeURIComponent(page.name || 'Page'));
+
+      // Añadir blockTypes si existe
+      if (page.blockTypes && Array.isArray(page.blockTypes) && page.blockTypes.length > 0) {
+        modalUrl.searchParams.set('blockTypes', encodeURIComponent(JSON.stringify(page.blockTypes)));
+      }
 
       await this.OBR.modal.open({
         id: 'gm-vault-page-modal',
@@ -1316,7 +1415,9 @@ export class ExtensionController {
       });
     } catch (e) {
       logError('Error abriendo modal:', e);
-      window.open(page.url, '_blank');
+      if (page.url) {
+        window.open(page.url, '_blank');
+      }
     }
   }
 
@@ -1947,6 +2048,9 @@ export class ExtensionController {
       onVisibilityChange: (page, categoryPath, pageIndex, visible) => {
         this._handleVisibilityChange(page, categoryPath, pageIndex, visible);
       },
+      onPageShare: (page, categoryPath, pageIndex) => {
+        this._shareCurrentPageToPlayers(page);
+      },
       onPageEdit: (page, categoryPath, pageIndex, newData) => {
         this._handlePageEdit(page, categoryPath, pageIndex, newData);
       },
@@ -2239,7 +2343,7 @@ export class ExtensionController {
       const coverUrl = pageInfo.cover.external?.url || pageInfo.cover.file?.url;
       if (coverUrl) {
         headerHtml += `
-          <div class="notion-cover">
+          <div class="notion-page-cover">
             <div class="notion-image-container">
               <div class="image-loading">
                 <div class="loading-spinner"></div>
@@ -2247,12 +2351,14 @@ export class ExtensionController {
               <img src="${coverUrl}" alt="Page cover" class="notion-cover-image" 
                    data-image-url="${coverUrl}"
                    onload="this.classList.add('loaded'); const loading = this.parentElement.querySelector('.image-loading'); if(loading) loading.remove();" />
-              <button class="notion-image-share-button share-button" 
-                      data-image-url="${coverUrl}" 
-                      data-image-caption=""
-                      title="Show to players">
-                <img src="img/icon-players.svg" alt="Share" />
-              </button>
+              ${this.isGM ? `
+                <button class="notion-image-share-button share-button" 
+                        data-image-url="${coverUrl}" 
+                        data-image-caption=""
+                        title="Show to players">
+                  <img src="img/icon-players.svg" alt="Share" />
+                </button>
+              ` : ''}
             </div>
           </div>
         `;
