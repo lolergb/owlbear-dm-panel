@@ -321,6 +321,19 @@ export class AnalyticsService {
   }
 
   /**
+   * Track content too large to share (>64KB broadcast limit)
+   * @param {number} size - Tamaño estimado en bytes
+   * @param {string} channel - Canal de broadcast
+   */
+  trackContentTooLarge(size, channel) {
+    this.trackEvent('content_too_large', {
+      estimated_size: size,
+      estimated_kb: Math.round(size / 1024),
+      channel: channel
+    });
+  }
+
+  /**
    * Track cache cleared
    */
   trackCacheCleared() {

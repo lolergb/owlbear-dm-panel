@@ -5,7 +5,7 @@
  * Este modelo es independiente del framework y puede ser serializado a JSON.
  */
 
-import { extractNotionPageId, isNotionUrl } from '../utils/helpers.js';
+import { extractNotionPageId, isNotionUrl, isDemoHtmlFile } from '../utils/helpers.js';
 
 /**
  * Clase que representa una página de contenido
@@ -31,18 +31,40 @@ export class Page {
 
   /**
    * Obtiene el ID de página de Notion (si aplica)
+   * Para content-demo devuelve null ya que no son páginas de Notion reales
    * @returns {string|null}
    */
   getNotionPageId() {
+    // Content-demo no tiene pageId de Notion
+    if (this.isDemoHtmlFile()) return null;
     return extractNotionPageId(this.url);
   }
 
   /**
-   * Verifica si esta página es de Notion
+   * Verifica si esta página es de Notion real
    * @returns {boolean}
    */
   isNotionPage() {
+    if (!this.url) return false;
     return isNotionUrl(this.url);
+  }
+
+  /**
+   * Verifica si esta página es un archivo HTML de demo (content-demo)
+   * Estos se renderizan con estilo Notion pero son archivos HTML estáticos
+   * @returns {boolean}
+   */
+  isDemoHtmlFile() {
+    return isDemoHtmlFile(this.url);
+  }
+
+  /**
+   * Verifica si debe mostrarse con estilo Notion (Notion real o demo)
+   * @returns {boolean}
+   */
+  isNotionStyle() {
+    if (!this.url) return false;
+    return isNotionUrl(this.url) || isDemoHtmlFile(this.url);
   }
 
   /**

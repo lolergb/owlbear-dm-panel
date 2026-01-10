@@ -108,6 +108,17 @@ export function isNotionUrl(url) {
 }
 
 /**
+ * Verifica si la URL es un archivo HTML de demo local (content-demo)
+ * @param {string} url - URL a verificar
+ * @returns {boolean}
+ */
+export function isDemoHtmlFile(url) {
+  if (!url || typeof url !== 'string') return false;
+  // Detectar archivos HTML en content-demo
+  return url.includes('/content-demo/') && url.endsWith('.html');
+}
+
+/**
  * Extrae el ID de página de una URL de Notion
  * @param {string} url - URL de Notion
  * @returns {string|null} - ID formateado como UUID o null

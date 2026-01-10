@@ -294,6 +294,9 @@ export class ExtensionController {
       
       if (page.isNotionPage() && pageId) {
         await this._renderNotionPage(page, pageId);
+      } else if (page.isDemoHtmlFile()) {
+        // Content-demo: cargar HTML estático con estilo Notion
+        await this._renderDemoHtmlPage(page);
       } else if (page.isImage()) {
         await this._renderImagePage(page);
       } else if (page.isVideo()) {
@@ -371,7 +374,11 @@ export class ExtensionController {
     if (notionContainer) notionContainer.classList.remove('hidden');
     if (pageList) pageList.classList.add('hidden');
     if (backButton) backButton.classList.remove('hidden');
-    if (pageTitle) pageTitle.textContent = page.name;
+    if (pageTitle) {
+      // Añadir indicador de visibilidad si está compartida con players
+      const visibilityIndicator = page.visibleToPlayers ? this._getVisibilityIndicator() : '';
+      pageTitle.innerHTML = page.name + visibilityIndicator;
+    }
     if (buttonContainer) buttonContainer.classList.add('hidden');
 
     // Crear botones del header para la página de detalle
@@ -396,6 +403,9 @@ export class ExtensionController {
       
       if (page.isNotionPage() && pageId) {
         await this._renderNotionPage(page, pageId);
+      } else if (page.isDemoHtmlFile()) {
+        // Content-demo: cargar HTML estático con estilo Notion
+        await this._renderDemoHtmlPage(page);
       } else if (page.isImage()) {
         await this._renderImagePage(page);
       } else if (page.isVideo()) {
@@ -1324,6 +1334,10 @@ export class ExtensionController {
       OBR: this.OBR,
       cacheService: this.cacheService
     });
+    this.broadcastService.setSizeLimitCallback((channel, estimatedKB) => {
+      this._showFeedback(`❌ Content too large to share (${estimatedKB} KB > 64 KB limit)`);
+      this.analyticsService.trackContentTooLarge(estimatedKB * 1024, channel);
+    });
 
     // Analytics Service
     this.analyticsService.setOBR(this.OBR);
@@ -1603,13 +1617,19 @@ export class ExtensionController {
           }
           
           // Enviar el HTML renderizado directamente (incluir senderId para filtrar)
-          await this.OBR.broadcast.sendMessage('com.dmscreen/showNotionContent', {
+          const result = await this.broadcastService.sendMessage('com.dmscreen/showNotionContent', {
             name: page.name,
             html: htmlContent,
             pageId: pageId,
             senderId: this.playerId
           });
-          this._showFeedback('📄 Page shared!');
+          
+          // El callback onSizeLimitExceeded ya muestra feedback si hay error de tamaño
+          if (result?.success) {
+            this._showFeedback('📄 Page shared!');
+          } else if (result?.error !== 'size_limit') {
+            this._showFeedback('❌ Error sharing page');
+          }
         } catch (e) {
           logError('Error compartiendo página Notion:', e);
           this._showFeedback('❌ Error sharing page');
@@ -1617,12 +1637,17 @@ export class ExtensionController {
       }
     } else {
       // Para otros tipos, intentar compartir URL genérica
-      await this.OBR.broadcast.sendMessage('com.dmscreen/showContent', {
+      const result = await this.broadcastService.sendMessage('com.dmscreen/showContent', {
         url: page.url,
         name: page.name,
         senderId: this.playerId
       });
-      this._showFeedback('🔗 Content shared!');
+      
+      if (result?.success) {
+        this._showFeedback('🔗 Content shared!');
+      } else if (result?.error !== 'size_limit') {
+        this._showFeedback('❌ Error sharing content');
+      }
     }
   }
 
@@ -1731,7 +1756,7 @@ export class ExtensionController {
     menuItems.push(
       { separator: true },
       { 
-        icon: 'img/icon-delete.svg', 
+        icon: 'img/icon-trash.svg', 
         text: 'Delete page',
         action: () => {
           if (confirm(`Delete "${page.name}"?`)) {
@@ -3400,8 +3425,8 @@ export class ExtensionController {
       }
     }
     
-    // Título con icono
-    const pageTitle = pageInfo?.properties?.title?.title?.[0]?.plain_text || page.name;
+    // Título con icono - Usar nombre de la página del vault, no el de Notion
+    const pageTitle = page.name;
     let iconHtml = '';
     if (pageInfo?.icon) {
       if (pageInfo.icon.type === 'emoji') {
@@ -3413,7 +3438,10 @@ export class ExtensionController {
       }
     }
     
-    headerHtml += `<h1 class="notion-page-title">${iconHtml}${pageTitle}</h1>`;
+    // Indicador de visibilidad para players - fácil de personalizar
+    const visibilityIndicator = page.visibleToPlayers ? this._getVisibilityIndicator() : '';
+    
+    headerHtml += `<h1 class="notion-page-title">${iconHtml}${pageTitle}${visibilityIndicator}</h1>`;
     
     notionContent.innerHTML = headerHtml + blocksHtml;
 
@@ -3736,16 +3764,22 @@ export class ExtensionController {
     if (!this.OBR || !this.OBR.broadcast) return;
 
     try {
-      await this.OBR.broadcast.sendMessage('com.dmscreen/showVideo', {
+      const result = await this.broadcastService.sendMessage('com.dmscreen/showVideo', {
         url: url,
         caption: caption || '',
         type: videoType,
         senderId: this.playerId
       });
-      log('📤 Video compartido');
-      this._showFeedback('🎬 Video shared!');
+      
+      if (result?.success) {
+        log('📤 Video compartido');
+        this._showFeedback('🎬 Video shared!');
+      } else if (result?.error !== 'size_limit') {
+        this._showFeedback('❌ Error sharing video');
+      }
     } catch (e) {
       logError('Error compartiendo video:', e);
+      this._showFeedback('❌ Error sharing video');
     }
   }
 
@@ -3811,15 +3845,97 @@ export class ExtensionController {
     if (!this.OBR || !this.OBR.broadcast) return;
 
     try {
-      await this.OBR.broadcast.sendMessage('com.dmscreen/showGoogleDoc', {
+      const result = await this.broadcastService.sendMessage('com.dmscreen/showGoogleDoc', {
         url: url,
         name: name || '',
         senderId: this.playerId
       });
-      log('📤 Google Doc compartido');
-      this._showFeedback('📄 Document shared!');
+      
+      if (result?.success) {
+        log('📤 Google Doc compartido');
+        this._showFeedback('📄 Document shared!');
+      } else if (result?.error !== 'size_limit') {
+        this._showFeedback('❌ Error sharing document');
+      }
     } catch (e) {
       logError('Error compartiendo documento:', e);
+      this._showFeedback('❌ Error sharing document');
+    }
+  }
+
+  /**
+   * Renderiza una página HTML de demo (content-demo) con estilo Notion
+   * @private
+   */
+  async _renderDemoHtmlPage(page) {
+    this._setNotionDisplayMode('content');
+    
+    const notionContent = document.getElementById('notion-content');
+    if (!notionContent) return;
+
+    // Mostrar loading
+    notionContent.innerHTML = `
+      <div class="empty-state notion-loading">
+        <div class="loading-spinner"></div>
+        <p class="empty-state-text">Loading content...</p>
+      </div>
+    `;
+
+    try {
+      // Resolver URL relativa a absoluta
+      let absoluteUrl = page.url;
+      if (!absoluteUrl.startsWith('http')) {
+        absoluteUrl = new URL(absoluteUrl, window.location.origin).toString();
+      }
+      
+      log('📄 Cargando demo HTML desde:', absoluteUrl);
+      
+      // Fetch del archivo HTML
+      const response = await fetch(absoluteUrl);
+      if (!response.ok) {
+        throw new Error(`Error loading demo HTML: ${response.status}`);
+      }
+      
+      const html = await response.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extraer solo el contenido del div #notion-content si existe
+      const demoContent = doc.querySelector('#notion-content');
+      
+      if (demoContent) {
+        // Copiar el contenido HTML directamente
+        notionContent.innerHTML = demoContent.innerHTML;
+        
+        // Copiar estilos si existen
+        const styles = doc.querySelectorAll('style');
+        styles.forEach(style => {
+          const styleElement = document.createElement('style');
+          styleElement.textContent = style.textContent;
+          document.head.appendChild(styleElement);
+        });
+      } else {
+        // Si no hay #notion-content, usar todo el body
+        const bodyContent = doc.body;
+        if (bodyContent) {
+          notionContent.innerHTML = bodyContent.innerHTML;
+        }
+      }
+      
+      // Agregar título con indicador de visibilidad si aplica
+      const visibilityIndicator = page.visibleToPlayers ? this._getVisibilityIndicator() : '';
+      const titleHtml = `<h1 class="notion-page-title">${page.name}${visibilityIndicator}</h1>`;
+      notionContent.insertAdjacentHTML('afterbegin', titleHtml);
+      
+      log('✅ Demo HTML cargado correctamente');
+      
+    } catch (e) {
+      logError('Error cargando demo HTML:', e);
+      notionContent.innerHTML = `
+        <div class="error-container">
+          <p class="error-message">Error loading content: ${e.message}</p>
+        </div>
+      `;
     }
   }
 
@@ -3953,15 +4069,19 @@ export class ExtensionController {
       }
 
       // Usar el canal correcto como en el original
-      await this.OBR.broadcast.sendMessage('com.dmscreen/showImage', {
+      const result = await this.broadcastService.sendMessage('com.dmscreen/showImage', {
         url: absoluteImageUrl,
         caption: caption || '',
         senderId: this.playerId
       });
       
-      log('📤 Imagen compartida:', absoluteImageUrl.substring(0, 80));
-      this._showFeedback('📸 Image shared!');
-      this.analyticsService.trackImageShare(absoluteImageUrl);
+      if (result?.success) {
+        log('📤 Imagen compartida:', absoluteImageUrl.substring(0, 80));
+        this._showFeedback('📸 Image shared!');
+        this.analyticsService.trackImageShare(absoluteImageUrl);
+      } else if (result?.error !== 'size_limit') {
+        this._showFeedback('❌ Error sharing image');
+      }
     } catch (e) {
       logError('Error compartiendo imagen:', e);
       this._showFeedback('❌ Error sharing image');
@@ -4445,6 +4565,21 @@ export class ExtensionController {
     
     // Abrir la página
     await this.openPage(page, [], 0);
+  }
+
+  /**
+   * Obtiene el indicador de visibilidad para páginas compartidas con players
+   * Fácil de personalizar: puede ser texto, emoji o imagen
+   * @returns {string} HTML del indicador
+   * @private
+   */
+  _getVisibilityIndicator() {
+    // Opciones de personalización:
+    // Texto: return ' <span class="visibility-indicator">(Player)</span>';
+    // Emoji: return ' <span class="visibility-indicator">👁️</span>';
+    // Icono: return ' <img src="img/icon-players.svg" class="visibility-indicator-icon" alt="Visible to players" title="Visible to players" />';
+    
+    return ' <span class="visibility-indicator" title="Visible to players">👁️</span>';
   }
 
   /**

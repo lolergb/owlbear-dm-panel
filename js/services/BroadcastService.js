@@ -30,6 +30,16 @@ export class BroadcastService {
     this.onContentReceived = null;
     // Callback para cuando se recibe lista de páginas visibles
     this.onVisiblePagesReceived = null;
+    // Callback para cuando se excede el límite de tamaño (64 kB)
+    this.onSizeLimitExceeded = null;
+  }
+
+  /**
+   * Establece callback para cuando se excede el límite de tamaño del broadcast
+   * @param {Function} callback - Función a ejecutar (recibe el canal y tamaño estimado)
+   */
+  setSizeLimitCallback(callback) {
+    this.onSizeLimitExceeded = callback;
   }
 
   /**
@@ -69,7 +79,7 @@ export class BroadcastService {
   async sendMessage(channel, data) {
     if (!this.OBR) {
       logWarn('OBR no disponible para enviar mensaje');
-      return;
+      return { success: false, error: 'OBR not available' };
     }
 
     // Mapeo de aliases a canales (opcional, para compatibilidad)
@@ -83,13 +93,34 @@ export class BroadcastService {
     const targetChannel = channelAliases[channel] || channel;
 
     try {
-      await this.OBR.broadcast.sendMessage(targetChannel, {
+      const messageData = {
         ...data,
         timestamp: Date.now()
-      });
+      };
+      
+      await this.OBR.broadcast.sendMessage(targetChannel, messageData);
       log(`📤 Mensaje enviado [${targetChannel}]:`, Object.keys(data));
+      return { success: true };
     } catch (e) {
+      // Detectar error de límite de tamaño (64 kB)
+      const isSizeLimitError = e?.error?.name === 'SizeLimitExceededError' || 
+                               e?.message?.includes('size limit') ||
+                               e?.error?.message?.includes('size limit');
+      
+      if (isSizeLimitError) {
+        logWarn('⚠️ Mensaje excede el límite de 64 kB');
+        // Estimar tamaño del mensaje
+        const estimatedSize = JSON.stringify(data).length;
+        const estimatedKB = Math.round(estimatedSize / 1024);
+        
+        if (this.onSizeLimitExceeded) {
+          this.onSizeLimitExceeded(targetChannel, estimatedKB);
+        }
+        return { success: false, error: 'size_limit', estimatedKB };
+      }
+      
       logWarn('Error enviando mensaje:', e);
+      return { success: false, error: e?.message || 'unknown' };
     }
   }
 
