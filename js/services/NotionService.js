@@ -59,7 +59,9 @@ export class NotionService {
         if (sharedBlocks) {
           return sharedBlocks;
         }
-        throw new Error('No token configured. Go to Settings (⚙️ button) to configure your Notion token.');
+        // Retornar null para que el controlador solicite al GM
+        log('⚠️ No hay token, el contenido debe ser solicitado al GM');
+        return null;
       }
 
       log('🌐 Obteniendo bloques desde la API para:', pageId);

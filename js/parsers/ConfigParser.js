@@ -26,7 +26,10 @@ export class ConfigParser {
 
     try {
       const categories = this._parseCategories(json.categories || []);
-      return new Config({ categories });
+      return new Config({ 
+        categories,
+        order: json.order || null
+      });
     } catch (e) {
       logError('Error parseando configuración:', e);
       return new Config();
@@ -58,7 +61,8 @@ export class ConfigParser {
     return new Category(categoryJson.name, {
       pages,
       categories: subcategories,
-      collapsed: categoryJson.collapsed || false
+      collapsed: categoryJson.collapsed || false,
+      order: categoryJson.order || null
     });
   }
 
@@ -227,6 +231,11 @@ export class ConfigParser {
     // Preservar collapsed si existe
     if (category.collapsed !== undefined) {
       migrated.collapsed = category.collapsed;
+    }
+
+    // Preservar order si existe
+    if (category.order) {
+      migrated.order = category.order;
     }
 
     return migrated;

@@ -380,6 +380,11 @@ export class NotionRenderer {
     let listItems = [];
 
     const typesArray = blockTypes ? (Array.isArray(blockTypes) ? blockTypes : [blockTypes]) : null;
+    
+    if (typesArray) {
+      console.log('🔍 Filtro de bloques activo:', typesArray);
+      console.log('📦 Total de bloques a procesar:', blocks?.length || 0);
+    }
 
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
@@ -387,7 +392,12 @@ export class NotionRenderer {
 
       // Filtrar por tipo si hay filtro activo
       if (typesArray && !this._matchesFilter(block, typesArray)) {
+        console.log(`❌ Bloque filtrado: ${block.type}`, block.id?.substring(0, 8));
         continue;
+      }
+      
+      if (typesArray) {
+        console.log(`✅ Bloque incluido: ${block.type}`, block.id?.substring(0, 8));
       }
 
       // Manejo de listas

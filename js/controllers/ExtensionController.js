@@ -10,6 +10,7 @@ import { BROADCAST_CHANNEL_REQUEST_FULL_VAULT, BROADCAST_CHANNEL_RESPONSE_FULL_V
 
 // Models
 import { Page } from '../models/Page.js';
+import { Category } from '../models/Category.js';
 
 // Services
 import { CacheService } from '../services/CacheService.js';
@@ -304,6 +305,7 @@ export class ExtensionController {
     const page = pageData instanceof Page ? pageData : Page.fromJSON(pageData);
 
     log('📖 Abriendo página:', page.name);
+    log('📋 blockTypes de la página:', page.blockTypes);
 
     // Guardar referencia a la página actual
     this.currentPage = page;
@@ -502,8 +504,15 @@ export class ExtensionController {
     const pages = currentLevel.pages || [];
     const pageToUpdate = pages.find(p => p.name === page.name);
     if (pageToUpdate) {
-      if (newData.name) pageToUpdate.name = newData.name;
-      if (newData.url) pageToUpdate.url = newData.url;
+      // Actualizar todos los campos
+      if (newData.name !== undefined) pageToUpdate.name = newData.name;
+      if (newData.url !== undefined) pageToUpdate.url = newData.url;
+      if (newData.blockTypes !== undefined) pageToUpdate.blockTypes = newData.blockTypes;
+      if (newData.visibleToPlayers !== undefined) pageToUpdate.visibleToPlayers = newData.visibleToPlayers;
+      if (newData.icon !== undefined) pageToUpdate.icon = newData.icon;
+      if (newData.linkedTokenId !== undefined) pageToUpdate.linkedTokenId = newData.linkedTokenId;
+      
+      log('📝 Página actualizada con blockTypes:', pageToUpdate.blockTypes);
       
       await this.saveConfig(this.config);
     } else {
@@ -610,7 +619,7 @@ export class ExtensionController {
   async _handlePageMove(page, categoryPath, pageIndex, direction) {
     if (!this.config || !this.isGM) return;
 
-    log(`↕️ Moviendo página ${direction}:`, page.name);
+    log(`↕️ Moviendo página ${direction}:`, page.name, 'categoryPath:', categoryPath);
 
     // Navegar a la categoría correcta
     let currentLevel = this.config;
@@ -625,7 +634,14 @@ export class ExtensionController {
     }
 
     const pages = currentLevel.pages || [];
+    const categories = currentLevel.categories || [];
     const actualPageIndex = pages.findIndex(p => p.name === page.name);
+    
+    log('📊 Estado actual:');
+    log('  - Páginas:', pages.map(p => p.name));
+    log('  - Categorías:', categories.map(c => c.name));
+    log('  - Orden existente:', currentLevel.order);
+    log('  - Página a mover:', page.name, 'índice:', actualPageIndex);
     
     if (actualPageIndex === -1) {
       logError('No se encontró la página:', page.name);
@@ -634,15 +650,19 @@ export class ExtensionController {
 
     // Obtener orden combinado
     const combinedOrder = this._getCombinedOrder(currentLevel);
+    log('  - Orden combinado antes:', JSON.stringify(combinedOrder));
+    
     const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === actualPageIndex);
     
     if (currentPos === -1) {
       logError('No se encontró la página en el orden combinado');
+      log('  - Buscando: type=page, index=', actualPageIndex);
       return;
     }
 
     // Calcular nueva posición
     const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+    log('  - Posición actual:', currentPos, '-> Nueva posición:', newPos);
 
     // Verificar límites
     if (newPos < 0 || newPos >= combinedOrder.length) {
@@ -654,11 +674,14 @@ export class ExtensionController {
     const temp = combinedOrder[currentPos];
     combinedOrder[currentPos] = combinedOrder[newPos];
     combinedOrder[newPos] = temp;
+    
+    log('  - Orden combinado después:', JSON.stringify(combinedOrder));
 
     // Guardar el nuevo orden
     currentLevel.order = combinedOrder;
     
     await this.saveConfig(this.config);
+    log('✅ Orden guardado');
   }
 
   /**
@@ -678,7 +701,14 @@ export class ExtensionController {
     }
 
     const pages = currentLevel.pages || [];
-    const duplicatedPage = JSON.parse(JSON.stringify(page));
+    
+    // Crear una copia usando Page.clone() o Page.fromJSON()
+    let duplicatedPage;
+    if (page.clone && typeof page.clone === 'function') {
+      duplicatedPage = page.clone();
+    } else {
+      duplicatedPage = Page.fromJSON(page);
+    }
     duplicatedPage.name = `${page.name} (copy)`;
     
     // Insertar después de la página original
@@ -744,7 +774,7 @@ export class ExtensionController {
   async _handleCategoryMove(category, categoryPath, direction) {
     if (!this.config || !this.isGM) return;
 
-    log(`↕️ Moviendo carpeta ${direction}:`, category.name);
+    log(`↕️ Moviendo carpeta ${direction}:`, category.name, 'categoryPath:', categoryPath);
 
     // Navegar al nivel padre
     let currentLevel = this.config;
@@ -752,25 +782,42 @@ export class ExtensionController {
       const catName = categoryPath[i];
       const cat = (currentLevel.categories || []).find(c => c.name === catName);
       if (cat) currentLevel = cat;
-      else return;
+      else {
+        logError('No se encontró la categoría padre:', catName);
+        return;
+      }
     }
 
     const categories = currentLevel.categories || [];
+    const pages = currentLevel.pages || [];
     const actualCategoryIndex = categories.findIndex(c => c.name === category.name);
     
-    if (actualCategoryIndex === -1) return;
+    log('📊 Estado actual:');
+    log('  - Categorías:', categories.map(c => c.name));
+    log('  - Páginas:', pages.map(p => p.name));
+    log('  - Orden existente:', currentLevel.order);
+    log('  - Carpeta a mover:', category.name, 'índice:', actualCategoryIndex);
+    
+    if (actualCategoryIndex === -1) {
+      logError('No se encontró la categoría:', category.name);
+      return;
+    }
 
     // Obtener orden combinado
     const combinedOrder = this._getCombinedOrder(currentLevel);
+    log('  - Orden combinado antes:', JSON.stringify(combinedOrder));
+    
     const currentPos = combinedOrder.findIndex(o => o.type === 'category' && o.index === actualCategoryIndex);
     
     if (currentPos === -1) {
       logError('No se encontró la categoría en el orden combinado');
+      log('  - Buscando: type=category, index=', actualCategoryIndex);
       return;
     }
 
     // Calcular nueva posición
     const newPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+    log('  - Posición actual:', currentPos, '-> Nueva posición:', newPos);
 
     // Verificar límites
     if (newPos < 0 || newPos >= combinedOrder.length) {
@@ -782,11 +829,14 @@ export class ExtensionController {
     const temp = combinedOrder[currentPos];
     combinedOrder[currentPos] = combinedOrder[newPos];
     combinedOrder[newPos] = temp;
+    
+    log('  - Orden combinado después:', JSON.stringify(combinedOrder));
 
     // Guardar el nuevo orden
     currentLevel.order = combinedOrder;
 
     await this.saveConfig(this.config);
+    log('✅ Orden guardado');
   }
 
   /**
@@ -810,7 +860,13 @@ export class ExtensionController {
     const catIndex = categories.findIndex(c => c.name === category.name);
     
     if (catIndex !== -1) {
-      const duplicated = JSON.parse(JSON.stringify(category));
+      // Crear una copia usando Category.clone() o Category.fromJSON()
+      let duplicated;
+      if (category.clone && typeof category.clone === 'function') {
+        duplicated = category.clone();
+      } else {
+        duplicated = Category.fromJSON(category);
+      }
       duplicated.name = `${category.name} (copy)`;
       categories.splice(catIndex + 1, 0, duplicated);
       await this.saveConfig(this.config);
@@ -837,11 +893,16 @@ export class ExtensionController {
       }
 
       if (!currentLevel.pages) currentLevel.pages = [];
-      currentLevel.pages.push({
-        name: data.name,
-        url: data.url,
-        visibleToPlayers: data.visibleToPlayers || false
+      
+      // Crear instancia de Page con todos los campos
+      const newPage = new Page(data.name, data.url, {
+        visibleToPlayers: data.visibleToPlayers || false,
+        blockTypes: null,
+        icon: null,
+        linkedTokenId: null
       });
+      
+      currentLevel.pages.push(newPage);
       
       await this.saveConfig(this.config);
     });
@@ -865,11 +926,15 @@ export class ExtensionController {
       }
 
       if (!currentLevel.categories) currentLevel.categories = [];
-      currentLevel.categories.push({
-        name: data.name,
+      
+      // Crear instancia de Category
+      const newCategory = new Category(data.name, {
         pages: [],
-        categories: []
+        categories: [],
+        collapsed: false
       });
+      
+      currentLevel.categories.push(newCategory);
       
       await this.saveConfig(this.config);
     });
@@ -2802,6 +2867,24 @@ export class ExtensionController {
     // Restaurar clases originales
     notionContent.className = 'notion-container__content notion-content';
 
+    // Si es player/Co-GM sin token, solicitar contenido al GM
+    const hasToken = this.storageService.hasUserToken();
+    
+    if (!this.isGM && !hasToken) {
+      log('👤 Player sin token, solicitando contenido al GM...');
+      await this._requestNotionContentFromGM(page, pageId, notionContent);
+      return;
+    }
+
+    // GM o usuario con token: renderizar normalmente
+    await this._renderNotionPageWithToken(page, pageId, notionContent, forceRefresh);
+  }
+
+  /**
+   * Renderiza una página de Notion usando el token del usuario
+   * @private
+   */
+  async _renderNotionPageWithToken(page, pageId, notionContent, forceRefresh = false) {
     // Obtener info de la página (cover, título, icono)
     const pageInfo = await this.notionService.fetchPageInfo(pageId);
     
@@ -2861,6 +2944,73 @@ export class ExtensionController {
 
     // Attach event handlers para imágenes
     this._attachImageHandlers(notionContent);
+  }
+
+  /**
+   * Solicita contenido de Notion al GM (para players sin token)
+   * @private
+   */
+  async _requestNotionContentFromGM(page, pageId, notionContent) {
+    // Mostrar loading
+    notionContent.innerHTML = `
+      <div class="empty-state">
+        <div class="loading-spinner"></div>
+        <p class="empty-state-text">Loading content...</p>
+        <p class="empty-state-hint">Requesting from GM...</p>
+      </div>
+    `;
+
+    // Verificar si el GM está activo
+    const gmAvailable = await this._checkGMAvailability();
+    
+    if (!gmAvailable.isActive) {
+      notionContent.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">👋</div>
+          <p class="empty-state-text">Your GM is not active right now</p>
+          <p class="empty-state-hint">Wait for them to join the session or send them a greeting!</p>
+          <p class="empty-state-subhint">The content you're trying to view requires your GM to be online.</p>
+          <button class="btn btn--sm btn--secondary" onclick="window.location.reload()">
+            🔄 Retry
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    // Intentar obtener del caché local primero
+    const cachedHtml = this.cacheService.getHtmlFromLocalCache(pageId);
+    if (cachedHtml) {
+      log('📦 Usando HTML del caché local');
+      notionContent.innerHTML = cachedHtml;
+      this._attachImageHandlers(notionContent);
+      return;
+    }
+
+    // Solicitar contenido al GM vía broadcast
+    log('📡 Solicitando contenido Notion al GM...');
+    const html = await this.broadcastService.requestContentFromGM(pageId);
+    
+    if (html) {
+      log('✅ Contenido recibido del GM');
+      notionContent.innerHTML = html;
+      // Guardar en caché local para próximas visitas
+      this.cacheService.saveHtmlToLocalCache(pageId, html);
+      this._attachImageHandlers(notionContent);
+    } else {
+      // No se recibió respuesta del GM
+      notionContent.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⏳</div>
+          <p class="empty-state-text">Content not available</p>
+          <p class="empty-state-hint">The GM needs to open this page first to cache it.</p>
+          <p class="empty-state-subhint">Ask your GM to view this page so you can access it.</p>
+          <button class="btn btn--sm btn--secondary" onclick="window.location.reload()">
+            🔄 Retry
+          </button>
+        </div>
+      `;
+    }
   }
 
   /**
