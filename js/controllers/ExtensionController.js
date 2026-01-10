@@ -277,6 +277,14 @@ export class ExtensionController {
     // Crear un objeto Page temporal con blockTypes
     const page = new Page(name, url, { blockTypes });
     
+    log('📄 Modal page info:', {
+      url: page.url,
+      name: page.name,
+      isNotionPage: page.isNotionPage(),
+      isDemoHtmlFile: page.isDemoHtmlFile(),
+      pageId: page.getNotionPageId()
+    });
+    
     // Mostrar loading
     this._setNotionDisplayMode('content');
     const notionContent = document.getElementById('notion-content');
@@ -3938,7 +3946,8 @@ export class ExtensionController {
       
       // Agregar título con indicador de visibilidad si aplica
       const visibilityIndicator = page.visibleToPlayers ? this._getVisibilityIndicator() : '';
-      const titleHtml = `<h1 class="notion-page-title">${page.name}${visibilityIndicator}</h1>`;
+      const pageName = page.name || 'Untitled';
+      const titleHtml = `<h1 class="notion-page-title">${pageName}${visibilityIndicator}</h1>`;
       notionContent.insertAdjacentHTML('afterbegin', titleHtml);
       
       log('✅ Demo HTML cargado correctamente');
@@ -3963,6 +3972,21 @@ export class ExtensionController {
     
     const notionIframe = document.getElementById('notion-iframe');
     if (!notionIframe) return;
+
+    // Validar URL
+    if (!page.url) {
+      log('⚠️ _renderExternalPage: URL is undefined');
+      this._setNotionDisplayMode('content');
+      const notionContent = document.getElementById('notion-content');
+      if (notionContent) {
+        notionContent.innerHTML = `
+          <div class="error-container">
+            <p class="error-message">Error: No URL provided</p>
+          </div>
+        `;
+      }
+      return;
+    }
 
     notionIframe.src = page.url;
     notionIframe.style.cssText = 'width:100%;height:100%;border:none;border-radius:var(--radius-lg)';

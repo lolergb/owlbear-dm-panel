@@ -149,7 +149,15 @@ export class CacheService {
       const cached = localStorage.getItem(cacheKey);
       
       if (cached) {
-        return JSON.parse(cached);
+        const data = JSON.parse(cached);
+        
+        // Compatibilidad con formato antiguo: { pageInfo: {...}, savedAt }
+        if (data.pageInfo) {
+          return data.pageInfo;
+        }
+        
+        // Formato nuevo: { cover, icon, ..., cachedAt }
+        return data;
       }
     } catch (e) {
       try {
