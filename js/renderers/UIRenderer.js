@@ -602,28 +602,48 @@ export class UIRenderer {
   }
 
   /**
-   * Crea un menú contextual (similar al original)
+   * Crea un menú contextual con overlay para capturar clicks fuera
    * @private
    */
   _createContextMenu(items, position, onClose) {
-    // Remover menú existente
+    // Remover menú y overlay existentes
     const existingMenu = document.getElementById('context-menu');
     if (existingMenu) existingMenu.remove();
+    const existingOverlay = document.getElementById('context-menu-overlay');
+    if (existingOverlay) existingOverlay.remove();
+
+    // Crear overlay invisible que captura clicks
+    const overlay = document.createElement('div');
+    overlay.id = 'context-menu-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9999;
+      background: transparent;
+    `;
 
     const menu = document.createElement('div');
     menu.id = 'context-menu';
-    // Posición inicial (se ajustará después)
     menu.style.left = `${position.x}px`;
     menu.style.top = `${position.y}px`;
+    menu.style.zIndex = '10000';
 
-    // Cerrar al click fuera
-    const closeMenu = (e) => {
-      if (!menu.contains(e.target)) {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-        if (onClose) onClose();
-      }
+    // Cerrar menú
+    const closeMenu = () => {
+      menu.remove();
+      overlay.remove();
+      if (onClose) onClose();
     };
+
+    // Click en overlay cierra el menú (y NO propaga a otros elementos)
+    overlay.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenu();
+    });
 
     items.forEach(item => {
       if (item.separator) {
@@ -649,9 +669,7 @@ export class UIRenderer {
 
       menuItem.addEventListener('click', async (e) => {
         e.stopPropagation();
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-        if (onClose) onClose();
+        closeMenu();
         if (item.action) {
           try {
             await item.action();
@@ -664,20 +682,15 @@ export class UIRenderer {
       menu.appendChild(menuItem);
     });
 
-    // Usar setTimeout para evitar cierre inmediato
-    setTimeout(() => {
-      document.addEventListener('click', closeMenu);
-    }, 0);
-
+    // Agregar overlay y menú al body
+    document.body.appendChild(overlay);
     document.body.appendChild(menu);
 
     // Ajustar posición si se sale de la pantalla
     const rect = menu.getBoundingClientRect();
-    // Ajustar hacia la izquierda si se sale por la derecha
     if (rect.right > window.innerWidth) {
       menu.style.left = `${position.x - rect.width}px`;
     }
-    // Ajustar hacia arriba si se sale por abajo
     if (rect.bottom > window.innerHeight) {
       menu.style.top = `${position.y - rect.height}px`;
     }

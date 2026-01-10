@@ -141,8 +141,15 @@ export class NotionService {
       const pageInfo = {
         lastEditedTime: data.last_edited_time || null,
         icon: data.icon || null,
-        cover: data.cover || null
+        cover: data.cover || null,
+        properties: data.properties || null
       };
+
+      log('📄 PageInfo obtenido:', { 
+        hasCover: !!pageInfo.cover, 
+        hasIcon: !!pageInfo.icon,
+        hasProperties: !!pageInfo.properties 
+      });
 
       // Guardar en caché
       if (this.cacheService) {

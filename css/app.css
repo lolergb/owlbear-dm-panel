@@ -1151,7 +1151,8 @@
   #page-context-menu-button-header,
   #refresh-page-button,
   #page-visibility-button-header,
-  #page-open-modal-button-header {
+  #page-open-modal-button-header,
+  #page-share-button-header {
     background: transparent;
     border: none;
     border-radius: var(--radius-full);
@@ -1190,15 +1191,22 @@
   #page-context-menu-button-header:hover,
   #refresh-page-button:hover,
   #page-visibility-button-header:hover,
-  #page-open-modal-button-header:hover {
+  #page-open-modal-button-header:hover,
+  #page-share-button-header:hover {
     background: var(--color-bg-hover);
   }
   
   #page-context-menu-button-header:active,
   #refresh-page-button:active,
   #page-visibility-button-header:active,
-  #page-open-modal-button-header:active {
+  #page-open-modal-button-header:active,
+  #page-share-button-header:active {
     background: var(--color-bg-active);
+  }
+  
+  #page-share-button-header {
+    order: 2; /* Después del modal, antes de visibility */
+    margin-left: 0;
   }
   
   /* ==========================================================================
@@ -1232,6 +1240,8 @@
   
   /* Compatibility aliases for page-button */
   .page-button {
+    display: flex;
+    align-items: center;
     border: 1px solid var(--color-border-primary);
     background-color: var(--color-bg-primary);
     border-radius: var(--radius-lg);

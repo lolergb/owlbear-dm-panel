@@ -50,7 +50,10 @@ export class Page {
    * @returns {boolean}
    */
   isGoogleDoc() {
-    return this.url && this.url.includes('docs.google.com');
+    return this.url && (
+      this.url.includes('docs.google.com') ||
+      this.url.includes('drive.google.com')
+    );
   }
 
   /**
