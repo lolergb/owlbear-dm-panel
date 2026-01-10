@@ -2098,8 +2098,9 @@ export class ExtensionController {
     // Ocultar/mostrar secciones según rol
     const allForms = settingsContainer ? settingsContainer.querySelectorAll('.form') : [];
     const notionTokenForm = allForms[0]; // Primera sección: Notion Token
-    const exportVaultForm = allForms[1]; // Segunda sección: Export vault
-    const feedbackForm = allForms[2]; // Tercera sección: Feedback
+    const importNotionForm = allForms[1]; // Segunda sección: Import from Notion
+    const exportVaultForm = allForms[2]; // Tercera sección: Export vault
+    const feedbackForm = allForms[3]; // Cuarta sección: Feedback
     const loadJsonBtn = document.getElementById('load-json-btn');
 
     log('⚙️ Settings - isGM:', this.isGM, '| isCoGM:', this.isCoGM);
@@ -2108,12 +2109,14 @@ export class ExtensionController {
       // Player: solo mostrar feedback/patreon (última sección)
       log('⚙️ Mostrando settings para Player (solo feedback)');
       if (notionTokenForm) notionTokenForm.style.display = 'none';
+      if (importNotionForm) importNotionForm.style.display = 'none';
       if (exportVaultForm) exportVaultForm.style.display = 'none';
       if (feedbackForm) feedbackForm.style.display = '';
     } else if (this.isCoGM) {
-      // Co-GM: ocultar Notion Token, mostrar Export vault (con vault status) y Feedback
+      // Co-GM: ocultar Notion Token e Import, mostrar Export vault (con vault status) y Feedback
       log('⚙️ Mostrando settings para Co-GM (export + feedback)');
       if (notionTokenForm) notionTokenForm.style.display = 'none';
+      if (importNotionForm) importNotionForm.style.display = 'none';
       if (exportVaultForm) exportVaultForm.style.display = '';
       if (feedbackForm) feedbackForm.style.display = '';
       // Ocultar botón "Load vault" para Co-GM (solo lectura)
@@ -2402,6 +2405,247 @@ export class ExtensionController {
         window.open('https://www.notion.so/DM-Panel-Roadmap-2d8d4856c90e8088825df40c3be24393?source=copy_link', '_blank', 'noopener,noreferrer');
       });
     }
+
+    // Import from Notion
+    const importNotionBtn = document.getElementById('import-notion-btn');
+    if (importNotionBtn && !importNotionBtn.dataset.listenerAdded) {
+      importNotionBtn.dataset.listenerAdded = 'true';
+      importNotionBtn.addEventListener('click', () => {
+        this._showNotionPagesSelector();
+      });
+    }
+  }
+
+  /**
+   * Muestra el selector de páginas de Notion
+   * @private
+   */
+  async _showNotionPagesSelector() {
+    // Verificar que hay token
+    const token = this.storageService.getUserToken();
+    if (!token) {
+      this.uiRenderer.showErrorToast(
+        'No token configured',
+        'Please add your Notion token first in the settings above.'
+      );
+      return;
+    }
+
+    // Crear modal
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'notion-pages-modal';
+
+    const container = document.createElement('div');
+    container.className = 'modal-container notion-pages-modal';
+
+    container.innerHTML = `
+      <div class="modal-header">
+        <h3 class="modal-title">Import from Notion</h3>
+        <button class="modal-close-button">&times;</button>
+      </div>
+      <div class="modal-content">
+        <div class="notion-pages-search">
+          <input type="text" placeholder="Search pages..." id="notion-search-input" />
+        </div>
+        <div class="notion-pages-list" id="notion-pages-list">
+          <div class="notion-pages-loading">Loading pages...</div>
+        </div>
+        <p class="notion-pages-hint">
+          💡 Select a page to import its structure. Child pages will become folders/pages in your vault.
+        </p>
+        <div id="import-progress" class="import-progress" style="display: none;">
+          <div class="import-progress__status" id="import-status">Preparing...</div>
+          <div class="import-progress__bar">
+            <div class="import-progress__fill" id="import-fill"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-buttons">
+        <button class="modal-button modal-button-cancel" id="notion-cancel-btn">Cancel</button>
+        <button class="modal-button modal-button-submit" id="notion-import-btn" disabled>Import Selected</button>
+      </div>
+    `;
+
+    overlay.appendChild(container);
+
+    // Eventos
+    const closeModal = () => {
+      overlay.classList.remove('modal-visible');
+      setTimeout(() => overlay.remove(), 200);
+    };
+
+    container.querySelector('.modal-close-button').addEventListener('click', closeModal);
+    container.querySelector('#notion-cancel-btn').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeModal();
+    });
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('modal-visible'));
+
+    // Variables de estado
+    let selectedPage = null;
+    let pages = [];
+    let searchTimeout = null;
+
+    // Cargar páginas
+    const loadPages = async (query = '') => {
+      const listEl = document.getElementById('notion-pages-list');
+      listEl.innerHTML = '<div class="notion-pages-loading">Loading pages...</div>';
+
+      try {
+        pages = await this.notionService.searchWorkspacePages(query);
+        this._renderNotionPagesList(pages, listEl, (page) => {
+          selectedPage = page;
+          document.getElementById('notion-import-btn').disabled = false;
+          // Actualizar selección visual
+          listEl.querySelectorAll('.notion-page-item').forEach(el => {
+            el.classList.toggle('notion-page-item--selected', el.dataset.pageId === page.id);
+          });
+        });
+      } catch (e) {
+        listEl.innerHTML = `<div class="notion-pages-empty">❌ ${e.message}</div>`;
+      }
+    };
+
+    // Búsqueda
+    const searchInput = document.getElementById('notion-search-input');
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        loadPages(e.target.value);
+      }, 300);
+    });
+
+    // Importar
+    document.getElementById('notion-import-btn').addEventListener('click', async () => {
+      if (!selectedPage) return;
+
+      const importBtn = document.getElementById('notion-import-btn');
+      const cancelBtn = document.getElementById('notion-cancel-btn');
+      const progressEl = document.getElementById('import-progress');
+      const statusEl = document.getElementById('import-status');
+      const fillEl = document.getElementById('import-fill');
+
+      importBtn.disabled = true;
+      cancelBtn.disabled = true;
+      progressEl.style.display = 'block';
+
+      try {
+        const result = await this.notionService.generateVaultFromPage(
+          selectedPage.id,
+          selectedPage.title,
+          3, // maxDepth
+          (progress) => {
+            statusEl.textContent = progress.message;
+            // Simular progreso visual
+            const percent = Math.min(90, progress.pagesImported * 10);
+            fillEl.style.width = `${percent}%`;
+          }
+        );
+
+        fillEl.style.width = '100%';
+        statusEl.textContent = 'Saving vault...';
+
+        // Guardar configuración
+        if (result.config.categories.length > 0) {
+          await this.saveConfig(result.config);
+          
+          closeModal();
+          
+          // Mostrar resultado
+          const { pagesImported, pagesSkipped, unsupportedTypes } = result.stats;
+          
+          if (pagesSkipped > 0 || unsupportedTypes.length > 0) {
+            this.uiRenderer.showWarningToast(
+              'Import completed with warnings',
+              `${pagesImported} pages imported. ${pagesSkipped} skipped (depth limit or errors).`,
+              8000
+            );
+          } else {
+            this.uiRenderer.showSuccessToast(
+              'Import successful!',
+              `${pagesImported} pages imported from "${selectedPage.title}".`
+            );
+          }
+
+          // Track analytics
+          this.analyticsService.trackJSONImported(pagesImported);
+
+          // Volver a la lista
+          this._goBackToList();
+        } else {
+          this.uiRenderer.showWarningToast(
+            'No pages found',
+            'The selected page has no child pages to import.'
+          );
+          importBtn.disabled = false;
+          cancelBtn.disabled = false;
+          progressEl.style.display = 'none';
+        }
+      } catch (e) {
+        logError('Error importing from Notion:', e);
+        this.uiRenderer.showErrorToast(
+          'Import failed',
+          e.message || 'An error occurred while importing.'
+        );
+        importBtn.disabled = false;
+        cancelBtn.disabled = false;
+        progressEl.style.display = 'none';
+      }
+    });
+
+    // Cargar páginas iniciales
+    await loadPages();
+    searchInput.focus();
+  }
+
+  /**
+   * Renderiza la lista de páginas de Notion
+   * @private
+   */
+  _renderNotionPagesList(pages, container, onSelect) {
+    if (pages.length === 0) {
+      container.innerHTML = '<div class="notion-pages-empty">No pages found. Try a different search.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    
+    pages.forEach(page => {
+      const item = document.createElement('div');
+      item.className = 'notion-page-item';
+      item.dataset.pageId = page.id;
+
+      // Icono
+      let iconHtml = '📄';
+      if (page.icon) {
+        if (page.icon.type === 'emoji') {
+          iconHtml = page.icon.emoji;
+        } else if (page.icon.type === 'external' && page.icon.external?.url) {
+          iconHtml = `<img src="${page.icon.external.url}" alt="" />`;
+        } else if (page.icon.type === 'file' && page.icon.file?.url) {
+          iconHtml = `<img src="${page.icon.file.url}" alt="" />`;
+        }
+      }
+
+      // Fecha
+      const lastEdited = page.lastEdited 
+        ? new Date(page.lastEdited).toLocaleDateString()
+        : '';
+
+      item.innerHTML = `
+        <div class="notion-page-item__icon">${iconHtml}</div>
+        <div class="notion-page-item__info">
+          <div class="notion-page-item__title">${page.title}</div>
+          ${lastEdited ? `<div class="notion-page-item__meta">Edited: ${lastEdited}</div>` : ''}
+        </div>
+      `;
+
+      item.addEventListener('click', () => onSelect(page));
+      container.appendChild(item);
+    });
   }
 
   /**

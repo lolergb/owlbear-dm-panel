@@ -921,6 +921,114 @@ export class UIRenderer {
       }
     }
   }
+
+  // ============================================
+  // TOAST SYSTEM
+  // ============================================
+
+  /**
+   * Muestra un toast genérico
+   * @param {Object} options - Opciones del toast
+   * @param {string} options.type - Tipo: 'success', 'error', 'warning', 'info'
+   * @param {string} options.title - Título del toast
+   * @param {string} options.message - Mensaje del toast (opcional)
+   * @param {number} options.duration - Duración en ms (0 = no auto-cerrar)
+   * @returns {HTMLElement} - Elemento del toast
+   */
+  showToast({ type = 'info', title, message = '', duration = 5000 }) {
+    // Remover toast existente
+    const existing = document.getElementById('gm-toast');
+    if (existing) {
+      existing.remove();
+    }
+
+    const icons = {
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      info: 'ℹ️'
+    };
+
+    const toast = document.createElement('div');
+    toast.id = 'gm-toast';
+    toast.className = `gm-toast gm-toast--${type}`;
+    
+    toast.innerHTML = `
+      <div class="gm-toast__content">
+        <span class="gm-toast__icon">${icons[type] || icons.info}</span>
+        <div class="gm-toast__body">
+          <div class="gm-toast__title">${title}</div>
+          ${message ? `<div class="gm-toast__message">${message}</div>` : ''}
+        </div>
+        <button class="gm-toast__close" aria-label="Close">✕</button>
+      </div>
+    `;
+
+    // Evento de cerrar
+    toast.querySelector('.gm-toast__close').addEventListener('click', () => {
+      this.hideToast();
+    });
+
+    document.body.appendChild(toast);
+
+    // Animación de entrada
+    requestAnimationFrame(() => {
+      toast.classList.add('gm-toast--visible');
+    });
+
+    // Auto-cerrar si tiene duración
+    if (duration > 0) {
+      this._toastTimeout = setTimeout(() => {
+        this.hideToast();
+      }, duration);
+    }
+
+    return toast;
+  }
+
+  /**
+   * Oculta el toast actual
+   */
+  hideToast() {
+    if (this._toastTimeout) {
+      clearTimeout(this._toastTimeout);
+      this._toastTimeout = null;
+    }
+
+    const toast = document.getElementById('gm-toast');
+    if (toast) {
+      toast.classList.remove('gm-toast--visible');
+      setTimeout(() => toast.remove(), 300);
+    }
+  }
+
+  /**
+   * Toast de éxito
+   */
+  showSuccessToast(title, message = '', duration = 5000) {
+    return this.showToast({ type: 'success', title, message, duration });
+  }
+
+  /**
+   * Toast de error
+   */
+  showErrorToast(title, message = '', duration = 8000) {
+    return this.showToast({ type: 'error', title, message, duration });
+  }
+
+  /**
+   * Toast de advertencia
+   */
+  showWarningToast(title, message = '', duration = 6000) {
+    return this.showToast({ type: 'warning', title, message, duration });
+  }
+
+  /**
+   * Toast de información
+   */
+  showInfoToast(title, message = '', duration = 5000) {
+    return this.showToast({ type: 'info', title, message, duration });
+  }
 }
 
 export default UIRenderer;

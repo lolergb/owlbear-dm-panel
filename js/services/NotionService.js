@@ -249,6 +249,245 @@ export class NotionService {
   }
 
   /**
+   * Busca páginas en el workspace del usuario
+   * @param {string} query - Término de búsqueda (opcional)
+   * @returns {Promise<Array>} - Lista de páginas encontradas
+   */
+  async searchWorkspacePages(query = '') {
+    try {
+      const userToken = this.storageService?.getUserToken();
+      
+      if (!userToken) {
+        throw new Error('No Notion token configured. Please add your token in Settings.');
+      }
+
+      log('🔍 Buscando páginas en workspace...');
+      
+      const params = new URLSearchParams({
+        action: 'search',
+        token: userToken,
+        filter: 'page'
+      });
+      
+      if (query.trim()) {
+        params.append('query', query);
+      }
+      
+      const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error ${response.status}`);
+      }
+
+      const data = await response.json();
+      const pages = data.results || [];
+      
+      log('📄 Páginas encontradas:', pages.length);
+      
+      // Mapear a formato simplificado
+      return pages.map(page => ({
+        id: page.id,
+        title: this._extractPageTitle(page),
+        icon: page.icon,
+        cover: page.cover,
+        url: `https://notion.so/${page.id.replace(/-/g, '')}`,
+        lastEdited: page.last_edited_time,
+        parent: page.parent
+      }));
+    } catch (e) {
+      logError('Error al buscar páginas:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Obtiene las páginas hijas de una página
+   * @param {string} pageId - ID de la página padre
+   * @returns {Promise<Array>} - Lista de páginas hijas
+   */
+  async fetchChildPages(pageId) {
+    try {
+      const userToken = this.storageService?.getUserToken();
+      
+      if (!userToken) {
+        throw new Error('No Notion token configured');
+      }
+
+      log('📂 Obteniendo páginas hijas de:', pageId);
+      
+      const params = new URLSearchParams({
+        action: 'children',
+        pageId: pageId,
+        token: userToken
+      });
+      
+      const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error ${response.status}`);
+      }
+
+      const data = await response.json();
+      const childPages = data.results || [];
+      
+      log('📂 Páginas hijas encontradas:', childPages.length);
+      
+      // Mapear a formato simplificado
+      return childPages.map(block => ({
+        id: block.id,
+        title: block.child_page?.title || 'Untitled',
+        url: `https://notion.so/${block.id.replace(/-/g, '')}`,
+        type: 'child_page'
+      }));
+    } catch (e) {
+      logError('Error al obtener páginas hijas:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Genera la estructura de vault recursivamente desde una página
+   * @param {string} pageId - ID de la página raíz
+   * @param {string} pageTitle - Título de la página raíz
+   * @param {number} maxDepth - Profundidad máxima (default: 3)
+   * @param {Function} onProgress - Callback de progreso
+   * @returns {Promise<Object>} - Estructura de vault
+   */
+  async generateVaultFromPage(pageId, pageTitle, maxDepth = 3, onProgress = null) {
+    const stats = {
+      pagesImported: 0,
+      pagesSkipped: 0,
+      unsupportedTypes: new Set()
+    };
+
+    const processPage = async (id, title, depth = 0) => {
+      if (depth >= maxDepth) {
+        stats.pagesSkipped++;
+        return null;
+      }
+
+      try {
+        // Reportar progreso
+        if (onProgress) {
+          onProgress({ 
+            message: `Processing: ${title}...`, 
+            depth,
+            pagesImported: stats.pagesImported 
+          });
+        }
+
+        // Obtener páginas hijas
+        const childPages = await this.fetchChildPages(id);
+        
+        // Si no hay hijas, es una página final
+        if (childPages.length === 0) {
+          stats.pagesImported++;
+          return {
+            type: 'page',
+            name: title,
+            url: `https://notion.so/${id.replace(/-/g, '')}`,
+            visibleToPlayers: false
+          };
+        }
+
+        // Si hay hijas, crear una categoría con las páginas
+        const category = {
+          name: title,
+          pages: [],
+          categories: []
+        };
+
+        // Procesar cada página hija
+        for (const child of childPages) {
+          const result = await processPage(child.id, child.title, depth + 1);
+          
+          if (result) {
+            if (result.type === 'page') {
+              category.pages.push(result);
+            } else {
+              // Es una subcategoría
+              category.categories.push(result);
+            }
+          }
+        }
+
+        // Si la categoría tiene contenido, devolverla
+        if (category.pages.length > 0 || category.categories.length > 0) {
+          stats.pagesImported++;
+          return category;
+        }
+
+        return null;
+      } catch (e) {
+        logWarn(`Error procesando página ${title}:`, e);
+        stats.pagesSkipped++;
+        return null;
+      }
+    };
+
+    // Procesar desde la página raíz
+    const rootResult = await processPage(pageId, pageTitle, 0);
+
+    // Construir configuración final
+    let config;
+    if (rootResult && rootResult.type !== 'page') {
+      // La raíz es una categoría (tiene hijos)
+      config = {
+        categories: rootResult.categories.length > 0 || rootResult.pages.length > 0
+          ? [rootResult]
+          : []
+      };
+    } else if (rootResult) {
+      // La raíz es una página simple, crear categoría contenedora
+      config = {
+        categories: [{
+          name: pageTitle,
+          pages: [rootResult],
+          categories: []
+        }]
+      };
+    } else {
+      // No se pudo procesar
+      config = { categories: [] };
+    }
+
+    return {
+      config,
+      stats: {
+        pagesImported: stats.pagesImported,
+        pagesSkipped: stats.pagesSkipped,
+        unsupportedTypes: Array.from(stats.unsupportedTypes)
+      }
+    };
+  }
+
+  /**
+   * Extrae el título de una página de Notion
+   * @private
+   */
+  _extractPageTitle(page) {
+    // Intentar obtener título de las propiedades
+    if (page.properties) {
+      // Buscar propiedad "title" o "Name"
+      const titleProp = page.properties.title || page.properties.Title || page.properties.Name || page.properties.name;
+      if (titleProp && titleProp.title && titleProp.title[0]) {
+        return titleProp.title[0].plain_text || 'Untitled';
+      }
+      
+      // Buscar cualquier propiedad tipo title
+      for (const prop of Object.values(page.properties)) {
+        if (prop.type === 'title' && prop.title && prop.title[0]) {
+          return prop.title[0].plain_text || 'Untitled';
+        }
+      }
+    }
+    
+    return 'Untitled';
+  }
+
+  /**
    * Intenta obtener del caché compartido
    * @private
    */
