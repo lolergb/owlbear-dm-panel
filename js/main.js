@@ -69,6 +69,22 @@ window.gmVault = {
     }
     return false;
   },
+  clearVaultOwner: async () => {
+    if (extensionController?.storageService) {
+      const result = await extensionController.storageService.clearVaultOwner();
+      if (result) {
+        console.log('✅ Vault owner limpiado. Recarga la página para aplicar cambios.');
+      }
+      return result;
+    }
+    return false;
+  },
+  getVaultOwner: async () => {
+    if (extensionController?.storageService) {
+      return await extensionController.storageService.getVaultOwner();
+    }
+    return null;
+  },
   version: '2.0.0-modular'
 };
 

@@ -2447,26 +2447,34 @@ export class ExtensionController {
     try {
       const owner = await this.storageService.getVaultOwner();
       
-      if (!owner) {
-        // No hay owner, no es coGM
+      log('🔍 Verificando vault owner:', owner);
+      
+      // Si no hay owner o el owner no tiene datos válidos, no es coGM
+      if (!owner || !owner.id) {
+        log('👑 [Master GM] No hay vault owner válido');
         this.isCoGM = false;
         return;
       }
       
       // Verificar si soy el owner
       const isMe = owner.id === this.playerId;
+      log('🔍 ¿Soy el owner?', isMe, '| Mi ID:', this.playerId, '| Owner ID:', owner.id);
       
       // Verificar si el owner está inactivo (más de 15 minutos sin heartbeat)
       const timeSinceLastActivity = Date.now() - (owner.lastHeartbeat || 0);
       const isStale = timeSinceLastActivity > OWNER_TIMEOUT;
+      const minutesInactive = Math.round(timeSinceLastActivity / 60000);
+      log('🔍 Owner inactivo?', isStale, '| Minutos inactivo:', minutesInactive);
       
-      // Es Co-GM si hay owner, no soy yo, y no está inactivo
+      // Es Co-GM si hay owner válido, no soy yo, y no está inactivo
       this.isCoGM = !isMe && !isStale;
       
       if (this.isCoGM) {
-        log('👁️ [Co-GM] Modo solo lectura - Master GM:', owner.name);
-      } else {
-        log('👑 [Master GM] Soy el vault owner o no hay owner activo');
+        log('👁️ [Co-GM] Modo solo lectura - Master GM:', owner.name || 'Desconocido');
+      } else if (isMe) {
+        log('👑 [Master GM] Soy el vault owner');
+      } else if (isStale) {
+        log('👑 [Master GM] El vault owner anterior está inactivo (', minutesInactive, 'min)');
       }
     } catch (e) {
       logError('Error detectando Co-GM:', e);
