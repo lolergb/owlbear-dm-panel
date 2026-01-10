@@ -1284,27 +1284,27 @@ export class ExtensionController {
     openModalBtn.parentNode.replaceChild(newOpenModalBtn, openModalBtn);
     newOpenModalBtn.addEventListener('click', () => this._openPageInModal(page));
 
-    // Solo para GM: Botones adicionales
-    if (this.isGM) {
-      // Botón de Share (NO para imágenes - esas tienen share en el contenido)
-      if (!page.isImage()) {
-        let shareBtn = document.getElementById('page-share-button-header');
-        if (!shareBtn) {
-          shareBtn = document.createElement('button');
-          shareBtn.id = 'page-share-button-header';
-          shareBtn.className = 'icon-button';
-          shareBtn.innerHTML = '<img src="img/icon-players.svg" class="icon-button-icon" alt="Share" />';
-          shareBtn.title = 'Share with players';
-          header.appendChild(shareBtn);
-        }
-        shareBtn.classList.remove('hidden');
-        
-        // Remover listener anterior y agregar nuevo
-        const newShareBtn = shareBtn.cloneNode(true);
-        shareBtn.parentNode.replaceChild(newShareBtn, shareBtn);
-        newShareBtn.addEventListener('click', () => this._shareCurrentPageToPlayers(page));
+    // Botón de Share (para todos: GM, coGM y Player) - NO para imágenes
+    if (!page.isImage()) {
+      let shareBtn = document.getElementById('page-share-button-header');
+      if (!shareBtn) {
+        shareBtn = document.createElement('button');
+        shareBtn.id = 'page-share-button-header';
+        shareBtn.className = 'icon-button';
+        shareBtn.innerHTML = '<img src="img/icon-players.svg" class="icon-button-icon" alt="Share" />';
+        shareBtn.title = 'Share with players';
+        header.appendChild(shareBtn);
       }
+      shareBtn.classList.remove('hidden');
+      
+      // Remover listener anterior y agregar nuevo
+      const newShareBtn = shareBtn.cloneNode(true);
+      shareBtn.parentNode.replaceChild(newShareBtn, shareBtn);
+      newShareBtn.addEventListener('click', () => this._shareCurrentPageToPlayers(page));
+    }
 
+    // Solo para GM: Botones de visibilidad y menú contextual
+    if (this.isGM) {
       // Botón de Visibilidad
       let visibilityBtn = document.getElementById('page-visibility-button-header');
       if (!visibilityBtn) {

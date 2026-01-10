@@ -684,8 +684,8 @@
   .page-share-button img,
   .page-visibility-button img,
   .page-context-menu-button img {
-    width: var(--icon-size-lg); /* 24px */
-    height: var(--icon-size-lg); /* 24px */
+    width: var(--icon-size-md); /* 20px */
+    height: var(--icon-size-md); /* 20px */
   }
   
   /* Botones de categoría (mantienen position absolute) */
