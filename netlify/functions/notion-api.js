@@ -140,16 +140,19 @@ exports.handler = async (event, context) => {
         startCursor = data.next_cursor;
       }
 
-      // Filtrar solo child_page blocks
+      // Filtrar child_page y link_to_page blocks
       const childPages = allBlocks.filter(block => block.type === 'child_page');
+      const linkedPages = allBlocks.filter(block => block.type === 'link_to_page');
       
       return {
         statusCode: 200,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           results: childPages,
+          linked_pages: linkedPages,
           total: allBlocks.length,
-          child_pages_count: childPages.length
+          child_pages_count: childPages.length,
+          linked_pages_count: linkedPages.length
         })
       };
     }

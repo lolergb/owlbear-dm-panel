@@ -305,9 +305,9 @@ export class NotionService {
   }
 
   /**
-   * Obtiene las páginas hijas de una página
+   * Obtiene las páginas hijas y enlaces de una página
    * @param {string} pageId - ID de la página padre
-   * @returns {Promise<Array>} - Lista de páginas hijas
+   * @returns {Promise<Array>} - Lista de páginas hijas y enlazadas
    */
   async fetchChildPages(pageId) {
     try {
@@ -334,11 +334,12 @@ export class NotionService {
 
       const data = await response.json();
       const childPages = data.results || [];
+      const linkedPages = data.linked_pages || [];
       
-      log('📂 Páginas hijas encontradas:', childPages.length);
+      log('📂 Páginas hijas encontradas:', childPages.length, '| Enlaces:', linkedPages.length);
       
-      // Mapear a formato simplificado
-      return childPages.map(block => {
+      // Mapear child_page a formato simplificado
+      const results = childPages.map(block => {
         const title = block.child_page?.title || 'Untitled';
         return {
           id: block.id,
@@ -347,10 +348,68 @@ export class NotionService {
           type: 'child_page'
         };
       });
+
+      // Procesar link_to_page (necesitamos obtener info de cada página enlazada)
+      for (const block of linkedPages) {
+        const linkInfo = block.link_to_page;
+        if (!linkInfo) continue;
+
+        // Obtener el ID de la página enlazada
+        let linkedPageId = null;
+        if (linkInfo.type === 'page_id') {
+          linkedPageId = linkInfo.page_id;
+        } else if (linkInfo.type === 'database_id') {
+          // Las bases de datos no las soportamos por ahora
+          continue;
+        }
+
+        if (!linkedPageId) continue;
+
+        try {
+          // Obtener información de la página enlazada
+          const pageInfo = await this.fetchPageInfo(linkedPageId, false);
+          const title = this._extractPageTitleFromInfo(pageInfo) || 'Linked Page';
+          
+          results.push({
+            id: linkedPageId,
+            title,
+            url: this._buildNotionUrl(title, linkedPageId),
+            type: 'link_to_page'
+          });
+        } catch (e) {
+          logWarn('No se pudo obtener info de página enlazada:', linkedPageId, e);
+        }
+      }
+
+      return results;
     } catch (e) {
       logError('Error al obtener páginas hijas:', e);
       throw e;
     }
+  }
+
+  /**
+   * Extrae el título de la información de página
+   * @private
+   */
+  _extractPageTitleFromInfo(pageInfo) {
+    if (!pageInfo || !pageInfo.properties) return null;
+    
+    // Buscar propiedad "title" o "Name"
+    const titleProp = pageInfo.properties.title || pageInfo.properties.Title || 
+                      pageInfo.properties.Name || pageInfo.properties.name;
+    if (titleProp && titleProp.title && titleProp.title[0]) {
+      return titleProp.title[0].plain_text;
+    }
+    
+    // Buscar cualquier propiedad tipo title
+    for (const prop of Object.values(pageInfo.properties)) {
+      if (prop.type === 'title' && prop.title && prop.title[0]) {
+        return prop.title[0].plain_text;
+      }
+    }
+    
+    return null;
   }
 
   /**
