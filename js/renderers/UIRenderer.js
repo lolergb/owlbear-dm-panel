@@ -101,19 +101,57 @@ export class UIRenderer {
     
     container.innerHTML = '';
 
-    if (!config || !config.categories || config.categories.length === 0) {
+    // Verificar si hay contenido (páginas o categorías en root)
+    const hasRootPages = config?.pages && config.pages.length > 0;
+    const hasRootCategories = config?.categories && config.categories.length > 0;
+    const hasContent = hasRootPages || hasRootCategories;
+
+    if (!hasContent) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">📚</div>
           <p class="empty-state-text">No pages configured</p>
-          <p class="empty-state-hint">Click + to add your first page</p>
+          <p class="empty-state-hint">Click + to add your first page or folder</p>
         </div>
       `;
       return;
     }
 
-    config.categories.forEach(category => {
-      this.renderCategory(category, container, 0, roomId, [], this.isGM);
+    // Obtener orden combinado del root (páginas + categorías mezcladas)
+    const rootPages = (config.pages || []).filter(page => {
+      // Filtrar páginas válidas
+      if (!page.url || page.url.includes('...') || 
+          (!page.url.startsWith('http') && !page.url.startsWith('/'))) {
+        return false;
+      }
+      // Si es jugador, filtrar solo páginas visibles
+      if (!this.isGM && page.visibleToPlayers !== true) {
+        return false;
+      }
+      return true;
+    });
+    
+    const rootCombinedOrder = this._getCombinedOrder(config, rootPages);
+    
+    // Renderizar según el orden combinado del root
+    rootCombinedOrder.forEach(item => {
+      if (item.type === 'page') {
+        const page = rootPages[item.index];
+        if (page) {
+          // Usar el índice original en config.pages
+          const originalIndex = (config.pages || []).findIndex(p => p.name === page.name && p.url === page.url);
+          const pageButton = this._createPageButton(page, roomId, [], originalIndex !== -1 ? originalIndex : item.index, this.isGM);
+          container.appendChild(pageButton);
+        }
+      } else if (item.type === 'category') {
+        const category = (config.categories || [])[item.index];
+        if (category) {
+          // Si es jugador, verificar que la categoría tiene contenido visible
+          if (this.isGM || this.hasVisibleContentForPlayers(category)) {
+            this.renderCategory(category, container, 0, roomId, [], this.isGM);
+          }
+        }
+      }
     });
   }
 

@@ -2813,29 +2813,11 @@ export class ExtensionController {
     // Obtener lista de carpetas para selector
     const folderOptions = this._getCategoryOptions();
     
-    if (folderOptions.length === 0) {
-      // No hay carpetas, crear una por defecto primero
-      this._showModalForm('Add Page', [
-        { name: 'name', label: 'Page name', type: 'text', required: true, placeholder: 'Enter page name' },
-        { name: 'url', label: 'URL', type: 'text', required: true, placeholder: 'https://...' }
-      ], async (data) => {
-        if (!data.name || !data.url) return;
-        
-        if (!this.config.categories || this.config.categories.length === 0) {
-          this.config.categories = [{ name: 'Pages', pages: [], categories: [] }];
-        }
-        
-        this.config.categories[0].pages.push({
-          name: data.name,
-          url: data.url,
-          visibleToPlayers: false
-        });
-        
-        await this.saveConfig(this.config);
-        this.analyticsService.trackPageAdded(data.name, this._detectPageType(data.url));
-      });
-      return;
-    }
+    // Siempre incluir opción de root level
+    const allOptions = [
+      { value: '', label: '— Root level —' },
+      ...folderOptions
+    ];
     
     this._showModalForm('Add Page', [
       { name: 'name', label: 'Page name', type: 'text', required: true, placeholder: 'Enter page name' },
@@ -2844,23 +2826,39 @@ export class ExtensionController {
         name: 'parentFolder', 
         label: 'Folder', 
         type: 'select', 
-        options: folderOptions,
-        required: true 
-      }
+        options: allOptions,
+        required: false 
+      },
+      { name: 'visibleToPlayers', label: 'Visible to players', type: 'checkbox', value: false }
     ], async (data) => {
-      if (!data.name || !data.url || !data.parentFolder) return;
+      if (!data.name || !data.url) return;
       
-      const parent = this._findCategoryByPath(data.parentFolder.split('/'));
-      if (parent) {
-        if (!parent.pages) parent.pages = [];
-        parent.pages.push({
-          name: data.name,
-          url: data.url,
-          visibleToPlayers: false
-        });
-        await this.saveConfig(this.config);
-        this.analyticsService.trackPageAdded(data.name, this._detectPageType(data.url));
+      // Crear instancia de Page
+      const newPage = new Page(data.name, data.url, {
+        visibleToPlayers: data.visibleToPlayers || false,
+        blockTypes: null,
+        icon: null,
+        linkedTokenId: null
+      });
+      
+      if (!data.parentFolder || data.parentFolder === '') {
+        // Agregar al root
+        if (!this.config.pages) this.config.pages = [];
+        this.config.pages.push(newPage);
+      } else {
+        // Agregar a la carpeta seleccionada
+        const parent = this._findCategoryByPath(data.parentFolder.split('/'));
+        if (parent) {
+          if (!parent.pages) parent.pages = [];
+          parent.pages.push(newPage);
+        } else {
+          logError('Carpeta no encontrada:', data.parentFolder);
+          return;
+        }
       }
+      
+      await this.saveConfig(this.config);
+      this.analyticsService.trackPageAdded(data.name, this._detectPageType(data.url));
     });
   }
 
