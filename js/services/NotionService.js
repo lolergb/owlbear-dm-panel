@@ -286,15 +286,18 @@ export class NotionService {
       log('📄 Páginas encontradas:', pages.length);
       
       // Mapear a formato simplificado
-      return pages.map(page => ({
-        id: page.id,
-        title: this._extractPageTitle(page),
-        icon: page.icon,
-        cover: page.cover,
-        url: `https://notion.so/${page.id.replace(/-/g, '')}`,
-        lastEdited: page.last_edited_time,
-        parent: page.parent
-      }));
+      return pages.map(page => {
+        const title = this._extractPageTitle(page);
+        return {
+          id: page.id,
+          title,
+          icon: page.icon,
+          cover: page.cover,
+          url: this._buildNotionUrl(title, page.id),
+          lastEdited: page.last_edited_time,
+          parent: page.parent
+        };
+      });
     } catch (e) {
       logError('Error al buscar páginas:', e);
       throw e;
@@ -335,12 +338,15 @@ export class NotionService {
       log('📂 Páginas hijas encontradas:', childPages.length);
       
       // Mapear a formato simplificado
-      return childPages.map(block => ({
-        id: block.id,
-        title: block.child_page?.title || 'Untitled',
-        url: `https://notion.so/${block.id.replace(/-/g, '')}`,
-        type: 'child_page'
-      }));
+      return childPages.map(block => {
+        const title = block.child_page?.title || 'Untitled';
+        return {
+          id: block.id,
+          title,
+          url: this._buildNotionUrl(title, block.id),
+          type: 'child_page'
+        };
+      });
     } catch (e) {
       logError('Error al obtener páginas hijas:', e);
       throw e;
@@ -387,7 +393,7 @@ export class NotionService {
           return {
             type: 'page',
             name: title,
-            url: `https://notion.so/${id.replace(/-/g, '')}`,
+            url: this._buildNotionUrl(title, id),
             visibleToPlayers: false
           };
         }
@@ -485,6 +491,34 @@ export class NotionService {
     }
     
     return 'Untitled';
+  }
+
+  /**
+   * Construye una URL de Notion con el formato correcto
+   * Formato: https://www.notion.so/Title-Slug-pageIdSinGuiones
+   * @param {string} title - Título de la página
+   * @param {string} pageId - ID de la página (con o sin guiones)
+   * @returns {string} URL de Notion
+   * @private
+   */
+  _buildNotionUrl(title, pageId) {
+    // Limpiar el ID (quitar guiones)
+    const cleanId = pageId.replace(/-/g, '');
+    
+    // Crear slug del título
+    const slug = title
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Quitar acentos
+      .replace(/[^a-zA-Z0-9\s-]/g, '') // Solo alfanuméricos, espacios y guiones
+      .trim()
+      .replace(/\s+/g, '-') // Espacios a guiones
+      .replace(/-+/g, '-'); // Múltiples guiones a uno
+    
+    // Si hay slug, usarlo; si no, solo el ID
+    if (slug && slug !== '-') {
+      return `https://www.notion.so/${slug}-${cleanId}`;
+    }
+    return `https://www.notion.so/${cleanId}`;
   }
 
   /**
