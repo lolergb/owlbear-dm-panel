@@ -85,6 +85,30 @@ window.gmVault = {
     }
     return null;
   },
+  // Limpiar caché de página específica o todo el caché de pageInfo
+  clearPageInfoCache: (pageId = null) => {
+    const prefix = 'gm-vault-notion-page-info-';
+    if (pageId) {
+      localStorage.removeItem(prefix + pageId);
+      console.log(`✅ Caché de pageInfo limpiado para: ${pageId}`);
+    } else {
+      // Limpiar todo el caché de pageInfo
+      const keys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+      keys.forEach(k => localStorage.removeItem(k));
+      console.log(`✅ Limpiado caché de pageInfo: ${keys.length} entradas`);
+    }
+  },
+  // Limpiar todo el caché de Notion
+  clearAllNotionCache: () => {
+    const prefixes = ['gm-vault-notion-blocks-', 'gm-vault-notion-page-info-', 'gm-vault-notion-html-'];
+    let total = 0;
+    prefixes.forEach(prefix => {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+      keys.forEach(k => localStorage.removeItem(k));
+      total += keys.length;
+    });
+    console.log(`✅ Limpiado todo el caché de Notion: ${total} entradas`);
+  },
   version: '2.0.0-modular'
 };
 

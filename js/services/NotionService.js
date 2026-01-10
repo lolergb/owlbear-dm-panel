@@ -117,7 +117,14 @@ export class NotionService {
     if (this.cacheService) {
       const cached = this.cacheService.getCachedPageInfo(pageId);
       if (cached) {
-        return cached;
+        // Invalidar caché si no tiene la estructura completa (cover, icon)
+        // Esto fuerza una recarga si el caché es antiguo
+        if (cached.cover !== undefined || cached.icon !== undefined) {
+          log('📄 PageInfo del caché:', { hasCover: !!cached.cover, hasIcon: !!cached.icon });
+          return cached;
+        } else {
+          log('⚠️ Caché de PageInfo incompleto, recargando...');
+        }
       }
     }
 
@@ -147,10 +154,12 @@ export class NotionService {
         properties: data.properties || null
       };
 
-      log('📄 PageInfo obtenido:', { 
+      log('📄 PageInfo obtenido de API:', { 
         hasCover: !!pageInfo.cover, 
         hasIcon: !!pageInfo.icon,
-        hasProperties: !!pageInfo.properties 
+        hasProperties: !!pageInfo.properties,
+        coverType: pageInfo.cover?.type || 'none',
+        iconType: pageInfo.icon?.type || 'none'
       });
 
       // Guardar en caché
