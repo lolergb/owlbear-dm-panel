@@ -1416,13 +1416,14 @@ export class ExtensionController {
             htmlContent = clone.innerHTML;
           }
           
-          // Enviar el HTML renderizado directamente
+          // Enviar el HTML renderizado directamente (incluir senderId para filtrar)
           await this.OBR.broadcast.sendMessage('com.dmscreen/showNotionContent', {
             name: page.name,
             html: htmlContent,
-            pageId: pageId
+            pageId: pageId,
+            senderId: this.playerId
           });
-          this._showFeedback('📄 Page shared with players!');
+          this._showFeedback('📄 Page shared!');
         } catch (e) {
           logError('Error compartiendo página Notion:', e);
           this._showFeedback('❌ Error sharing page');
@@ -1432,9 +1433,10 @@ export class ExtensionController {
       // Para otros tipos, intentar compartir URL genérica
       await this.OBR.broadcast.sendMessage('com.dmscreen/showContent', {
         url: page.url,
-        name: page.name
+        name: page.name,
+        senderId: this.playerId
       });
-      this._showFeedback('🔗 Content shared with players!');
+      this._showFeedback('🔗 Content shared!');
     }
   }
 
@@ -2629,6 +2631,10 @@ export class ExtensionController {
       
       log('✅ Vault completo enviado');
     });
+
+    // Configurar listeners para contenido compartido (común para todos)
+    // El GM también debe recibir contenido compartido por otros (players, co-GMs)
+    this._setupSharedContentListeners();
   }
 
   /**
@@ -2642,63 +2648,84 @@ export class ExtensionController {
       await this.render();
     });
 
-    // Listener para recibir imágenes compartidas por el GM
+    // Configurar listeners para contenido compartido (común para todos)
+    this._setupSharedContentListeners();
+    
+    // Nota: El listener para vault completo está en _requestFullVaultOnPromotion()
+    // ya que necesita esperar la respuesta antes de recargar
+  }
+
+  /**
+   * Configura listeners para recibir contenido compartido
+   * Estos listeners son comunes para GM, Co-GM y Player
+   * @private
+   */
+  _setupSharedContentListeners() {
+    // Listener para recibir imágenes compartidas
     this.OBR.broadcast.onMessage('com.dmscreen/showImage', async (event) => {
-      const { url, caption } = event.data;
+      const { url, caption, senderId } = event.data;
+      // Ignorar si soy quien lo envió
+      if (senderId === this.playerId) return;
       if (url) {
-        log('🖼️ Imagen recibida del GM:', url.substring(0, 50));
-        // Abrir la imagen en modal para este jugador (sin botón de share)
+        log('🖼️ Imagen recibida:', url.substring(0, 50));
         await this._showImageModal(url, caption, false);
       }
     });
 
-    // Listener para recibir videos compartidos por el GM
+    // Listener para recibir videos compartidos
     this.OBR.broadcast.onMessage('com.dmscreen/showVideo', async (event) => {
-      const { url, caption, type } = event.data;
+      const { url, caption, type, senderId } = event.data;
+      // Ignorar si soy quien lo envió
+      if (senderId === this.playerId) return;
       if (url) {
-        log('🎬 Video recibido del GM:', url.substring(0, 50));
+        log('🎬 Video recibido:', url.substring(0, 50));
         await this._showVideoModal(url, caption, type || 'youtube');
       }
     });
 
-    // Listener para recibir Google Docs compartidos por el GM
+    // Listener para recibir Google Docs compartidos
     this.OBR.broadcast.onMessage('com.dmscreen/showGoogleDoc', async (event) => {
-      const { url, name } = event.data;
+      const { url, name, senderId } = event.data;
+      // Ignorar si soy quien lo envió
+      if (senderId === this.playerId) return;
       if (url) {
-        log('📄 Google Doc recibido del GM:', url.substring(0, 50));
+        log('📄 Google Doc recibido:', url.substring(0, 50));
         await this._showGoogleDocModal(url, name);
       }
     });
 
-    // Listener para recibir contenido Notion renderizado del GM (nuevo - sin necesidad de token)
+    // Listener para recibir contenido Notion renderizado (sin necesidad de token)
     this.OBR.broadcast.onMessage('com.dmscreen/showNotionContent', async (event) => {
-      const { name, html, pageId } = event.data;
+      const { name, html, pageId, senderId } = event.data;
+      // Ignorar si soy quien lo envió
+      if (senderId === this.playerId) return;
       if (html) {
-        log('📝 Contenido Notion HTML recibido del GM');
+        log('📝 Contenido Notion HTML recibido');
         await this._showNotionHtmlModal(name, html);
       }
     });
 
-    // Listener legacy para recibir páginas de Notion compartidas por el GM (requiere token)
+    // Listener legacy para recibir páginas de Notion compartidas (requiere token)
     this.OBR.broadcast.onMessage('com.dmscreen/showNotionPage', async (event) => {
-      const { url, name, pageId } = event.data;
+      const { url, name, pageId, senderId } = event.data;
+      // Ignorar si soy quien lo envió
+      if (senderId === this.playerId) return;
       if (url) {
-        log('📝 Página Notion recibida del GM:', url.substring(0, 50));
+        log('📝 Página Notion recibida:', url.substring(0, 50));
         await this._showNotionPageModal(url, name, pageId);
       }
     });
 
-    // Listener para recibir contenido genérico compartido por el GM
+    // Listener para recibir contenido genérico compartido
     this.OBR.broadcast.onMessage('com.dmscreen/showContent', async (event) => {
-      const { url, name } = event.data;
+      const { url, name, senderId } = event.data;
+      // Ignorar si soy quien lo envió
+      if (senderId === this.playerId) return;
       if (url) {
-        log('🔗 Contenido recibido del GM:', url.substring(0, 50));
+        log('🔗 Contenido recibido:', url.substring(0, 50));
         await this._showContentModal(url, name);
       }
     });
-    
-    // Nota: El listener para vault completo está en _requestFullVaultOnPromotion()
-    // ya que necesita esperar la respuesta antes de recargar
   }
 
   /**
@@ -3336,10 +3363,11 @@ export class ExtensionController {
       await this.OBR.broadcast.sendMessage('com.dmscreen/showVideo', {
         url: url,
         caption: caption || '',
-        type: videoType
+        type: videoType,
+        senderId: this.playerId
       });
-      log('📤 Video compartido con jugadores');
-      this._showFeedback('🎬 Video shared with players!');
+      log('📤 Video compartido');
+      this._showFeedback('🎬 Video shared!');
     } catch (e) {
       logError('Error compartiendo video:', e);
     }
@@ -3409,10 +3437,11 @@ export class ExtensionController {
     try {
       await this.OBR.broadcast.sendMessage('com.dmscreen/showGoogleDoc', {
         url: url,
-        name: name || ''
+        name: name || '',
+        senderId: this.playerId
       });
-      log('📤 Google Doc compartido con jugadores');
-      this._showFeedback('📄 Document shared with players!');
+      log('📤 Google Doc compartido');
+      this._showFeedback('📄 Document shared!');
     } catch (e) {
       logError('Error compartiendo documento:', e);
     }
@@ -3550,11 +3579,12 @@ export class ExtensionController {
       // Usar el canal correcto como en el original
       await this.OBR.broadcast.sendMessage('com.dmscreen/showImage', {
         url: absoluteImageUrl,
-        caption: caption || ''
+        caption: caption || '',
+        senderId: this.playerId
       });
       
-      log('📤 Imagen compartida con jugadores:', absoluteImageUrl.substring(0, 80));
-      this._showFeedback('📸 Image shared with players!');
+      log('📤 Imagen compartida:', absoluteImageUrl.substring(0, 80));
+      this._showFeedback('📸 Image shared!');
     } catch (e) {
       logError('Error compartiendo imagen:', e);
       this._showFeedback('❌ Error sharing image');
