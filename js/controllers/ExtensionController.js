@@ -2391,8 +2391,8 @@ export class ExtensionController {
                 });
               } else {
                 // Formato legacy (fallback)
-                itemCount += (cat.pages || []).length;
-                if (cat.categories) countExportItems(cat.categories);
+              itemCount += (cat.pages || []).length;
+              if (cat.categories) countExportItems(cat.categories);
               }
             }
           };
@@ -3232,26 +3232,28 @@ export class ExtensionController {
    * @private
    */
   async _fetchDefaultConfig() {
+    // Primero intentar ruta relativa (funciona en producción y deploy previews)
     try {
-      // Intentar cargar desde URL pública de Netlify
-      const response = await fetch('https://owlbear-gm-vault.netlify.app/public/default-config.json');
+      const response = await fetch('/public/default-config.json');
       if (response.ok) {
         const config = await response.json();
-        log('✅ Configuración por defecto cargada desde default-config.json');
+        log('✅ Configuración por defecto cargada desde ruta local');
         return config;
       }
     } catch (e) {
-      log('⚠️ No se pudo cargar default-config.json desde URL pública:', e);
+      log('⚠️ No se pudo cargar default-config.json desde ruta local:', e);
     }
     
-    // Fallback a ruta local
+    // Fallback a URL absoluta (solo si ruta local falla, ej: en Owlbear iframe)
     try {
-      const localResponse = await fetch('/public/default-config.json');
-      if (localResponse.ok) {
-        return await localResponse.json();
+      const response = await fetch('https://owlbear-gm-vault.netlify.app/public/default-config.json');
+      if (response.ok) {
+        const config = await response.json();
+        log('✅ Configuración por defecto cargada desde URL absoluta (fallback)');
+        return config;
       }
     } catch (e) {
-      log('⚠️ No se pudo cargar desde ruta local');
+      log('⚠️ No se pudo cargar desde URL absoluta');
     }
     
     return null;

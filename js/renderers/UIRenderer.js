@@ -152,7 +152,7 @@ export class UIRenderer {
         if (category) {
           // Si es jugador, verificar que la categoría tiene contenido visible
           if (this.isGM || this.hasVisibleContentForPlayers(category)) {
-            this.renderCategory(category, container, 0, roomId, [], this.isGM);
+      this.renderCategory(category, container, 0, roomId, [], this.isGM);
             // Aplicar animación al título de la categoría
             const categoryTitle = container.querySelector('.category:last-child .category-title-container');
             if (categoryTitle) {
