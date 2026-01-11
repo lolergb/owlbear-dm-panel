@@ -2128,6 +2128,14 @@ export class ExtensionController {
       });
       // Asegurar que Load vault esté visible para Master GM
       if (loadJsonBtn) loadJsonBtn.style.display = '';
+      
+      // Mostrar botón Import from Notion solo si hay token guardado
+      const importNotionBtn = document.getElementById('import-notion-btn');
+      if (importNotionBtn) {
+        const hasToken = !!this.storageService.getUserToken();
+        importNotionBtn.style.display = hasToken ? '' : 'none';
+        log('⚙️ Import Notion button:', hasToken ? 'visible' : 'hidden (no token)');
+      }
     }
 
     // Renderizar vault status box (para GM y Co-GM)
@@ -2266,6 +2274,13 @@ export class ExtensionController {
         
         this.storageService.saveUserToken(token);
         this.analyticsService.trackTokenConfigured();
+        
+        // Mostrar botón Import from Notion ahora que hay token
+        const importNotionBtn = document.getElementById('import-notion-btn');
+        if (importNotionBtn) {
+          importNotionBtn.style.display = '';
+        }
+        
         alert('✅ Token saved successfully!');
         this._goBackToList();
       });
@@ -2280,6 +2295,13 @@ export class ExtensionController {
           this.analyticsService.trackTokenRemoved();
           if (tokenInput) tokenInput.value = '';
           if (tokenMasked) tokenMasked.textContent = '';
+          
+          // Ocultar botón Import from Notion cuando se borra el token
+          const importNotionBtn = document.getElementById('import-notion-btn');
+          if (importNotionBtn) {
+            importNotionBtn.style.display = 'none';
+          }
+          
           alert('Token deleted.');
           this._goBackToList();
         }
