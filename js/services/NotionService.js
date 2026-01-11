@@ -543,26 +543,23 @@ export class NotionService {
         }
 
         // Si hay hijas, crear una categoría
-        // Usamos arrays separados pero con índice de orden para mantener el orden de Notion
         const category = {
           name: title,
           pages: [],
-          categories: []
+          categories: [],
+          order: [] // Array de orden explícito que se persiste en JSON
         };
-
-        // Índice de orden para mantener el orden de Notion
-        let orderIndex = 0;
 
         // Verificar si la página principal tiene contenido real antes de añadirla
         const mainPageHasContent = await this.hasRealContent(id);
         if (mainPageHasContent) {
+          const pageIndex = category.pages.length;
           category.pages.push({
-            type: 'page',
             name: title,
             url: this._buildNotionUrl(title, id),
-            visibleToPlayers: false,
-            _order: orderIndex++
+            visibleToPlayers: false
           });
+          category.order.push({ type: 'page', index: pageIndex });
           stats.pagesImported++;
         }
 
@@ -571,12 +568,15 @@ export class NotionService {
           const result = await processPage(child.id, child.title, depth + 1);
           
           if (result) {
-            result._order = orderIndex++;
             if (result.type === 'page') {
+              const pageIndex = category.pages.length;
               category.pages.push(result);
+              category.order.push({ type: 'page', index: pageIndex });
             } else {
               // Es una subcategoría
+              const catIndex = category.categories.length;
               category.categories.push(result);
+              category.order.push({ type: 'category', index: catIndex });
             }
           }
         }
