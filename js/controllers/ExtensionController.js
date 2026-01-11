@@ -1592,6 +1592,8 @@ export class ExtensionController {
   async _shareCurrentPageToPlayers(pageData) {
     if (!pageData) return;
 
+    log('🔗 Compartiendo página:', pageData.name);
+
     // Asegurar que tenemos una instancia de Page con los métodos necesarios
     const page = pageData instanceof Page ? pageData : new Page(pageData.name, pageData.url, pageData);
 
@@ -1615,15 +1617,40 @@ export class ExtensionController {
       const pageId = page.getNotionPageId();
       if (pageId) {
         try {
-          // Obtener el HTML del contenido actual
-          const notionContent = document.getElementById('notion-content');
+          // Verificar si ya tenemos el contenido cargado en la vista actual
+          let notionContent = document.getElementById('notion-content');
           let htmlContent = '';
           
-          if (notionContent) {
-            // Clonar el contenido y remover botones de compartir
+          // Si el contenido no está cargado (compartiendo desde lista), renderizarlo primero
+          if (!notionContent || !notionContent.innerHTML.trim()) {
+            log('📄 Contenido no cargado, renderizando para compartir...');
+            this._showFeedback('⏳ Loading content...');
+            
+            // Renderizar el contenido de Notion en un contenedor temporal
+            const tempContainer = document.createElement('div');
+            tempContainer.style.display = 'none';
+            document.body.appendChild(tempContainer);
+            
+            try {
+              // Cargar los bloques de Notion
+              const blocks = await this.notionService.fetchChildBlocks(pageId);
+              if (blocks && blocks.length > 0) {
+                htmlContent = await this.notionRenderer.renderBlocks(blocks);
+              }
+            } finally {
+              // Limpiar contenedor temporal
+              tempContainer.remove();
+            }
+          } else {
+            // Clonar el contenido visible y remover botones de compartir
             const clone = notionContent.cloneNode(true);
             clone.querySelectorAll('.share-button, .notion-image-share-button, .video-share-button').forEach(el => el.remove());
             htmlContent = clone.innerHTML;
+          }
+          
+          if (!htmlContent.trim()) {
+            this._showFeedback('⚠️ No content to share');
+            return;
           }
           
           // Enviar el HTML renderizado directamente (incluir senderId para filtrar)

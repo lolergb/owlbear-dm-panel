@@ -397,8 +397,11 @@ export class UIRenderer {
     
     shareButton.addEventListener('click', (e) => {
       e.stopPropagation();
+      console.log('🔗 Share button clicked for:', page.name, 'onPageShare:', !!this.onPageShare);
       if (this.onPageShare) {
         this.onPageShare(page, categoryPath, pageIndex);
+      } else {
+        console.warn('⚠️ onPageShare callback not defined');
       }
     });
 
