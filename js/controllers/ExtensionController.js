@@ -2171,10 +2171,22 @@ export class ExtensionController {
       
       // Mostrar botón Import from Notion solo si hay token guardado
       const importNotionBtn = document.getElementById('import-notion-btn');
+      const saveTokenBtn = document.getElementById('save-token');
       if (importNotionBtn) {
         const hasToken = !!this.storageService.getUserToken();
         importNotionBtn.style.display = hasToken ? '' : 'none';
         log('⚙️ Import Notion button:', hasToken ? 'visible' : 'hidden (no token)');
+        
+        // Si el botón Import está visible, cambiar Save Token a btn--ghost
+        if (saveTokenBtn) {
+          if (hasToken) {
+            saveTokenBtn.classList.remove('btn--primary');
+            saveTokenBtn.classList.add('btn--ghost');
+          } else {
+            saveTokenBtn.classList.remove('btn--ghost');
+            saveTokenBtn.classList.add('btn--primary');
+          }
+        }
       }
     }
 
@@ -2317,8 +2329,14 @@ export class ExtensionController {
         
         // Mostrar botón Import from Notion ahora que hay token
         const importNotionBtn = document.getElementById('import-notion-btn');
+        const saveTokenBtn = document.getElementById('save-token');
         if (importNotionBtn) {
           importNotionBtn.style.display = '';
+        }
+        // Cambiar Save Token a btn--ghost cuando Import está visible
+        if (saveTokenBtn) {
+          saveTokenBtn.classList.remove('btn--primary');
+          saveTokenBtn.classList.add('btn--ghost');
         }
         
         alert('✅ Token saved successfully!');
@@ -2338,8 +2356,14 @@ export class ExtensionController {
           
           // Ocultar botón Import from Notion cuando se borra el token
           const importNotionBtn = document.getElementById('import-notion-btn');
+          const saveTokenBtn = document.getElementById('save-token');
           if (importNotionBtn) {
             importNotionBtn.style.display = 'none';
+          }
+          // Cambiar Save Token de vuelta a btn--primary cuando Import está oculto
+          if (saveTokenBtn) {
+            saveTokenBtn.classList.remove('btn--ghost');
+            saveTokenBtn.classList.add('btn--primary');
           }
           
           alert('Token deleted.');

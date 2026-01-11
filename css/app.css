@@ -345,6 +345,10 @@
     margin-top: 0;
   }
   
+  .form__actions--single {
+    margin-top: 0;
+  }
+  
   .form__actions-group {
     display: flex;
     flex-direction: column;
