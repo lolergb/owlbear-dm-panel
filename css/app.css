@@ -460,6 +460,8 @@
     gap: var(--spacing-sm);
     margin-right: auto;
     margin-left: var(--spacing-md);
+    border-right: 1px solid var(--color-border-subtle);
+    padding-right: var(--spacing-md);
   }
 
   .player-view-toggle__label {
@@ -1509,6 +1511,7 @@
     opacity: 0.7;
     margin-left: var(--spacing-xs);
     flex-shrink: 0;
+    display: none;
   }
   
   .page-link-icon {
