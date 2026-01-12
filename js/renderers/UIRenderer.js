@@ -119,9 +119,12 @@ export class UIRenderer {
 
     // Obtener orden combinado del root (páginas + categorías mezcladas)
     const rootPages = (config.pages || []).filter(page => {
-      // Filtrar páginas válidas
-      if (!page.url || page.url.includes('...') || 
-          (!page.url.startsWith('http') && !page.url.startsWith('/'))) {
+      // Filtrar páginas válidas - aceptar URL válida O htmlContent (local-first)
+      const hasValidUrl = page.url && !page.url.includes('...') && 
+        (page.url.startsWith('http') || page.url.startsWith('/'));
+      const hasHtmlContent = !!page.htmlContent;
+      
+      if (!hasValidUrl && !hasHtmlContent) {
         return false;
       }
       // Si es jugador, filtrar solo páginas visibles
@@ -177,12 +180,13 @@ export class UIRenderer {
 
     if (!category.name) return;
 
-    // Filtrar páginas válidas
-    let categoryPages = (category.pages || []).filter(page => 
-      page.url && 
-      !page.url.includes('...') && 
-      (page.url.startsWith('http') || page.url.startsWith('/'))
-    );
+    // Filtrar páginas válidas - aceptar URL válida O htmlContent (local-first)
+    let categoryPages = (category.pages || []).filter(page => {
+      const hasValidUrl = page.url && !page.url.includes('...') && 
+        (page.url.startsWith('http') || page.url.startsWith('/'));
+      const hasHtmlContent = !!page.htmlContent;
+      return hasValidUrl || hasHtmlContent;
+    });
 
     // Si es jugador, filtrar solo páginas visibles
     if (!isGM) {
@@ -329,7 +333,11 @@ export class UIRenderer {
     button.className = 'page-button';
     button.dataset.pageIndex = pageIndex;
     button.dataset.pageName = page.name;
-    button.dataset.pageUrl = page.url;
+    button.dataset.pageUrl = page.url || '';
+    // Marcar si tiene contenido embebido
+    if (page.htmlContent) {
+      button.dataset.hasEmbeddedHtml = 'true';
+    }
 
     // Generar color e inicial del placeholder
     const placeholderColor = generateColorFromString(page.name);
@@ -338,7 +346,11 @@ export class UIRenderer {
     // Determinar icono de tipo de link
     let linkIconHtml = '';
     const url = page.url || '';
-    if (url.includes('notion.so') || url.includes('notion.site')) {
+    
+    // Primero verificar si es contenido embebido (local-first de Obsidian)
+    if (page.htmlContent) {
+      linkIconHtml = '<img src="img/icon-notion.svg" alt="Local" class="page-link-icon">'; // Usar icono Notion para local
+    } else if (url.includes('notion.so') || url.includes('notion.site')) {
       linkIconHtml = '<img src="img/icon-notion.svg" alt="Notion" class="page-link-icon">';
     } else if (url.includes('dndbeyond.com')) {
       linkIconHtml = '<img src="img/icon-dnd.svg" alt="D&D Beyond" class="page-link-icon">';
