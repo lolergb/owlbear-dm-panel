@@ -1448,7 +1448,7 @@
   /* Aplicar animación solo cuando se añade la clase */
   .page-button.list-item-entering,
   .category-title-container.list-item-entering {
-    animation: listItemSlideIn 0.15s ease-out forwards;
+    animation: listItemSlideIn 0.5s ease-out forwards;
   }
   
   /* Compatibility aliases for page-button */
