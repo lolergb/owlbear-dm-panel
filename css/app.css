@@ -1005,7 +1005,7 @@
   /* ==========================================================================
       Notion Container
       ========================================================================== */
-  .notion-container {
+  .notion-container:not(.container) {
     display: flex;
     flex-direction: column;
     width: 100%;
