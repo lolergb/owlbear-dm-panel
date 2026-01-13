@@ -21,6 +21,7 @@
 .notion-page-cover {
   width: calc(100% + var(--spacing-xl)*2);
   max-width: calc(100% + var(--spacing-xl)*2);
+  min-height: 200px;
   margin: calc(var(--spacing-xl) * -1) calc(var(--spacing-xl) * -1) var(--spacing-xl);
   margin-top: calc(var(--spacing-xl) * -1);
   overflow: hidden;
@@ -31,6 +32,7 @@
 .notion-page-cover .notion-image-container {
   position: relative;
   width: 100%;
+  min-height: 200px;
 }
 
 .notion-page-cover .notion-image-container img,
