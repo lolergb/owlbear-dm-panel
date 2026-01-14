@@ -2458,8 +2458,16 @@ export class ExtensionController {
           saveTokenBtn.classList.add('btn--ghost');
         }
         
-        alert('✅ Token saved successfully!');
-        this._goBackToList();
+        // Actualizar texto del token enmascarado
+        const tokenMasked = document.getElementById('token-masked');
+        if (tokenMasked) {
+          tokenMasked.textContent = token.length > 10 
+            ? token.substring(0, 6) + '...' + token.substring(token.length - 4)
+            : '••••••••';
+        }
+        
+        // Mostrar toast de éxito (quedarse en settings)
+        this.uiRenderer.showSuccessToast('Token saved', 'Your Notion token has been configured successfully.');
       });
     }
 
@@ -2485,8 +2493,8 @@ export class ExtensionController {
             saveTokenBtn.classList.add('btn--primary');
           }
           
-          alert('Token deleted.');
-          this._goBackToList();
+          // Mostrar toast (quedarse en settings)
+          this.uiRenderer.showInfoToast('Token deleted', 'You will use the default server token.');
         }
       });
     }
@@ -2669,13 +2677,13 @@ export class ExtensionController {
           <input type="text" placeholder="Search..." id="notion-search-input" class="input" />
         </div>
         <div class="form__field">
-          <label class="form__label">Select a page</label>
+          <label class="form__label">Select pages <span id="notion-selection-count" class="notion-selection-count"></span></label>
           <div class="notion-pages-list" id="notion-pages-list">
             <div class="notion-pages-loading">Loading pages...</div>
           </div>
         </div>
         <p class="notion-pages-hint">
-          💡 Child pages will become folders/pages in your vault.
+          💡 Select one or more pages. Child pages will become folders/pages in your vault.
         </p>
         <div id="import-progress" class="import-progress" style="display: none;">
           <div class="import-progress__status" id="import-status">Preparing...</div>
@@ -2705,9 +2713,21 @@ export class ExtensionController {
     document.body.appendChild(overlay);
 
     // Variables de estado
-    let selectedPage = null;
+    let selectedPages = new Map(); // Map<pageId, {id, title}>
     let pages = [];
     let searchTimeout = null;
+
+    // Actualizar contador de selección
+    const updateSelectionCount = () => {
+      const countEl = document.getElementById('notion-selection-count');
+      const importBtn = document.getElementById('notion-import-btn');
+      if (countEl) {
+        countEl.textContent = selectedPages.size > 0 ? `(${selectedPages.size} selected)` : '';
+      }
+      if (importBtn) {
+        importBtn.disabled = selectedPages.size === 0;
+      }
+    };
 
     // Cargar páginas
     const loadPages = async (query = '') => {
@@ -2716,14 +2736,14 @@ export class ExtensionController {
 
       try {
         pages = await this.notionService.searchWorkspacePages(query);
-        this._renderNotionPagesList(pages, listEl, (page) => {
-          selectedPage = page;
-          document.getElementById('notion-import-btn').disabled = false;
-          // Actualizar selección visual
-          listEl.querySelectorAll('.notion-page-item').forEach(el => {
-            el.classList.toggle('notion-page-item--selected', el.dataset.pageId === page.id);
-          });
-        });
+        this._renderNotionPagesList(pages, listEl, (page, isSelected) => {
+          if (isSelected) {
+            selectedPages.set(page.id, page);
+          } else {
+            selectedPages.delete(page.id);
+          }
+          updateSelectionCount();
+        }, selectedPages);
       } catch (e) {
         listEl.innerHTML = `<div class="notion-pages-empty">❌ ${e.message}</div>`;
       }
@@ -2740,7 +2760,7 @@ export class ExtensionController {
 
     // Importar
     document.getElementById('notion-import-btn').addEventListener('click', async () => {
-      if (!selectedPage) return;
+      if (selectedPages.size === 0) return;
 
       const importBtn = document.getElementById('notion-import-btn');
       const cancelBtn = document.getElementById('notion-cancel-btn');
@@ -2762,29 +2782,63 @@ export class ExtensionController {
       progressEl.style.display = 'block';
 
       try {
-        const result = await this.notionService.generateVaultFromPage(
-          selectedPage.id,
-          selectedPage.title,
-          10, // maxDepth - soporta estructuras profundas de Notion
-          (progress) => {
-            statusEl.textContent = progress.message;
-            // Simular progreso visual
-            const percent = Math.min(90, progress.pagesImported * 10);
-            fillEl.style.width = `${percent}%`;
+        const pagesToImport = Array.from(selectedPages.values());
+        const totalStats = { pagesImported: 0, pagesSkipped: 0, emptyPages: 0 };
+        const allCategories = [];
+
+        // Procesar cada página seleccionada
+        for (let i = 0; i < pagesToImport.length; i++) {
+          const page = pagesToImport[i];
+          statusEl.textContent = `Processing ${i + 1}/${pagesToImport.length}: ${page.title}...`;
+          fillEl.style.width = `${((i) / pagesToImport.length) * 80}%`;
+
+          const result = await this.notionService.generateVaultFromPage(
+            page.id,
+            page.title,
+            10, // maxDepth
+            (progress) => {
+              statusEl.textContent = `(${i + 1}/${pagesToImport.length}) ${progress.message}`;
+            }
+          );
+
+          // Acumular estadísticas
+          totalStats.pagesImported += result.stats.pagesImported;
+          totalStats.pagesSkipped += result.stats.pagesSkipped;
+          totalStats.emptyPages += result.stats.emptyPages;
+
+          // Acumular categorías
+          if (result.config.categories.length > 0) {
+            // Si solo hay una página seleccionada y el resultado es una categoría con un solo item que es una página,
+            // no crear carpeta raíz, agregar la página directamente
+            if (pagesToImport.length === 1 && result.config.categories.length === 1) {
+              const cat = result.config.categories[0];
+              // Si la categoría tiene solo un item que es una página, no crear carpeta
+              if (cat.items && cat.items.length === 1 && cat.items[0].type === 'page') {
+                // Crear una categoría "Imported" genérica con la página
+                allCategories.push({
+                  name: 'Imported',
+                  items: cat.items
+                });
+              } else {
+                allCategories.push(...result.config.categories);
+              }
+            } else {
+              allCategories.push(...result.config.categories);
+            }
           }
-        );
+        }
 
         fillEl.style.width = '100%';
         statusEl.textContent = 'Saving vault...';
 
         // Guardar configuración
-        if (result.config.categories.length > 0) {
-          await this.saveConfig(result.config);
+        if (allCategories.length > 0) {
+          await this.saveConfig({ categories: allCategories });
           
           closeModal();
           
           // Mostrar resultado
-          const { pagesImported, pagesSkipped, emptyPages } = result.stats;
+          const { pagesImported, pagesSkipped, emptyPages } = totalStats;
           
           if (pagesSkipped > 0 || emptyPages > 0) {
             const skippedInfo = [];
@@ -2797,9 +2851,10 @@ export class ExtensionController {
               8000
             );
           } else {
+            const pageText = pagesToImport.length === 1 ? pagesToImport[0].title : `${pagesToImport.length} sources`;
             this.uiRenderer.showSuccessToast(
               'Import successful!',
-              `${pagesImported} pages imported from "${selectedPage.title}".`
+              `${pagesImported} pages imported from ${pageText}.`
             );
           }
 
@@ -2811,7 +2866,7 @@ export class ExtensionController {
         } else {
           this.uiRenderer.showWarningToast(
             'No pages found',
-            'The selected page has no child pages to import.'
+            'The selected pages have no content to import.'
           );
           // Restaurar visibilidad de elementos del formulario
           formFields.forEach(field => field.style.display = '');
@@ -2846,7 +2901,7 @@ export class ExtensionController {
    * Renderiza la lista de páginas de Notion
    * @private
    */
-  _renderNotionPagesList(pages, container, onSelect) {
+  _renderNotionPagesList(pages, container, onSelect, selectedPages = new Map()) {
     if (pages.length === 0) {
       container.innerHTML = '<div class="notion-pages-empty">No pages found. Try a different search.</div>';
       return;
@@ -2856,7 +2911,8 @@ export class ExtensionController {
     
     pages.forEach(page => {
       const item = document.createElement('div');
-      item.className = 'notion-page-item';
+      const isSelected = selectedPages.has(page.id);
+      item.className = `notion-page-item${isSelected ? ' notion-page-item--selected' : ''}`;
       item.dataset.pageId = page.id;
 
       // Icono
@@ -2877,6 +2933,9 @@ export class ExtensionController {
         : '';
 
       item.innerHTML = `
+        <div class="notion-page-item__checkbox">
+          <input type="checkbox" ${isSelected ? 'checked' : ''} />
+        </div>
         <div class="notion-page-item__icon">${iconHtml}</div>
         <div class="notion-page-item__info">
           <div class="notion-page-item__title">${page.title}</div>
@@ -2884,7 +2943,15 @@ export class ExtensionController {
         </div>
       `;
 
-      item.addEventListener('click', () => onSelect(page));
+      // Toggle selección al hacer click
+      item.addEventListener('click', (e) => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        const newState = !checkbox.checked;
+        checkbox.checked = newState;
+        item.classList.toggle('notion-page-item--selected', newState);
+        onSelect(page, newState);
+      });
+      
       container.appendChild(item);
     });
   }
