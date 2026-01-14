@@ -41,6 +41,7 @@
   height: auto;
   display: block;
   object-fit: cover;
+  object-position: center center;
   max-height: 400px;
   cursor: pointer;
   opacity: 1 !important;
