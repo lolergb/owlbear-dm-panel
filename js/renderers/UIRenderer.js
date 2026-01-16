@@ -273,7 +273,9 @@ export class UIRenderer {
         e.stopPropagation();
         e.preventDefault();
         try {
-          this._showCategoryContextMenu(contextMenuButton, category, [...categoryPath, category.name], titleContainer, roomId);
+          // Incluir ID y nombre en el path para identificación única
+          const pathItem = { id: category.id, name: category.name };
+          this._showCategoryContextMenu(contextMenuButton, category, [...categoryPath, pathItem], titleContainer, roomId);
         } catch (error) {
           console.error('Error al mostrar menú contextual de categoría:', error, { category, categoryPath });
         }
@@ -292,6 +294,9 @@ export class UIRenderer {
     // Obtener orden combinado (páginas + subcategorías mezcladas)
     const combinedOrder = this._getCombinedOrder(category, categoryPages);
     
+    // Construir path item para esta categoría (incluye ID para identificación única)
+    const currentPathItem = { id: category.id, name: category.name };
+    
     // Renderizar según el orden combinado
     combinedOrder.forEach((item, index) => {
       if (item.type === 'page') {
@@ -299,7 +304,7 @@ export class UIRenderer {
         if (page) {
           // Usar el índice original en category.pages, no en categoryPages filtradas
           const originalIndex = (category.pages || []).findIndex(p => p.name === page.name && p.url === page.url);
-          const pageButton = this._createPageButton(page, roomId, [...categoryPath, category.name], originalIndex !== -1 ? originalIndex : item.index, isGM);
+          const pageButton = this._createPageButton(page, roomId, [...categoryPath, currentPathItem], originalIndex !== -1 ? originalIndex : item.index, isGM);
           contentContainer.appendChild(pageButton);
           // Aplicar animación con delay stagger
           requestAnimationFrame(() => {
@@ -311,7 +316,7 @@ export class UIRenderer {
         if (subcat) {
           // Si es jugador, verificar que la subcategoría tiene contenido visible
           if (isGM || this.hasVisibleContentForPlayers(subcat)) {
-            this.renderCategory(subcat, contentContainer, level + 1, roomId, [...categoryPath, category.name], isGM);
+            this.renderCategory(subcat, contentContainer, level + 1, roomId, [...categoryPath, currentPathItem], isGM);
             // Aplicar animación al título de la categoría
             const subcatTitle = contentContainer.querySelector(`.category:last-child .category-title-container`);
             if (subcatTitle) {

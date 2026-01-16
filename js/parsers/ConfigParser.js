@@ -87,6 +87,7 @@ export class ConfigParser {
     const subcategories = this._parseCategories(categoryJson.categories || [], format);
 
     return new Category(categoryJson.name, {
+      id: categoryJson.id, // Preservar ID existente (si no hay, Category genera uno nuevo)
       pages,
       categories: subcategories,
       collapsed: categoryJson.collapsed || false,
@@ -125,6 +126,7 @@ export class ConfigParser {
     }
 
     return new Category(categoryJson.name, {
+      id: categoryJson.id, // Preservar ID existente (si no hay, Category genera uno nuevo)
       pages,
       categories,
       collapsed: categoryJson.collapsed || false,
@@ -153,6 +155,7 @@ export class ConfigParser {
    */
   _parsePage(pageJson) {
     return new Page(pageJson.name, pageJson.url || null, {
+      id: pageJson.id, // Preservar ID existente (si no hay, Page genera uno nuevo)
       visibleToPlayers: pageJson.visibleToPlayers || false,
       blockTypes: pageJson.blockTypes || null,
       icon: pageJson.icon || null,

@@ -530,6 +530,45 @@ export class ExtensionController {
   }
 
   /**
+   * Navega a una categoría siguiendo el path
+   * Soporta tanto paths de strings (legacy) como objetos {id, name}
+   * @param {Array} categoryPath - Ruta de categorías
+   * @returns {Object|null} - Categoría encontrada o null
+   * @private
+   */
+  _navigateToCategory(categoryPath) {
+    let currentLevel = this.config;
+    
+    for (const pathItem of categoryPath) {
+      // pathItem puede ser string (nombre) o objeto {id, name}
+      const catId = typeof pathItem === 'object' ? pathItem.id : null;
+      const catName = typeof pathItem === 'string' ? pathItem : pathItem.name;
+      
+      let cat = null;
+      
+      // Buscar por ID primero si está disponible
+      if (catId) {
+        cat = (currentLevel.categories || []).find(c => c.id === catId);
+      }
+      
+      // Si no encontró por ID, buscar por nombre
+      if (!cat) {
+        cat = (currentLevel.categories || []).find(c => c.name === catName);
+      }
+      
+      if (cat) {
+        currentLevel = cat;
+      } else {
+        console.log('⚠️ _navigateToCategory: No encontrado -', { catId, catName });
+        console.log('⚠️ Categorías disponibles:', (currentLevel.categories || []).map(c => ({ id: c.id, name: c.name })));
+        return null;
+      }
+    }
+    
+    return currentLevel;
+  }
+
+  /**
    * Actualiza la visibilidad de una página
    * @param {Object} page - Página a actualizar
    * @param {Array} categoryPath - Ruta de categorías
@@ -542,25 +581,22 @@ export class ExtensionController {
 
     log('👁️ Actualizando visibilidad de página:', page.name, '->', newVisibility);
 
-    // Navegar a la categoría correcta y actualizar la página
-    let currentLevel = this.config;
-    for (const catName of categoryPath) {
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) {
-        currentLevel = cat;
-      } else {
-        logError('No se encontró la categoría:', catName);
-        return;
-      }
-    }
+    // Navegar a la categoría correcta
+    const currentLevel = this._navigateToCategory(categoryPath);
+    if (!currentLevel) return;
 
-    // Encontrar y actualizar la página
+    // Encontrar y actualizar la página (por ID primero, luego por nombre)
     const pages = currentLevel.pages || [];
-    const pageToUpdate = pages.find(p => p.name === page.name);
+    let pageToUpdate = null;
+    if (page.id) {
+      pageToUpdate = pages.find(p => p.id === page.id);
+    }
+    if (!pageToUpdate) {
+      pageToUpdate = pages.find(p => p.name === page.name);
+    }
+    
     if (pageToUpdate) {
       pageToUpdate.visibleToPlayers = newVisibility;
-      
-      // Guardar y re-renderizar
       await this.saveConfig(this.config);
     } else {
       logError('No se encontró la página:', page.name);
@@ -586,20 +622,19 @@ export class ExtensionController {
     log('✏️ Editando página:', page.name, '->', newData);
 
     // Navegar a la categoría correcta
-    let currentLevel = this.config;
-    for (const catName of categoryPath) {
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) {
-        currentLevel = cat;
-      } else {
-        logError('No se encontró la categoría:', catName);
-        return;
-      }
-    }
+    const currentLevel = this._navigateToCategory(categoryPath);
+    if (!currentLevel) return;
 
-    // Encontrar y actualizar la página
+    // Encontrar y actualizar la página (por ID primero, luego por nombre)
     const pages = currentLevel.pages || [];
-    const pageToUpdate = pages.find(p => p.name === page.name);
+    let pageToUpdate = null;
+    if (page.id) {
+      pageToUpdate = pages.find(p => p.id === page.id);
+    }
+    if (!pageToUpdate) {
+      pageToUpdate = pages.find(p => p.name === page.name);
+    }
+    
     if (pageToUpdate) {
       // Actualizar todos los campos
       if (newData.name !== undefined) pageToUpdate.name = newData.name;
@@ -625,29 +660,39 @@ export class ExtensionController {
   async _handlePageDelete(page, categoryPath, pageIndex) {
     if (!this.config || !this.isGM) return;
 
-    log('🗑️ Eliminando página:', page.name);
+    console.log('🗑️ DELETE PAGE - Page:', page.name, 'ID:', page.id);
+    console.log('🗑️ DELETE PAGE - Path:', categoryPath);
 
     // Navegar a la categoría correcta
-    let currentLevel = this.config;
-    for (const catName of categoryPath) {
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) {
-        currentLevel = cat;
-      } else {
-        logError('No se encontró la categoría:', catName);
-        return;
-      }
+    const currentLevel = this._navigateToCategory(categoryPath);
+    if (!currentLevel) {
+      console.log('🗑️ DELETE PAGE - No se pudo navegar al path');
+      return;
     }
 
     // Encontrar y eliminar la página
     const pages = currentLevel.pages || [];
-    const pageIndexInArray = pages.findIndex(p => p.name === page.name);
+    
+    // Buscar por ID primero, luego por nombre
+    let pageIndexInArray = -1;
+    if (page.id) {
+      pageIndexInArray = pages.findIndex(p => p.id === page.id);
+      console.log('🗑️ DELETE PAGE - Buscando por ID:', page.id, '-> índice:', pageIndexInArray);
+    }
+    if (pageIndexInArray < 0) {
+      pageIndexInArray = pages.findIndex(p => p.name === page.name);
+      console.log('🗑️ DELETE PAGE - Buscando por nombre:', page.name, '-> índice:', pageIndexInArray);
+    }
+    
+    console.log('🗑️ DELETE PAGE - Todas las páginas:', pages.map(p => ({ id: p.id, name: p.name })));
+    
     if (pageIndexInArray !== -1) {
+      console.log('🗑️ DELETE PAGE - Eliminando índice:', pageIndexInArray);
       pages.splice(pageIndexInArray, 1);
       await this.saveConfig(this.config);
       this.analyticsService.trackPageDeleted(page.name);
     } else {
-      logError('No se encontró la página:', page.name);
+      console.log('🗑️ DELETE PAGE - NO ENCONTRADO!');
     }
   }
 
@@ -721,20 +766,20 @@ export class ExtensionController {
     log(`↕️ Moviendo página ${direction}:`, page.name, 'categoryPath:', categoryPath);
 
     // Navegar a la categoría correcta
-    let currentLevel = this.config;
-    for (const catName of categoryPath) {
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) {
-        currentLevel = cat;
-      } else {
-        logError('No se encontró la categoría:', catName);
-        return;
-      }
-    }
+    const currentLevel = this._navigateToCategory(categoryPath);
+    if (!currentLevel) return;
 
     const pages = currentLevel.pages || [];
     const categories = currentLevel.categories || [];
-    const actualPageIndex = pages.findIndex(p => p.name === page.name);
+    
+    // Buscar por ID primero, luego por nombre
+    let actualPageIndex = -1;
+    if (page.id) {
+      actualPageIndex = pages.findIndex(p => p.id === page.id);
+    }
+    if (actualPageIndex < 0) {
+      actualPageIndex = pages.findIndex(p => p.name === page.name);
+    }
     
     log('📊 Estado actual:');
     log('  - Páginas:', pages.map(p => p.name));
@@ -793,26 +838,29 @@ export class ExtensionController {
 
     log('📋 Duplicando página:', page.name);
 
-    let currentLevel = this.config;
-    for (const catName of categoryPath) {
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) currentLevel = cat;
-      else return;
-    }
+    const currentLevel = this._navigateToCategory(categoryPath);
+    if (!currentLevel) return;
 
     const pages = currentLevel.pages || [];
     
-    // Crear una copia usando Page.clone() o Page.fromJSON()
+    // Encontrar el índice real de la página (por ID primero)
+    let actualIndex = pageIndex;
+    if (page.id) {
+      const foundIndex = pages.findIndex(p => p.id === page.id);
+      if (foundIndex >= 0) actualIndex = foundIndex;
+    }
+    
+    // Crear una copia usando Page.clone() o Page.fromJSON() (genera nuevo ID)
     let duplicatedPage;
     if (page.clone && typeof page.clone === 'function') {
-      duplicatedPage = page.clone();
+      duplicatedPage = page.clone(false); // false = generar nuevo ID
     } else {
       duplicatedPage = Page.fromJSON(page);
     }
     duplicatedPage.name = `${page.name} (copy)`;
     
     // Insertar después de la página original
-    pages.splice(pageIndex + 1, 0, duplicatedPage);
+    pages.splice(actualIndex + 1, 0, duplicatedPage);
     await this.saveConfig(this.config);
   }
 
@@ -872,15 +920,19 @@ export class ExtensionController {
     const toPath = toPathStr ? toPathStr.split('/') : [];
     
     // Obtener el nivel de origen (padre actual)
-    let fromLevel = this.config;
-    for (let i = 0; i < fromPath.length - (type === 'category' ? 1 : 0); i++) {
-      const catName = fromPath[i];
-      const cat = (fromLevel.categories || []).find(c => c.name === catName);
-      if (cat) fromLevel = cat;
-      else return false;
+    // Para fromPath, usar _navigateToCategory que soporta IDs
+    const pathLength = type === 'category' ? fromPath.length - 1 : fromPath.length;
+    const fromPathSlice = fromPath.slice(0, pathLength);
+    const fromLevel = fromPathSlice.length > 0 
+      ? this._navigateToCategory(fromPathSlice) 
+      : this.config;
+    
+    if (!fromLevel) {
+      console.log('⚠️ _moveItemToFolder: No se encontró nivel origen');
+      return false;
     }
 
-    // Obtener el nivel de destino
+    // Obtener el nivel de destino (toPath es un array de nombres string)
     let toLevel = this.config;
     for (const catName of toPath) {
       const cat = (toLevel.categories || []).find(c => c.name === catName);
@@ -888,15 +940,27 @@ export class ExtensionController {
       else return false;
     }
 
-    // Remover del origen
+    // Remover del origen (buscar por ID primero)
     if (type === 'page') {
       const pages = fromLevel.pages || [];
-      const pageIndex = pages.findIndex(p => p.name === item.name && p.url === item.url);
+      let pageIndex = -1;
+      if (item.id) {
+        pageIndex = pages.findIndex(p => p.id === item.id);
+      }
+      if (pageIndex < 0) {
+        pageIndex = pages.findIndex(p => p.name === item.name && p.url === item.url);
+      }
       if (pageIndex === -1) return false;
       pages.splice(pageIndex, 1);
     } else {
       const categories = fromLevel.categories || [];
-      const catIndex = categories.findIndex(c => c.name === item.name);
+      let catIndex = -1;
+      if (item.id) {
+        catIndex = categories.findIndex(c => c.id === item.id);
+      }
+      if (catIndex < 0) {
+        catIndex = categories.findIndex(c => c.name === item.name);
+      }
       if (catIndex === -1) return false;
       categories.splice(catIndex, 1);
     }
@@ -944,15 +1008,22 @@ export class ExtensionController {
         await this._moveItemToFolder(category, categoryPath, data.folder, 'category');
       } else if (nameChanged) {
         // Solo cambió el nombre
-        let currentLevel = this.config;
-        for (let i = 0; i < categoryPath.length - 1; i++) {
-          const catName = categoryPath[i];
-          const cat = (currentLevel.categories || []).find(c => c.name === catName);
-          if (cat) currentLevel = cat;
-          else return;
-        }
+        const parentPath = categoryPath.slice(0, -1);
+        const currentLevel = parentPath.length > 0 
+          ? this._navigateToCategory(parentPath) 
+          : this.config;
+        
+        if (!currentLevel) return;
 
-        const catIndex = (currentLevel.categories || []).findIndex(c => c.name === category.name);
+        // Buscar por ID primero
+        let catIndex = -1;
+        if (category.id) {
+          catIndex = (currentLevel.categories || []).findIndex(c => c.id === category.id);
+        }
+        if (catIndex < 0) {
+          catIndex = (currentLevel.categories || []).findIndex(c => c.name === category.name);
+        }
+        
         if (catIndex !== -1) {
           currentLevel.categories[catIndex].name = data.name;
           await this.saveConfig(this.config);
@@ -969,22 +1040,42 @@ export class ExtensionController {
   async _handleCategoryDelete(category, categoryPath) {
     if (!this.config || !this.isGM) return;
 
-    log('🗑️ Eliminando carpeta:', category.name);
+    console.log('🗑️ DELETE - Category:', category.name, 'ID:', category.id);
+    console.log('🗑️ DELETE - Path:', categoryPath);
 
-    let currentLevel = this.config;
-    for (let i = 0; i < categoryPath.length - 1; i++) {
-      const catName = categoryPath[i];
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) currentLevel = cat;
-      else return;
+    // Navegar al nivel padre (path sin el último elemento)
+    const parentPath = categoryPath.slice(0, -1);
+    const currentLevel = parentPath.length > 0 
+      ? this._navigateToCategory(parentPath) 
+      : this.config;
+    
+    if (!currentLevel) {
+      console.log('🗑️ DELETE - No se pudo navegar al path padre');
+      return;
     }
 
     const categories = currentLevel.categories || [];
-    const catIndex = categories.findIndex(c => c.name === category.name);
+    
+    // Buscar por ID primero, luego por nombre
+    let catIndex = -1;
+    if (category.id) {
+      catIndex = categories.findIndex(c => c.id === category.id);
+      console.log('🗑️ DELETE - Buscando por ID:', category.id, '-> índice:', catIndex);
+    }
+    if (catIndex < 0) {
+      catIndex = categories.findIndex(c => c.name === category.name);
+      console.log('🗑️ DELETE - Buscando por nombre:', category.name, '-> índice:', catIndex);
+    }
+    
+    console.log('🗑️ DELETE - Todas las categorías:', categories.map(c => ({ id: c.id, name: c.name })));
+    
     if (catIndex !== -1) {
+      console.log('🗑️ DELETE - Eliminando índice:', catIndex);
       categories.splice(catIndex, 1);
       await this.saveConfig(this.config);
       this.analyticsService.trackFolderDeleted(category.name);
+    } else {
+      console.log('🗑️ DELETE - NO ENCONTRADO!');
     }
   }
 
@@ -997,16 +1088,15 @@ export class ExtensionController {
 
     log(`↕️ Moviendo carpeta ${direction}:`, category.name, 'categoryPath:', categoryPath);
 
-    // Navegar al nivel padre
-    let currentLevel = this.config;
-    for (let i = 0; i < categoryPath.length - 1; i++) {
-      const catName = categoryPath[i];
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) currentLevel = cat;
-      else {
-        logError('No se encontró la categoría padre:', catName);
-        return;
-      }
+    // Navegar al nivel padre (path sin el último elemento)
+    const parentPath = categoryPath.slice(0, -1);
+    const currentLevel = parentPath.length > 0 
+      ? this._navigateToCategory(parentPath) 
+      : this.config;
+    
+    if (!currentLevel) {
+      logError('No se encontró el nivel padre');
+      return;
     }
 
     const categories = currentLevel.categories || [];
@@ -1069,16 +1159,24 @@ export class ExtensionController {
 
     log('📋 Duplicando carpeta:', category.name);
 
-    let currentLevel = this.config;
-    for (let i = 0; i < categoryPath.length - 1; i++) {
-      const catName = categoryPath[i];
-      const cat = (currentLevel.categories || []).find(c => c.name === catName);
-      if (cat) currentLevel = cat;
-      else return;
-    }
+    // Navegar al nivel padre (path sin el último elemento)
+    const parentPath = categoryPath.slice(0, -1);
+    const currentLevel = parentPath.length > 0 
+      ? this._navigateToCategory(parentPath) 
+      : this.config;
+    
+    if (!currentLevel) return;
 
     const categories = currentLevel.categories || [];
-    const catIndex = categories.findIndex(c => c.name === category.name);
+    
+    // Buscar por ID primero
+    let catIndex = -1;
+    if (category.id) {
+      catIndex = categories.findIndex(c => c.id === category.id);
+    }
+    if (catIndex < 0) {
+      catIndex = categories.findIndex(c => c.name === category.name);
+    }
     
     if (catIndex !== -1) {
       // Crear una copia usando Category.clone() o Category.fromJSON()
@@ -1099,6 +1197,8 @@ export class ExtensionController {
    * @private
    */
   _handleAddPage(categoryPath, roomId) {
+    console.log('📄 ADD PAGE - categoryPath:', categoryPath);
+    
     this._showModalForm('Add Page', [
       { name: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Page name' },
       { name: 'url', label: 'URL', type: 'url', required: true, placeholder: 'https://...' },
@@ -1106,22 +1206,25 @@ export class ExtensionController {
     ], async (data) => {
       if (!data.name || !data.url) return;
 
-      let currentLevel = this.config;
-      for (const catName of categoryPath) {
-        const cat = (currentLevel.categories || []).find(c => c.name === catName);
-        if (cat) currentLevel = cat;
-        else return;
+      const currentLevel = this._navigateToCategory(categoryPath);
+      if (!currentLevel) {
+        console.log('📄 ADD PAGE - No se pudo navegar al path');
+        return;
       }
 
       if (!currentLevel.pages) currentLevel.pages = [];
       
-      // Crear instancia de Page con todos los campos
+      console.log('📄 ADD PAGE - Nivel destino:', currentLevel.name, 'ID:', currentLevel.id);
+      
+      // Crear instancia de Page con todos los campos (genera ID automático)
       const newPage = new Page(data.name, data.url, {
         visibleToPlayers: data.visibleToPlayers || false,
         blockTypes: null,
         icon: null,
         linkedTokenId: null
       });
+      
+      console.log('📄 ADD PAGE - Nueva página:', newPage.name, 'ID:', newPage.id);
       
       currentLevel.pages.push(newPage);
       
@@ -1139,21 +1242,19 @@ export class ExtensionController {
     ], async (data) => {
       if (!data.name) return;
 
-      let currentLevel = this.config;
-      for (const catName of categoryPath) {
-        const cat = (currentLevel.categories || []).find(c => c.name === catName);
-        if (cat) currentLevel = cat;
-        else return;
-      }
+      const currentLevel = this._navigateToCategory(categoryPath);
+      if (!currentLevel) return;
 
       if (!currentLevel.categories) currentLevel.categories = [];
       
-      // Crear instancia de Category
+      // Crear instancia de Category (genera ID automático)
       const newCategory = new Category(data.name, {
         pages: [],
         categories: [],
         collapsed: false
       });
+      
+      console.log('📁 ADD CATEGORY - Nueva carpeta:', newCategory.name, 'ID:', newCategory.id);
       
       currentLevel.categories.push(newCategory);
       
@@ -3474,7 +3575,19 @@ export class ExtensionController {
     
     for (const part of pathParts) {
       if (!current.categories) return null;
-      const found = current.categories.find(c => c.name === part);
+      
+      // part puede ser string (nombre) o objeto {id, name}
+      const catId = typeof part === 'object' ? part.id : null;
+      const catName = typeof part === 'string' ? part : part.name;
+      
+      let found = null;
+      if (catId) {
+        found = current.categories.find(c => c.id === catId);
+      }
+      if (!found) {
+        found = current.categories.find(c => c.name === catName);
+      }
+      
       if (!found) return null;
       current = found;
     }
