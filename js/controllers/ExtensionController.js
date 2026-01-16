@@ -2921,15 +2921,20 @@ export class ExtensionController {
           if (importedCategories.length > 0) {
             let finalCategories;
             
+            // Convertir config existente a formato items[] para compatibilidad
+            const existingInItemsFormat = this.configParser.toItemsFormat(currentConfig);
+            const existingCategories = existingInItemsFormat.categories || [];
+
             switch (importMode) {
               case 'append':
                 // Añadir al final
-                finalCategories = [...(currentConfig.categories || []), ...importedCategories];
+                finalCategories = [...existingCategories, ...importedCategories];
                 break;
               
               case 'merge':
                 // Combinar: añadir nuevas, actualizar duplicadas por nombre
-                finalCategories = this._mergeCategories(currentConfig.categories || [], importedCategories);
+                // Preserva páginas añadidas manualmente por el usuario
+                finalCategories = this._mergeCategories(existingCategories, importedCategories);
                 break;
               
               case 'replace':
@@ -3028,7 +3033,10 @@ export class ExtensionController {
 
   /**
    * Combina categorías existentes con nuevas (merge)
-   * Soporta tanto formato legacy (pages/categories) como nuevo (items)
+   * Trabaja con formato items[] 
+   * - Preserva páginas/subcategorías añadidas manualmente por el usuario
+   * - Actualiza las que coinciden por nombre o URL
+   * - Añade las nuevas que no existen
    * @private
    */
   _mergeCategories(existingCategories, newCategories) {
@@ -3040,43 +3048,50 @@ export class ExtensionController {
       const existingIndex = result.findIndex(c => c.name === newCat.name);
       
       if (existingIndex >= 0) {
-        // Merge: combinar páginas y subcategorías
+        // Merge: combinar items preservando los existentes
         const existingCat = result[existingIndex];
         
-        // Merge pages (formato legacy)
-        if (newCat.pages) {
-          if (!existingCat.pages) existingCat.pages = [];
-          for (const newPage of newCat.pages) {
-            const existingPageIndex = existingCat.pages.findIndex(p => 
-              (p.name === newPage.name) || (p.url === newPage.url)
-            );
-            if (existingPageIndex >= 0) {
-              existingCat.pages[existingPageIndex] = { ...existingCat.pages[existingPageIndex], ...newPage };
-            } else {
-              existingCat.pages.push(newPage);
-            }
-          }
-        }
-        
-        // Merge items (formato nuevo)
         if (newCat.items) {
           if (!existingCat.items) existingCat.items = [];
+          
           for (const newItem of newCat.items) {
-            const itemName = newItem.name || newItem.url;
-            const existingItemIndex = existingCat.items.findIndex(i => 
-              (i.name === itemName) || (i.url === itemName)
-            );
-            if (existingItemIndex >= 0) {
-              existingCat.items[existingItemIndex] = { ...existingCat.items[existingItemIndex], ...newItem };
+            if (newItem.type === 'category') {
+              // Subcategoría: hacer merge recursivo
+              const existingSubcatIndex = existingCat.items.findIndex(i => 
+                i.type === 'category' && i.name === newItem.name
+              );
+              
+              if (existingSubcatIndex >= 0) {
+                // Merge recursivo de subcategoría
+                const mergedSubcat = this._mergeCategories(
+                  [existingCat.items[existingSubcatIndex]], 
+                  [newItem]
+                )[0];
+                existingCat.items[existingSubcatIndex] = mergedSubcat;
+              } else {
+                // Añadir nueva subcategoría
+                existingCat.items.push(JSON.parse(JSON.stringify(newItem)));
+              }
             } else {
-              existingCat.items.push(newItem);
+              // Página: buscar por nombre O por URL
+              const existingItemIndex = existingCat.items.findIndex(i => 
+                i.type === 'page' && (i.name === newItem.name || i.url === newItem.url)
+              );
+              
+              if (existingItemIndex >= 0) {
+                // Actualizar página existente (preservar propiedades del usuario como visibility)
+                existingCat.items[existingItemIndex] = { 
+                  ...existingCat.items[existingItemIndex], 
+                  ...newItem,
+                  // Preservar visibility si el usuario la cambió
+                  visibility: existingCat.items[existingItemIndex].visibility
+                };
+              } else {
+                // Añadir nueva página
+                existingCat.items.push(JSON.parse(JSON.stringify(newItem)));
+              }
             }
           }
-        }
-        
-        // Merge subcategorías recursivamente
-        if (newCat.categories && newCat.categories.length > 0) {
-          existingCat.categories = this._mergeCategories(existingCat.categories || [], newCat.categories);
         }
       } else {
         // Añadir nueva categoría
