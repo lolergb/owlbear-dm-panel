@@ -157,6 +157,50 @@ exports.handler = async (event, context) => {
     }
 
     // ============================================
+    // ACCIÓN: Obtener info de una base de datos (título, etc.)
+    // ============================================
+    if (action === 'database-info') {
+      const databaseId = event.queryStringParameters.databaseId;
+      
+      if (!databaseId) {
+        return {
+          statusCode: 400,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ error: 'databaseId parameter is required for database-info action' })
+        };
+      }
+
+      const response = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${userToken}`,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          statusCode: response.status,
+          headers: CORS_HEADERS,
+          body: JSON.stringify({ 
+            error: errorData.message || 'Notion API error',
+            code: errorData.code
+          })
+        };
+      }
+
+      const data = await response.json();
+      
+      return {
+        statusCode: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      };
+    }
+
+    // ============================================
     // ACCIÓN: Consultar páginas de una base de datos
     // ============================================
     if (action === 'database') {
