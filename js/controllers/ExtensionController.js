@@ -2785,151 +2785,284 @@ export class ExtensionController {
       }, 300);
     });
 
-    // Importar
+    // Importar - Mostrar opciones de integración
     document.getElementById('notion-import-btn').addEventListener('click', async () => {
       if (selectedPages.size === 0) return;
 
-      const importBtn = document.getElementById('notion-import-btn');
-      const cancelBtn = document.getElementById('notion-cancel-btn');
-      const progressEl = document.getElementById('import-progress');
-      const statusEl = document.getElementById('import-status');
-      const fillEl = document.getElementById('import-fill');
       const form = modal.querySelector('.form');
       const formFields = form.querySelectorAll('.form__field');
       const hint = form.querySelector('.notion-pages-hint');
       const formActions = form.querySelector('.form__actions');
+      const progressEl = document.getElementById('import-progress');
 
-      // Ocultar elementos del formulario, dejar solo título y progress
+      // Contar páginas actuales en el vault
+      const currentConfig = this.configManager?.config || { categories: [] };
+      const currentPagesCount = this._countPagesInConfig(currentConfig);
+
+      // Ocultar elementos del formulario de selección
       formFields.forEach(field => field.style.display = 'none');
       if (hint) hint.style.display = 'none';
       if (formActions) formActions.style.display = 'none';
 
-      importBtn.disabled = true;
-      cancelBtn.disabled = true;
-      progressEl.style.display = 'block';
-
-      try {
-        const pagesToImport = Array.from(selectedPages.values());
-        const totalStats = { pagesImported: 0, pagesSkipped: 0, emptyPages: 0 };
-        const allCategories = [];
-
-        // Procesar cada página seleccionada
-        let totalPagesProcessed = 0;
-        for (let i = 0; i < pagesToImport.length; i++) {
-          const page = pagesToImport[i];
+      // Mostrar opciones de integración
+      const optionsHtml = `
+        <div id="import-options" class="import-options">
+          <p class="import-options__question">How would you like to add this?</p>
           
-          statusEl.textContent = `Processing ${i + 1}/${pagesToImport.length}: ${page.title}...`;
-
-          const result = await this.notionService.generateVaultFromPage(
-            page.id,
-            page.title,
-            10, // maxDepth
-            (progress) => {
-              statusEl.textContent = `(${i + 1}/${pagesToImport.length}) ${progress.message}`;
-              // Actualizar barra basado en total de páginas procesadas
-              const currentTotal = totalPagesProcessed + progress.pagesImported;
-              fillEl.style.width = `${Math.min(currentTotal * 10, 90)}%`;
-            }
-          );
+          <label class="import-option">
+            <input type="radio" name="import-mode" value="append" checked />
+            <div class="import-option__content">
+              <span class="import-option__title">Add to the end</span>
+              <span class="import-option__hint">Your current vault stays untouched</span>
+            </div>
+          </label>
           
-          totalPagesProcessed += result.stats.pagesImported;
-          // Actualizar progreso al terminar cada página raíz
-          fillEl.style.width = `${Math.min(totalPagesProcessed * 10, 90)}%`;
-
-          // Acumular estadísticas
-          totalStats.pagesImported += result.stats.pagesImported;
-          totalStats.pagesSkipped += result.stats.pagesSkipped;
-          totalStats.emptyPages += result.stats.emptyPages;
-
-          // Acumular categorías
-          if (result.config.categories.length > 0) {
-            // Si solo hay una página seleccionada y el resultado es una categoría con un solo item que es una página,
-            // no crear carpeta raíz, agregar la página directamente
-            if (pagesToImport.length === 1 && result.config.categories.length === 1) {
-              const cat = result.config.categories[0];
-              // Si la categoría tiene solo un item que es una página, no crear carpeta
-              if (cat.items && cat.items.length === 1 && cat.items[0].type === 'page') {
-                // Crear una categoría "Imported" genérica con la página
-                allCategories.push({
-                  name: 'Imported',
-                  items: cat.items
-                });
-              } else {
-                allCategories.push(...result.config.categories);
+          <label class="import-option">
+            <input type="radio" name="import-mode" value="merge" />
+            <div class="import-option__content">
+              <span class="import-option__title">Combine with existing</span>
+              <span class="import-option__hint">New pages will be added, duplicates updated</span>
+            </div>
+          </label>
+          
+          <label class="import-option">
+            <input type="radio" name="import-mode" value="replace" />
+            <div class="import-option__content">
+              <span class="import-option__title">Replace everything</span>
+              ${currentPagesCount > 0 
+                ? `<span class="import-option__hint import-option__hint--warning">⚠️ You'll lose your current ${currentPagesCount} page${currentPagesCount !== 1 ? 's' : ''}</span>`
+                : `<span class="import-option__hint">Start fresh with imported content</span>`
               }
-            } else {
-              allCategories.push(...result.config.categories);
-            }
-          }
-        }
+            </div>
+          </label>
 
-        fillEl.style.width = '100%';
-        statusEl.textContent = 'Saving vault...';
+          <div class="form__actions" style="margin-top: var(--spacing-lg);">
+            <button type="button" id="import-options-back" class="btn btn--ghost btn--flex">Back</button>
+            <button type="button" id="import-options-confirm" class="btn btn--primary btn--flex">Confirm import</button>
+          </div>
+        </div>
+      `;
+      
+      // Insertar antes del progress
+      progressEl.insertAdjacentHTML('beforebegin', optionsHtml);
 
-        // Guardar configuración
-        if (allCategories.length > 0) {
-          await this.saveConfig({ categories: allCategories });
-          
-          closeModal();
-          
-          // Mostrar resultado
-          const { pagesImported, pagesSkipped, emptyPages } = totalStats;
-          
-          if (pagesSkipped > 0 || emptyPages > 0) {
-            const skippedInfo = [];
-            if (emptyPages > 0) skippedInfo.push(`${emptyPages} empty`);
-            if (pagesSkipped - emptyPages > 0) skippedInfo.push(`${pagesSkipped - emptyPages} over depth`);
-            
-            this.uiRenderer.showWarningToast(
-              'Import completed',
-              `${pagesImported} pages imported. Skipped: ${skippedInfo.join(', ')}.`,
-              8000
-            );
-          } else {
-            const pageText = pagesToImport.length === 1 ? pagesToImport[0].title : `${pagesToImport.length} sources`;
-            this.uiRenderer.showSuccessToast(
-              'Import successful!',
-              `${pagesImported} pages imported from ${pageText}.`
-            );
-          }
-
-          // Track analytics
-          this.analyticsService.trackJSONImported(pagesImported);
-
-          // Volver a la lista
-          this._goBackToList();
-        } else {
-          this.uiRenderer.showWarningToast(
-            'No pages found',
-            'The selected pages have no content to import.'
-          );
-          // Restaurar visibilidad de elementos del formulario
-          formFields.forEach(field => field.style.display = '');
-          if (hint) hint.style.display = '';
-          if (formActions) formActions.style.display = '';
-          importBtn.disabled = false;
-          cancelBtn.disabled = false;
-          progressEl.style.display = 'none';
-        }
-      } catch (e) {
-        logError('Error importing from Notion:', e);
-        this.uiRenderer.showErrorToast(
-          'Import failed',
-          e.message || 'An error occurred while importing.'
-        );
-        // Restaurar visibilidad de elementos del formulario
+      // Botón "Back" - volver a la selección de páginas
+      document.getElementById('import-options-back').addEventListener('click', () => {
+        document.getElementById('import-options').remove();
         formFields.forEach(field => field.style.display = '');
         if (hint) hint.style.display = '';
         if (formActions) formActions.style.display = '';
-        importBtn.disabled = false;
-        cancelBtn.disabled = false;
-        progressEl.style.display = 'none';
-      }
+      });
+
+      // Botón "Confirm import" - ejecutar la importación
+      document.getElementById('import-options-confirm').addEventListener('click', async () => {
+        const importMode = document.querySelector('input[name="import-mode"]:checked').value;
+        const optionsEl = document.getElementById('import-options');
+        const statusEl = document.getElementById('import-status');
+        const fillEl = document.getElementById('import-fill');
+
+        // Ocultar opciones, mostrar progreso
+        optionsEl.style.display = 'none';
+        progressEl.style.display = 'block';
+
+        try {
+          const pagesToImport = Array.from(selectedPages.values());
+          const totalStats = { pagesImported: 0, pagesSkipped: 0, emptyPages: 0 };
+          const importedCategories = [];
+
+          // Procesar cada página seleccionada
+          let totalPagesProcessed = 0;
+          for (let i = 0; i < pagesToImport.length; i++) {
+            const page = pagesToImport[i];
+            
+            statusEl.textContent = `Processing ${i + 1}/${pagesToImport.length}: ${page.title}...`;
+
+            const result = await this.notionService.generateVaultFromPage(
+              page.id,
+              page.title,
+              10, // maxDepth
+              (progress) => {
+                statusEl.textContent = `(${i + 1}/${pagesToImport.length}) ${progress.message}`;
+                const currentTotal = totalPagesProcessed + progress.pagesImported;
+                fillEl.style.width = `${Math.min(currentTotal * 10, 90)}%`;
+              }
+            );
+            
+            totalPagesProcessed += result.stats.pagesImported;
+            fillEl.style.width = `${Math.min(totalPagesProcessed * 10, 90)}%`;
+
+            // Acumular estadísticas
+            totalStats.pagesImported += result.stats.pagesImported;
+            totalStats.pagesSkipped += result.stats.pagesSkipped;
+            totalStats.emptyPages += result.stats.emptyPages;
+
+            // Acumular categorías
+            if (result.config.categories.length > 0) {
+              if (pagesToImport.length === 1 && result.config.categories.length === 1) {
+                const cat = result.config.categories[0];
+                if (cat.items && cat.items.length === 1 && cat.items[0].type === 'page') {
+                  importedCategories.push({
+                    name: 'Imported',
+                    items: cat.items
+                  });
+                } else {
+                  importedCategories.push(...result.config.categories);
+                }
+              } else {
+                importedCategories.push(...result.config.categories);
+              }
+            }
+          }
+
+          fillEl.style.width = '100%';
+          statusEl.textContent = 'Saving vault...';
+
+          // Aplicar según el modo seleccionado
+          if (importedCategories.length > 0) {
+            let finalCategories;
+            
+            switch (importMode) {
+              case 'append':
+                // Añadir al final
+                finalCategories = [...(currentConfig.categories || []), ...importedCategories];
+                break;
+              
+              case 'merge':
+                // Combinar: añadir nuevas, actualizar duplicadas por nombre
+                finalCategories = this._mergeCategories(currentConfig.categories || [], importedCategories);
+                break;
+              
+              case 'replace':
+                // Reemplazar todo
+                finalCategories = importedCategories;
+                break;
+              
+              default:
+                finalCategories = importedCategories;
+            }
+
+            await this.saveConfig({ categories: finalCategories });
+            
+            closeModal();
+            
+            // Mostrar resultado
+            const { pagesImported, pagesSkipped, emptyPages } = totalStats;
+            const modeText = importMode === 'append' ? 'added' : importMode === 'merge' ? 'merged' : 'replaced';
+            
+            if (pagesSkipped > 0 || emptyPages > 0) {
+              const skippedInfo = [];
+              if (emptyPages > 0) skippedInfo.push(`${emptyPages} empty`);
+              if (pagesSkipped - emptyPages > 0) skippedInfo.push(`${pagesSkipped - emptyPages} over depth`);
+              
+              this.uiRenderer.showWarningToast(
+                'Import completed',
+                `${pagesImported} pages ${modeText}. Skipped: ${skippedInfo.join(', ')}.`,
+                8000
+              );
+            } else {
+              const pageText = pagesToImport.length === 1 ? pagesToImport[0].title : `${pagesToImport.length} sources`;
+              this.uiRenderer.showSuccessToast(
+                'Import successful!',
+                `${pagesImported} pages ${modeText} from ${pageText}.`
+              );
+            }
+
+            // Track analytics
+            this.analyticsService.trackJSONImported(pagesImported);
+
+            // Volver a la lista
+            this._goBackToList();
+          } else {
+            this.uiRenderer.showWarningToast(
+              'No pages found',
+              'The selected pages have no content to import.'
+            );
+            optionsEl.style.display = '';
+            progressEl.style.display = 'none';
+          }
+        } catch (e) {
+          logError('Error importing from Notion:', e);
+          this.uiRenderer.showErrorToast(
+            'Import failed',
+            e.message || 'An error occurred while importing.'
+          );
+          optionsEl.style.display = '';
+          progressEl.style.display = 'none';
+        }
+      });
     });
 
     // Cargar páginas iniciales
     await loadPages();
     searchInput.focus();
+  }
+
+  /**
+   * Cuenta el número total de páginas en una configuración
+   * @private
+   */
+  _countPagesInConfig(config) {
+    let count = 0;
+    const countItems = (items) => {
+      if (!items) return;
+      for (const item of items) {
+        if (item.type === 'page' || item.url) {
+          count++;
+        }
+        if (item.type === 'category' && item.items) {
+          countItems(item.items);
+        }
+      }
+    };
+    
+    if (config.categories) {
+      for (const cat of config.categories) {
+        if (cat.items) {
+          countItems(cat.items);
+        }
+      }
+    }
+    
+    return count;
+  }
+
+  /**
+   * Combina categorías existentes con nuevas (merge)
+   * @private
+   */
+  _mergeCategories(existingCategories, newCategories) {
+    const result = [...existingCategories];
+    
+    for (const newCat of newCategories) {
+      // Buscar si existe una categoría con el mismo nombre
+      const existingIndex = result.findIndex(c => c.name === newCat.name);
+      
+      if (existingIndex >= 0) {
+        // Merge items: añadir nuevos, actualizar existentes por nombre
+        const existingCat = result[existingIndex];
+        const mergedItems = [...(existingCat.items || [])];
+        
+        for (const newItem of (newCat.items || [])) {
+          const itemName = newItem.name || newItem.url;
+          const existingItemIndex = mergedItems.findIndex(i => (i.name || i.url) === itemName);
+          
+          if (existingItemIndex >= 0) {
+            // Actualizar item existente
+            mergedItems[existingItemIndex] = { ...mergedItems[existingItemIndex], ...newItem };
+          } else {
+            // Añadir nuevo item
+            mergedItems.push(newItem);
+          }
+        }
+        
+        result[existingIndex] = { ...existingCat, items: mergedItems };
+      } else {
+        // Añadir nueva categoría
+        result.push(newCat);
+      }
+    }
+    
+    return result;
   }
 
   /**
@@ -2978,11 +3111,22 @@ export class ExtensionController {
         </div>
       `;
 
-      // Toggle selección al hacer click
+      // Toggle selección al hacer click en el item (pero no en el checkbox)
       item.addEventListener('click', (e) => {
         const checkbox = item.querySelector('input[type="checkbox"]');
+        // Si el click fue en el checkbox, no hacer nada (el change event lo maneja)
+        if (e.target.type === 'checkbox') return;
+        
         const newState = !checkbox.checked;
         checkbox.checked = newState;
+        item.classList.toggle('notion-page-item--selected', newState);
+        onSelect(page, newState);
+      });
+
+      // Manejar click directo en el checkbox
+      const checkbox = item.querySelector('input[type="checkbox"]');
+      checkbox.addEventListener('change', (e) => {
+        const newState = e.target.checked;
         item.classList.toggle('notion-page-item--selected', newState);
         onSelect(page, newState);
       });

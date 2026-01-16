@@ -2363,6 +2363,73 @@
 }
 
 /* ==========================================================================
+  Import Options (How to add)
+  ========================================================================== */
+
+.import-options {
+  padding: var(--spacing-md) 0;
+}
+
+.import-options__question {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-lg) 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.import-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.import-option:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-active);
+}
+
+.import-option:has(input:checked) {
+  background: var(--color-bg-active);
+  border-color: var(--color-accent-primary);
+}
+
+.import-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--color-accent-primary);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.import-option__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.import-option__title {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.import-option__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.import-option__hint--warning {
+  color: var(--color-error-text);
+}
+
+/* ==========================================================================
   Vault Status Box (Settings - inside Export vault)
   ========================================================================== */
 
