@@ -421,15 +421,33 @@ export class ConfigParser {
     const categories = category.categories || [];
     const order = category.order || null;
 
-    // Si hay orden definido, usarlo
+    // Track qué índices ya fueron procesados
+    const processedPageIndices = new Set();
+    const processedCategoryIndices = new Set();
+
+    // Si hay orden definido, usarlo primero
     if (order && Array.isArray(order)) {
       for (const orderItem of order) {
         if (orderItem.type === 'page' && pages[orderItem.index]) {
           items.push(this._pageToItemFormat(pages[orderItem.index]));
+          processedPageIndices.add(orderItem.index);
         } else if (orderItem.type === 'category' && categories[orderItem.index]) {
           items.push(this._categoryToItemFormat(categories[orderItem.index]));
+          processedCategoryIndices.add(orderItem.index);
         }
       }
+      
+      // Añadir items que no estaban en el order (añadidos después)
+      categories.forEach((subcat, index) => {
+        if (!processedCategoryIndices.has(index)) {
+          items.push(this._categoryToItemFormat(subcat));
+        }
+      });
+      pages.forEach((page, index) => {
+        if (!processedPageIndices.has(index)) {
+          items.push(this._pageToItemFormat(page));
+        }
+      });
     } else {
       // Sin orden definido: categorías primero, luego páginas
       for (const subcat of categories) {
