@@ -48,8 +48,13 @@ export class ConfigParser {
       log(`ConfigParser: Detectado formato "${format}"`);
 
       const categories = this._parseCategories(json.categories || [], format);
+      
+      // Parsear páginas del root (si existen)
+      const pages = this._parsePages(json.pages || []);
+      
       return new Config({ 
         categories,
+        pages,
         order: json.order || null
       });
     } catch (e) {

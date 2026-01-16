@@ -635,24 +635,22 @@ export class NotionService {
     // Construir configuración final
     let config;
     if (rootResult && rootResult.type === 'category') {
-      // La raíz es una categoría, usarla directamente
+      // La raíz es una categoría (tiene hijos), usarla directamente
       config = {
         categories: [{
           name: rootResult.name,
           items: rootResult.items
         }]
       };
-    } else if (rootResult) {
-      // La raíz es una página simple, crear categoría contenedora
+    } else if (rootResult && rootResult.type === 'page') {
+      // La raíz es una página simple sin hijos -> añadir al root directamente
       config = {
-        categories: [{
-          name: pageTitle,
-          items: [rootResult]
-        }]
+        categories: [],
+        pages: [rootResult]
       };
     } else {
       // No se pudo procesar
-      config = { categories: [] };
+      config = { categories: [], pages: [] };
     }
 
     return {

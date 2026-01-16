@@ -2971,6 +2971,7 @@ export class ExtensionController {
           const pagesToImport = Array.from(selectedPages.values());
           const totalStats = { pagesImported: 0, pagesSkipped: 0, emptyPages: 0 };
           const importedCategories = [];
+          const importedRootPages = []; // Páginas sin hijos van al root
 
           // Procesar cada página seleccionada
           let totalPagesProcessed = 0;
@@ -2998,21 +2999,14 @@ export class ExtensionController {
             totalStats.pagesSkipped += result.stats.pagesSkipped;
             totalStats.emptyPages += result.stats.emptyPages;
 
-            // Acumular categorías
-            if (result.config.categories.length > 0) {
-              if (pagesToImport.length === 1 && result.config.categories.length === 1) {
-                const cat = result.config.categories[0];
-                if (cat.items && cat.items.length === 1 && cat.items[0].type === 'page') {
-                  importedCategories.push({
-                    name: 'Imported',
-                    items: cat.items
-                  });
-                } else {
-                  importedCategories.push(...result.config.categories);
-                }
-              } else {
-                importedCategories.push(...result.config.categories);
-              }
+            // Acumular categorías (páginas con hijos)
+            if (result.config.categories && result.config.categories.length > 0) {
+              importedCategories.push(...result.config.categories);
+            }
+            
+            // Acumular páginas del root (páginas sin hijos)
+            if (result.config.pages && result.config.pages.length > 0) {
+              importedRootPages.push(...result.config.pages);
             }
           }
 
@@ -3020,38 +3014,44 @@ export class ExtensionController {
           statusEl.textContent = 'Saving vault...';
 
           // Aplicar según el modo seleccionado
-          if (importedCategories.length > 0) {
+          if (importedCategories.length > 0 || importedRootPages.length > 0) {
             let finalCategories;
+            let finalPages;
             
             // Obtener config ACTUAL y convertir a JSON plano, luego a formato items[]
-            const currentConfigNow = this.config || { categories: [] };
+            const currentConfigNow = this.config || { categories: [], pages: [] };
             // Convertir de instancia Config a JSON plano si es necesario
             const configJson = currentConfigNow.toJSON ? currentConfigNow.toJSON() : currentConfigNow;
             const existingInItemsFormat = this.configParser.toItemsFormat(configJson);
             const existingCategories = existingInItemsFormat.categories || [];
+            const existingPages = configJson.pages || [];
 
             switch (importMode) {
               case 'append':
                 // Añadir al final
                 finalCategories = [...existingCategories, ...importedCategories];
+                finalPages = [...existingPages, ...importedRootPages];
                 break;
               
               case 'merge':
                 // Combinar: añadir nuevas, actualizar duplicadas por nombre
                 // Preserva páginas añadidas manualmente por el usuario
                 finalCategories = this._mergeCategories(existingCategories, importedCategories);
+                finalPages = this._mergeRootPages(existingPages, importedRootPages);
                 break;
               
               case 'replace':
                 // Reemplazar todo
                 finalCategories = importedCategories;
+                finalPages = importedRootPages;
                 break;
               
               default:
                 finalCategories = importedCategories;
+                finalPages = importedRootPages;
             }
 
-            await this.saveConfig({ categories: finalCategories });
+            await this.saveConfig({ categories: finalCategories, pages: finalPages });
             
             closeModal();
             
@@ -3239,6 +3239,45 @@ export class ExtensionController {
       } else {
         // Añadir nueva categoría
         result.push(JSON.parse(JSON.stringify(newCat)));
+      }
+    }
+    
+    return result;
+  }
+
+  /**
+   * Combina páginas del root existentes con nuevas
+   * @param {Array} existingPages - Páginas existentes
+   * @param {Array} newPages - Nuevas páginas a añadir
+   * @returns {Array} - Páginas combinadas
+   * @private
+   */
+  _mergeRootPages(existingPages, newPages) {
+    // Deep clone para no mutar el original
+    const result = JSON.parse(JSON.stringify(existingPages || []));
+    
+    for (const newPage of newPages) {
+      // Buscar por ID primero, luego por nombre/URL
+      let existingIndex = -1;
+      if (newPage.id) {
+        existingIndex = result.findIndex(p => p.id === newPage.id);
+      }
+      if (existingIndex < 0) {
+        existingIndex = result.findIndex(p => p.name === newPage.name || p.url === newPage.url);
+      }
+      
+      if (existingIndex >= 0) {
+        // Actualizar página existente (preservar propiedades del usuario)
+        result[existingIndex] = {
+          ...result[existingIndex],
+          ...newPage,
+          // Preservar ID existente y visibility del usuario
+          id: result[existingIndex].id,
+          visibleToPlayers: result[existingIndex].visibleToPlayers
+        };
+      } else {
+        // Añadir nueva página
+        result.push(JSON.parse(JSON.stringify(newPage)));
       }
     }
     
