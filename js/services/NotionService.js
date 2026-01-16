@@ -888,8 +888,9 @@ export class NotionService {
   async generateVaultFromPage(pageId, pageTitle, maxDepth = 10, onProgress = null) {
     const stats = {
       pagesImported: 0,
-      pagesSkipped: 0,
-      emptyPages: 0,
+      pagesSkipped: 0,      // Por profundidad máxima
+      emptyPages: 0,        // Páginas vacías
+      dbPagesFiltered: 0,   // Páginas de DB filtradas intencionalmente (no es error)
       unsupportedTypes: new Set()
     };
 
@@ -972,14 +973,8 @@ export class NotionService {
         
         // PASO 2: Procesar páginas de DB con agrupación por labels
         const existingCategoryNames = Array.from(categoryMap.keys());
-        
-        if (existingCategoryNames.length > 0) {
-          log(`📁 Categorías existentes para matching: ${existingCategoryNames.join(', ')}`);
-        }
-        
-        if (dbPagesForLater.length > 0) {
-          log(`📊 Procesando ${dbPagesForLater.length} páginas de DB para asignar por labels`);
-        }
+        let dbAssigned = 0;
+        let dbFiltered = 0;
         
         for (const child of dbPagesForLater) {
           const pageData = {
@@ -992,8 +987,6 @@ export class NotionService {
           
           // Buscar si algún label coincide con una categoría existente
           if (child.labels && child.labels.length > 0) {
-            log(`  🏷️ "${child.title}" tiene labels: [${child.labels.join(', ')}]`);
-            
             for (const label of child.labels) {
               const matchingCategoryName = this._findMatchingCategory(label, existingCategoryNames);
               
@@ -1003,28 +996,27 @@ export class NotionService {
                 if (category && category.items) {
                   category.items.push(pageData);
                   assignedToCategory = true;
-                  log(`    ✅ Asignado a "${matchingCategoryName}" por label "${label}"`);
+                  dbAssigned++;
                   break;
                 }
               }
             }
-          } else {
-            log(`  ⚠️ "${child.title}" no tiene labels`);
           }
           
           // Si no se asignó a ninguna categoría, NO crear carpeta de DB
-          // Solo importamos páginas de DB que coincidan con categorías existentes
           if (!assignedToCategory) {
-            log(`⏭️ Página de DB "${child.title}" omitida (sin categoría coincidente)`);
-            stats.pagesSkipped++;
+            stats.dbPagesFiltered++;
+            dbFiltered++;
             continue;
           }
           
           stats.pagesImported++;
         }
         
-        // NOTA: Ya no creamos carpetas de bases de datos automáticamente
-        // Solo importamos páginas de DB que coinciden con categorías existentes por label
+        // Log resumen de procesamiento de DB
+        if (dbPagesForLater.length > 0) {
+          log(`📊 DB: ${dbAssigned} asignados por label, ${dbFiltered} filtrados (sin categoría coincidente)`);
+        }
 
         // ============================================
         // ESCANEAR MENTIONS EN EL CONTENIDO
@@ -1188,6 +1180,7 @@ export class NotionService {
         pagesImported: stats.pagesImported,
         pagesSkipped: stats.pagesSkipped,
         emptyPages: stats.emptyPages,
+        dbPagesFiltered: stats.dbPagesFiltered,
         unsupportedTypes: Array.from(stats.unsupportedTypes)
       }
     };
