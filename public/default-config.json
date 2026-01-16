@@ -23,7 +23,7 @@
       "pages": [
         {
           "name": "Quick Start",
-          "url": "https://owlbear-gm-vault.netlify.app/docs/quick-start.html"
+          "url": "https://owlbear-gm-vault.netlify.app/content-demo/quick-start.html"
         },
         {
           "name": "Race - Elf",
@@ -63,7 +63,7 @@
       "pages": [
         {
           "name": "Template",
-          "url": "https://owlbear-gm-vault.netlify.app/docs/session-notes.html"
+          "url": "https://owlbear-gm-vault.netlify.app/content-demo/session-notes.html"
         }
       ],
       "categories": [],
@@ -83,7 +83,7 @@
           "pages": [
             {
               "name": "Scene — The Watched Crossroads",
-              "url": "https://owlbear-gm-vault.netlify.app/docs/scene-the-watched-crossroads.html"
+              "url": "https://owlbear-gm-vault.netlify.app/content-demo/scene-the-watched-crossroads.html"
             }
           ],
           "categories": [],
@@ -99,7 +99,7 @@
           "pages": [
             {
               "name": "Maera",
-              "url": "https://owlbear-gm-vault.netlify.app/docs/maera-manos-secas.html"
+              "url": "https://owlbear-gm-vault.netlify.app/content-demo/maera-manos-secas.html"
             }
           ],
           "categories": [],
