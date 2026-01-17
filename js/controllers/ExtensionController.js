@@ -4426,7 +4426,7 @@ export class ExtensionController {
                    data-image-caption=""
                    data-block-id="cover-${pageId}"
                    onload="const loading = this.parentElement.querySelector('.image-loading'); if(loading) loading.remove();"
-                   onerror="this.style.display='none'; const loading = this.parentElement.querySelector('.image-loading'); if(loading) loading.remove(); const errorDiv = document.createElement('div'); errorDiv.className='empty-state notion-image-error'; errorDiv.innerHTML='<div class=\\'empty-state-icon\\'>⚠️</div><p class=\\'empty-state-text\\'>Cover image expired</p><button class=\\'btn btn--sm btn--ghost\\' onclick=\\'window.refreshImage && window.refreshImage(this)\\'>🔄 Reload page</button>'; this.parentElement.appendChild(errorDiv);" />
+                   onerror="if(!this.dataset.refreshAttempted) { this.dataset.refreshAttempted='true'; setTimeout(() => { if(window.refreshImage) window.refreshImage(); }, 500); } else { this.style.display='none'; const loading = this.parentElement.querySelector('.image-loading'); if(loading) loading.remove(); const errorDiv = document.createElement('div'); errorDiv.className='empty-state notion-image-error'; errorDiv.innerHTML='<div class=\\'empty-state-icon\\'>⚠️</div><p class=\\'empty-state-text\\'>Cover image expired</p><button class=\\'btn btn--sm btn--ghost\\' onclick=\\'window.refreshImage && window.refreshImage(this)\\'>🔄 Reload page</button>'; this.parentElement.appendChild(errorDiv); }" />
               <button class="notion-image-share-button share-button" 
                       data-image-url="${coverUrl}" 
                       data-image-caption=""

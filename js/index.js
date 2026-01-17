@@ -3360,27 +3360,39 @@ async function attachImageClickHandlers() {
       showImageModal(imageUrl, caption);
     });
     
-    // Error handler para mostrar mensaje de error
+    // Error handler para mostrar mensaje de error y refrescar automáticamente
     img.addEventListener('error', function() {
-      this.style.display = 'none';
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'empty-state notion-image-error';
-      errorDiv.innerHTML = `
-        <div class="empty-state-icon">⚠️</div>
-        <p class="empty-state-text">Could not load image</p>
-        <p class="empty-state-hint">The URL may have expired</p>
-        <button class="btn btn--sm btn--ghost">🔄 Reload page</button></div>
-      `;
-      
-      // Agregar event listener al botón de recargar
-      const refreshButton = errorDiv.querySelector('button');
-      if (refreshButton) {
-        refreshButton.addEventListener('click', () => {
-          refreshImage(refreshButton);
-        });
+      // Si ya intentamos refrescar, mostrar mensaje de error
+      if (this.dataset.refreshAttempted === 'true') {
+        this.style.display = 'none';
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'empty-state notion-image-error';
+        errorDiv.innerHTML = `
+          <div class="empty-state-icon">⚠️</div>
+          <p class="empty-state-text">Could not load image</p>
+          <p class="empty-state-hint">The URL may have expired</p>
+          <button class="btn btn--sm btn--ghost">🔄 Reload page</button></div>
+        `;
+        
+        // Agregar event listener al botón de recargar
+        const refreshButton = errorDiv.querySelector('button');
+        if (refreshButton) {
+          refreshButton.addEventListener('click', () => {
+            refreshImage(refreshButton);
+          });
+        }
+        
+        this.parentElement.appendChild(errorDiv);
+      } else {
+        // Primera vez: intentar refrescar automáticamente
+        this.dataset.refreshAttempted = 'true';
+        log('🔄 Imagen expirada detectada, refrescando automáticamente...');
+        setTimeout(() => {
+          if (window.refreshImage) {
+            window.refreshImage();
+          }
+        }, 500); // Pequeño delay para evitar loops
       }
-      
-      this.parentElement.appendChild(errorDiv);
     });
     
     // Load handler para logging

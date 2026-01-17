@@ -1239,6 +1239,9 @@
   .notion-page-cover .notion-image-container {
     width: 100%;
     min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .notion-cover-image {
@@ -1249,6 +1252,8 @@
     cursor: pointer;
     opacity: 1 !important;
     transition: opacity var(--transition-normal);
+    margin: 0 auto;
+    display: block;
   }
 
   .notion-cover-image:hover {
