@@ -5149,6 +5149,10 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       }
     const newIsCollapsed = contentContainer.style.display === 'none';
       
+      // Nielsen: User control - Guardar posición del título antes de animar
+      const titleRect = titleContainer.getBoundingClientRect();
+      const titleTopBeforeAnimation = titleRect.top;
+      
       // Aplicar animación suave
       if (newIsCollapsed) {
         // Abrir
@@ -5175,7 +5179,21 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
           contentContainer.style.overflow = '';
           contentContainer.style.transition = '';
           contentContainer.style.opacity = '';
-        }, 300);
+          
+          // Nielsen: Visibility - Asegurar que el título de la carpeta abierta sea visible
+          // Si el contenido es muy largo, hacer scroll para que el título quede visible en la parte superior
+          const newTitleRect = titleContainer.getBoundingClientRect();
+          const viewportHeight = window.innerHeight;
+          
+          // Si el título quedó fuera de la vista superior, hacer scroll suave
+          if (newTitleRect.top < 0) {
+            titleContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          // Si el contenido de la carpeta no cabe y el título está muy arriba, ajustar
+          else if (newTitleRect.top < 60 && contentContainer.scrollHeight > viewportHeight * 0.5) {
+            titleContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 320);
       } else {
         // Cerrar
         const scrollHeight = contentContainer.scrollHeight;
@@ -5201,7 +5219,16 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
           contentContainer.style.overflow = '';
           contentContainer.style.transition = '';
           contentContainer.style.opacity = '';
-        }, 300);
+          
+          // Nielsen: User control - Mantener el contexto del usuario
+          // Al cerrar, asegurar que el título de la carpeta siga visible
+          const newTitleRect = titleContainer.getBoundingClientRect();
+          
+          // Si el título quedó fuera de la vista, hacer scroll para que sea visible
+          if (newTitleRect.top < 0 || newTitleRect.bottom > window.innerHeight) {
+            titleContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 320);
       }
       
     localStorage.setItem(collapseStateKey, (!newIsCollapsed).toString());
@@ -5956,6 +5983,34 @@ async function deletePageFromPageList(page, pageCategoryPath, roomId) {
 }
 
 /**
+ * Hace scroll suave a un elemento y lo resalta temporalmente
+ * Aplica principios de Nielsen: Visibility of system status
+ * @param {HTMLElement} element - Elemento al que hacer scroll
+ * @param {Object} options - Opciones de scroll y highlight
+ */
+function scrollToAndHighlight(element, options = {}) {
+  const {
+    behavior = 'smooth',
+    block = 'center',
+    highlightDuration = 1500,
+    highlightClass = 'highlight-new-item'
+  } = options;
+  
+  if (!element) return;
+  
+  // Hacer scroll al elemento
+  element.scrollIntoView({ behavior, block });
+  
+  // Agregar clase de highlight para feedback visual
+  element.classList.add(highlightClass);
+  
+  // Remover highlight después de un tiempo
+  setTimeout(() => {
+    element.classList.remove(highlightClass);
+  }, highlightDuration);
+}
+
+/**
  * Duplicar una carpeta completa (incluyendo páginas y subcarpetas)
  */
 async function duplicateCategoryFromPageList(category, categoryPath, roomId) {
@@ -5995,6 +6050,15 @@ async function duplicateCategoryFromPageList(category, categoryPath, roomId) {
     const pageList = document.getElementById("page-list");
     if (pageList) {
       await renderPagesByCategories(config, pageList, roomId);
+      
+      // Nielsen: Visibility of system status - scroll al elemento duplicado y resaltarlo
+      // Buscar el elemento duplicado por su nombre
+      requestAnimationFrame(() => {
+        const duplicatedElement = pageList.querySelector(`[data-category-name="${newName}"]`);
+        if (duplicatedElement) {
+          scrollToAndHighlight(duplicatedElement, { block: 'center' });
+        }
+      });
     }
     
     return true;
@@ -6050,6 +6114,19 @@ async function duplicatePageFromPageList(page, pageCategoryPath, roomId) {
     const pageList = document.getElementById("page-list");
     if (pageList) {
       await renderPagesByCategories(config, pageList, roomId);
+      
+      // Nielsen: Visibility of system status - scroll al elemento duplicado y resaltarlo
+      // Buscar el botón de página por su nombre (usando el texto del .page-name)
+      requestAnimationFrame(() => {
+        const allPageButtons = pageList.querySelectorAll('.page-button');
+        for (const btn of allPageButtons) {
+          const nameEl = btn.querySelector('.page-name');
+          if (nameEl && nameEl.textContent === newName) {
+            scrollToAndHighlight(btn, { block: 'center' });
+            break;
+          }
+        }
+      });
     }
     
     return true;
