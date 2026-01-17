@@ -21,17 +21,20 @@ export class NotionRenderer {
     this.isRenderingInModal = false;
     // Flag para indicar si el usuario es GM
     this.isGM = true;
+    // Flag para indicar si el usuario es Co-GM (GM promovido, solo lectura)
+    this.isCoGM = false;
   }
 
   /**
    * Inyecta dependencias
    * @param {Object} deps - Dependencias
    */
-  setDependencies({ notionService, config, isPageVisibleCallback, isGM }) {
+  setDependencies({ notionService, config, isPageVisibleCallback, isGM, isCoGM }) {
     if (notionService) this.notionService = notionService;
     if (config !== undefined) this.config = config;
     if (isPageVisibleCallback !== undefined) this.isPageVisibleCallback = isPageVisibleCallback;
     if (isGM !== undefined) this.isGM = isGM;
+    if (isCoGM !== undefined) this.isCoGM = isCoGM;
   }
 
   /**
@@ -105,11 +108,12 @@ export class NotionRenderer {
       return `<span class="notion-mention notion-mention--plain">${displayName}</span>`;
     }
     
-    // Para players: verificar si la página es visible
-    if (!this.isGM && this.isPageVisibleCallback) {
+    // Para players y Co-GMs: verificar si la página es visible
+    // Co-GM también debe respetar la visibilidad (es GM promovido pero solo lectura)
+    if ((!this.isGM || this.isCoGM) && this.isPageVisibleCallback) {
       const isVisible = this.isPageVisibleCallback(pageInVault);
       if (!isVisible) {
-        // Página no visible para player: texto plano sin indicación
+        // Página no visible: texto plano sin indicación
         return `<span class="notion-mention notion-mention--plain">${displayName}</span>`;
       }
     }

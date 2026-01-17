@@ -1626,6 +1626,7 @@ export class ExtensionController {
     this.notionRenderer.setDependencies({
       notionService: this.notionService,
       isGM: this.isGM,
+      isCoGM: this.isCoGM,
       isPageVisibleCallback: (page) => page?.visibleToPlayers === true
     });
 
@@ -3977,7 +3978,8 @@ export class ExtensionController {
     let configSource = 'none';
 
     // Para el Master GM: SOLO localStorage (según arquitectura, todo está en localStorage)
-    // Para Co-GM y Players: room metadata (estructura visible) + broadcast para contenido
+    // Para Co-GM: solicitar vault COMPLETO del Master GM (ve todo, pero no puede editar)
+    // Para Players: room metadata (estructura visible) + broadcast para contenido
     if (this.isGM && !this.isCoGM) {
       // Master GM: cargar de localStorage
       // 1. Intentar cargar de localStorage (configuración completa del GM)
@@ -4004,9 +4006,32 @@ export class ExtensionController {
           log('⚠️ No se pudo cargar config default:', e.message);
         }
       }
+    } else if (this.isCoGM) {
+      // Co-GM: solicitar vault COMPLETO del Master GM (ve todo el vault, no solo páginas visibles)
+      log('👁️ Co-GM: solicitando vault completo del Master GM...');
+      const gmAvailable = await this._checkGMAvailability();
+      
+      if (gmAvailable.isActive) {
+        // Master GM activo: solicitar vault completo
+        const fullConfig = await this._requestFullVaultForCoGM();
+        if (fullConfig && fullConfig.categories) {
+          config = fullConfig;
+          configSource = 'fullVault_broadcast';
+          log('✅ Co-GM: vault completo recibido');
+        }
+      }
+      
+      // Si no se pudo obtener del Master GM, intentar localStorage (sesión anterior)
+      if (!config) {
+        const localConfig = this.storageService.getLocalConfig();
+        if (localConfig && localConfig.categories && localConfig.categories.length > 0) {
+          config = localConfig;
+          configSource = 'localStorage_fallback';
+          log('📦 Co-GM: usando config de localStorage como fallback');
+        }
+      }
     } else {
-      // Co-GM y Players: solicitar configuración via broadcast
-      // El Co-GM debe ver la misma lista que el Master GM comparte
+      // Players: solicitar solo páginas visibles
       const gmAvailable = await this._checkGMAvailability();
       
       if (gmAvailable.isActive) {
@@ -4157,21 +4182,19 @@ export class ExtensionController {
     log('👁️ Configurando broadcast para Co-GM (modo lectura)');
     
     // Escuchar actualizaciones del vault completo (no solo páginas visibles)
+    // El Co-GM debe ver TODO el vault, igual que el Master GM
     this.OBR.broadcast.onMessage(BROADCAST_CHANNEL_RESPONSE_FULL_VAULT, async (event) => {
       const { config } = event.data;
       if (config) {
-        log('📥 [Co-GM] Vault actualizado desde Master GM');
+        log('📥 [Co-GM] Vault completo actualizado desde Master GM');
         this.config = this.configParser.parse(config);
         await this.render();
       }
     });
 
-    // También escuchar actualizaciones de páginas visibles (como fallback)
-    this.broadcastService.listenForVisiblePagesUpdates(async (config) => {
-      log('📥 [Co-GM] Páginas visibles actualizadas');
-      this.config = this.configParser.parse(config);
-      await this.render();
-    });
+    // NOTA: NO escuchamos listenForVisiblePagesUpdates para el Co-GM
+    // porque el Co-GM debe ver el vault completo, no solo las páginas visibles
+    // Si escucháramos ese canal, sobrescribiríamos el vault completo con solo las páginas visibles
 
     // Configurar listeners para contenido compartido (común para todos)
     this._setupSharedContentListeners();
@@ -4452,6 +4475,51 @@ export class ExtensionController {
     } catch (e) {
       logError('Error solicitando vault completo:', e);
       return false;
+    }
+  }
+
+  /**
+   * Solicita el vault completo para Co-GM (retorna config, no guarda ni recarga)
+   * @returns {Promise<Object|null>} - Configuración completa o null
+   * @private
+   */
+  async _requestFullVaultForCoGM() {
+    try {
+      log('📤 Co-GM: solicitando vault completo al Master GM...');
+      
+      return new Promise((resolve) => {
+        // Timeout de 5 segundos
+        const timeout = setTimeout(() => {
+          log('⏰ Timeout esperando vault completo para Co-GM');
+          unsubscribe();
+          resolve(null);
+        }, 5000);
+        
+        // Escuchar respuesta del Master GM
+        const unsubscribe = this.OBR.broadcast.onMessage(BROADCAST_CHANNEL_RESPONSE_FULL_VAULT, (event) => {
+          const { requesterId, config } = event.data;
+          
+          // Solo procesar si la respuesta es para este Co-GM
+          if (requesterId === this.playerId && config) {
+            clearTimeout(timeout);
+            unsubscribe();
+            
+            log('✅ Co-GM: vault completo recibido del Master GM');
+            
+            // Retornar config directamente (no guardar en localStorage para evitar conflictos)
+            resolve(config);
+          }
+        });
+        
+        // Enviar solicitud
+        this.broadcastService.sendMessage(BROADCAST_CHANNEL_REQUEST_FULL_VAULT, {
+          requesterId: this.playerId,
+          requesterName: this.playerName
+        });
+      });
+    } catch (e) {
+      logError('Error solicitando vault completo para Co-GM:', e);
+      return null;
     }
   }
 
@@ -5436,6 +5504,17 @@ export class ExtensionController {
         return;
       }
       
+      // Verificar acceso: Players y Co-GMs solo pueden ver páginas con visibleToPlayers = true
+      // Master GM puede ver todas las páginas
+      if (!this.isGM || this.isCoGM) {
+        if (!page.visibleToPlayers) {
+          log('🚫 Acceso denegado a página no visible para players:', pageId);
+          this._showFeedback('🔒 This page is not available');
+          mentionElement.classList.remove('notion-mention--loading');
+          return;
+        }
+      }
+      
       // Abrir el modal con la página
       await this._showMentionPageModal(page, pageName);
       
@@ -5557,13 +5636,15 @@ export class ExtensionController {
       // Configurar renderer para modo modal (mentions no clickeables)
       this.notionRenderer.setRenderingOptions({ isInModal: true });
       
-      // Obtener bloques y pageInfo (para propiedades) en paralelo
-      const [blocks, pageInfo] = await Promise.all([
-        this.notionService.fetchBlocks(notionPageId, true),
-        this.notionService.fetchPageInfo(notionPageId, true)
-      ]);
+      // Usar función centralizada que incluye header (cover, título, icono)
+      // Solo GM Master ve botones de share en el modal
+      const result = await this._generateNotionHtmlWithHeader(notionPageId, {
+        includeShareButtons: this.isGM && !this.isCoGM,
+        fallbackTitle: displayName,
+        useCache: true
+      });
       
-      if (!blocks || blocks.length === 0) {
+      if (!result || !result.html) {
         content.innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">📄</div>
@@ -5574,12 +5655,8 @@ export class ExtensionController {
         return;
       }
       
-      // Renderizar propiedades y bloques
-      const propertiesHtml = this.notionRenderer.renderPageProperties(pageInfo?.properties);
-      const blocksHtml = await this.notionRenderer.renderBlocks(blocks);
-      
-      // Mostrar contenido
-      content.innerHTML = `<div class="notion-content mention-modal__notion-content">${propertiesHtml}${blocksHtml}</div>`;
+      // Mostrar contenido con header completo (cover, título, icono, propiedades, bloques)
+      content.innerHTML = `<div class="notion-content mention-modal__notion-content">${result.html}</div>`;
       
       // Adjuntar handlers de imágenes PERO NO de mentions (evita navegación infinita)
       const images = content.querySelectorAll('.notion-image-clickable');
