@@ -4716,14 +4716,34 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
     const rect = contextMenuButton.getBoundingClientRect();
     
     // Obtener información para determinar si se puede mover arriba/abajo (usando orden combinado)
-    const config = getPagesJSON(roomId) || await getDefaultJSON();
+    // Usar getPagesJSONFromLocalStorage para asegurar datos frescos
+    const config = getPagesJSONFromLocalStorage(roomId) || getPagesJSON(roomId) || await getDefaultJSON();
     const parentPath = categoryPath.slice(0, -2);
     const parent = parentPath.length === 0 ? config : navigateConfigPath(config, parentPath);
     const index = categoryPath[categoryPath.length - 1];
-    const combinedOrder = getCombinedOrder(parent);
-    const currentPos = combinedOrder.findIndex(o => o.type === 'category' && o.index === index);
-    const canMoveUp = currentPos > 0;
-    const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
+    
+    // Debug para niveles anidados
+    log('📂 Menú carpeta:', { 
+      categoryName: category.name, 
+      categoryPath, 
+      parentPath, 
+      index, 
+      parentExists: !!parent,
+      level 
+    });
+    
+    // Calcular si se puede mover de forma robusta (validar que parent existe)
+    let canMoveUp = false;
+    let canMoveDown = false;
+    if (parent) {
+      const combinedOrder = getCombinedOrder(parent);
+      const currentPos = combinedOrder.findIndex(o => o.type === 'category' && o.index === index);
+      canMoveUp = currentPos > 0;
+      canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
+      log('📂 Orden combinado:', { combinedOrder, currentPos, canMoveUp, canMoveDown });
+    } else {
+      log('⚠️ Parent no encontrado para carpeta:', category.name);
+    }
     
     const menuItems = [
       { 
@@ -4934,17 +4954,36 @@ function renderCategory(category, parentElement, level = 0, roomId = null, categ
       pageContextMenuButton.addEventListener('click', async (e) => {
         e.stopPropagation();
         const rect = pageContextMenuButton.getBoundingClientRect();
-        const config = getPagesJSON(roomId) || await getDefaultJSON();
+        // Usar getPagesJSONFromLocalStorage para asegurar datos frescos
+        const config = getPagesJSONFromLocalStorage(roomId) || getPagesJSON(roomId) || await getDefaultJSON();
         // Obtener el path de la carpeta padre para agregar páginas en la misma carpeta
         const pageCategoryPath = categoryPath; // categoryPath viene del scope de renderCategory
         
         // Obtener información para determinar si se puede mover arriba/abajo (usando orden combinado)
         const parent = navigateConfigPath(config, pageCategoryPath);
         const pageIndex = parent && parent.pages ? parent.pages.findIndex(p => p.name === page.name && p.url === page.url) : -1;
-        const combinedOrder = getCombinedOrder(parent);
-        const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === pageIndex);
-        const canMoveUp = currentPos > 0;
-        const canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
+        
+        // Debug para niveles anidados
+        log('📄 Menú página:', { 
+          pageName: page.name, 
+          pageCategoryPath, 
+          pageIndex, 
+          parentExists: !!parent,
+          level 
+        });
+        
+        // Calcular si se puede mover de forma robusta (validar que parent existe)
+        let canMoveUp = false;
+        let canMoveDown = false;
+        if (parent && pageIndex !== -1) {
+          const combinedOrder = getCombinedOrder(parent);
+          const currentPos = combinedOrder.findIndex(o => o.type === 'page' && o.index === pageIndex);
+          canMoveUp = currentPos > 0;
+          canMoveDown = currentPos !== -1 && currentPos < combinedOrder.length - 1;
+          log('📄 Orden combinado:', { combinedOrder, currentPos, canMoveUp, canMoveDown });
+        } else {
+          log('⚠️ Parent no encontrado o página no encontrada:', { parent: !!parent, pageIndex });
+        }
         
         const menuItems = [
           { 
@@ -5302,15 +5341,23 @@ function saveCombinedOrder(parent, order) {
 
 // Función para mover un elemento arriba en el orden combinado
 async function moveItemUp(itemType, itemIndex, parentPath, roomId) {
-  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  // Obtener config fresca
+  const freshConfig = getPagesJSON(roomId) || await getDefaultJSON();
+  const config = JSON.parse(JSON.stringify(freshConfig));
   const parent = parentPath.length === 0 ? config : navigateConfigPath(config, parentPath);
   
-  if (!parent) return;
+  if (!parent) {
+    log('⚠️ moveItemUp: parent no encontrado para path:', parentPath);
+    return;
+  }
   
   const order = getCombinedOrder(parent);
   const currentPos = order.findIndex(o => o.type === itemType && o.index === itemIndex);
   
-  if (currentPos <= 0) return; // Ya está en la primera posición
+  if (currentPos <= 0) {
+    log('⚠️ moveItemUp: elemento ya en primera posición o no encontrado');
+    return;
+  }
   
   // Intercambiar con el anterior
   const temp = order[currentPos];
@@ -5334,15 +5381,23 @@ async function moveItemUp(itemType, itemIndex, parentPath, roomId) {
 
 // Función para mover un elemento abajo en el orden combinado
 async function moveItemDown(itemType, itemIndex, parentPath, roomId) {
-  const config = JSON.parse(JSON.stringify(getPagesJSON(roomId) || await getDefaultJSON()));
+  // Obtener config fresca
+  const freshConfig = getPagesJSON(roomId) || await getDefaultJSON();
+  const config = JSON.parse(JSON.stringify(freshConfig));
   const parent = parentPath.length === 0 ? config : navigateConfigPath(config, parentPath);
   
-  if (!parent) return;
+  if (!parent) {
+    log('⚠️ moveItemDown: parent no encontrado para path:', parentPath);
+    return;
+  }
   
   const order = getCombinedOrder(parent);
   const currentPos = order.findIndex(o => o.type === itemType && o.index === itemIndex);
   
-  if (currentPos === -1 || currentPos >= order.length - 1) return; // Ya está en la última posición
+  if (currentPos === -1 || currentPos >= order.length - 1) {
+    log('⚠️ moveItemDown: elemento ya en última posición o no encontrado');
+    return;
+  }
   
   // Intercambiar con el siguiente
   const temp = order[currentPos];
@@ -5368,33 +5423,49 @@ async function moveItemDown(itemType, itemIndex, parentPath, roomId) {
 async function moveCategoryUp(category, categoryPath, roomId) {
   const index = categoryPath[categoryPath.length - 1];
   const parentPath = categoryPath.slice(0, -2);
+  log('📦 moveCategoryUp:', { category: category.name, categoryPath, parentPath, index });
   await moveItemUp('category', index, parentPath, roomId);
 }
 
 async function moveCategoryDown(category, categoryPath, roomId) {
   const index = categoryPath[categoryPath.length - 1];
   const parentPath = categoryPath.slice(0, -2);
+  log('📦 moveCategoryDown:', { category: category.name, categoryPath, parentPath, index });
   await moveItemDown('category', index, parentPath, roomId);
 }
 
 async function movePageUp(page, pageCategoryPath, roomId) {
+  // Obtener config fresca para asegurar consistencia
   const config = getPagesJSON(roomId) || await getDefaultJSON();
   const parent = navigateConfigPath(config, pageCategoryPath);
-  if (!parent || !parent.pages) return;
+  if (!parent || !parent.pages) {
+    log('⚠️ movePageUp: parent o pages no encontrado para path:', pageCategoryPath);
+    return;
+  }
   
   const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
-  if (pageIndex === -1) return;
+  if (pageIndex === -1) {
+    log('⚠️ movePageUp: página no encontrada:', page.name);
+    return;
+  }
   
   await moveItemUp('page', pageIndex, pageCategoryPath, roomId);
 }
 
 async function movePageDown(page, pageCategoryPath, roomId) {
+  // Obtener config fresca para asegurar consistencia
   const config = getPagesJSON(roomId) || await getDefaultJSON();
   const parent = navigateConfigPath(config, pageCategoryPath);
-  if (!parent || !parent.pages) return;
+  if (!parent || !parent.pages) {
+    log('⚠️ movePageDown: parent o pages no encontrado para path:', pageCategoryPath);
+    return;
+  }
   
   const pageIndex = parent.pages.findIndex(p => p.name === page.name && p.url === page.url);
-  if (pageIndex === -1) return;
+  if (pageIndex === -1) {
+    log('⚠️ movePageDown: página no encontrada:', page.name);
+    return;
+  }
   
   await moveItemDown('page', pageIndex, pageCategoryPath, roomId);
 }
