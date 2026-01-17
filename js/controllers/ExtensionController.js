@@ -699,6 +699,18 @@ export class ExtensionController {
     if (pageIndexInArray !== -1) {
       console.log('🗑️ DELETE PAGE - Eliminando índice:', pageIndexInArray);
       pages.splice(pageIndexInArray, 1);
+      
+      // Actualizar el order para eliminar la referencia y reajustar índices
+      if (currentLevel.order) {
+        currentLevel.order = currentLevel.order.filter(o => !(o.type === 'page' && o.index === pageIndexInArray));
+        currentLevel.order = currentLevel.order.map(o => {
+          if (o.type === 'page' && o.index > pageIndexInArray) {
+            return { ...o, index: o.index - 1 };
+          }
+          return o;
+        });
+      }
+      
       await this.saveConfig(this.config);
       this.analyticsService.trackPageDeleted(page.name);
     } else {
@@ -869,8 +881,34 @@ export class ExtensionController {
     }
     duplicatedPage.name = `${page.name} (copy)`;
     
-    // Insertar después de la página original
-    pages.splice(actualIndex + 1, 0, duplicatedPage);
+    // El nuevo índice será al final del array
+    const newIndex = pages.length;
+    
+    // Agregar al final del array
+    pages.push(duplicatedPage);
+    
+    // Actualizar el order para insertar justo después del original
+    if (!currentLevel.order) {
+      // Generar order por defecto si no existe
+      currentLevel.order = [];
+      (currentLevel.categories || []).forEach((_, idx) => {
+        currentLevel.order.push({ type: 'category', index: idx });
+      });
+      pages.forEach((_, idx) => {
+        if (idx !== newIndex) { // No agregar el nuevo aún
+          currentLevel.order.push({ type: 'page', index: idx });
+        }
+      });
+    }
+    
+    // Encontrar posición del original en el order e insertar después
+    const posInOrder = currentLevel.order.findIndex(o => o.type === 'page' && o.index === actualIndex);
+    if (posInOrder !== -1) {
+      currentLevel.order.splice(posInOrder + 1, 0, { type: 'page', index: newIndex });
+    } else {
+      currentLevel.order.push({ type: 'page', index: newIndex });
+    }
+    
     await this.saveConfig(this.config);
   }
 
@@ -1090,6 +1128,18 @@ export class ExtensionController {
     if (catIndex !== -1) {
       console.log('🗑️ DELETE - Eliminando índice:', catIndex);
       categories.splice(catIndex, 1);
+      
+      // Actualizar el order para eliminar la referencia y reajustar índices
+      if (currentLevel.order) {
+        currentLevel.order = currentLevel.order.filter(o => !(o.type === 'category' && o.index === catIndex));
+        currentLevel.order = currentLevel.order.map(o => {
+          if (o.type === 'category' && o.index > catIndex) {
+            return { ...o, index: o.index - 1 };
+          }
+          return o;
+        });
+      }
+      
       await this.saveConfig(this.config);
       this.analyticsService.trackFolderDeleted(category.name);
     } else {
@@ -1205,7 +1255,35 @@ export class ExtensionController {
         duplicated = Category.fromJSON(category);
       }
       duplicated.name = `${category.name} (copy)`;
-      categories.splice(catIndex + 1, 0, duplicated);
+      
+      // El nuevo índice será al final del array
+      const newIndex = categories.length;
+      
+      // Agregar al final del array
+      categories.push(duplicated);
+      
+      // Actualizar el order para insertar justo después del original
+      if (!currentLevel.order) {
+        // Generar order por defecto si no existe
+        currentLevel.order = [];
+        categories.forEach((_, idx) => {
+          if (idx !== newIndex) { // No agregar el nuevo aún
+            currentLevel.order.push({ type: 'category', index: idx });
+          }
+        });
+        (currentLevel.pages || []).forEach((_, idx) => {
+          currentLevel.order.push({ type: 'page', index: idx });
+        });
+      }
+      
+      // Encontrar posición del original en el order e insertar después
+      const posInOrder = currentLevel.order.findIndex(o => o.type === 'category' && o.index === catIndex);
+      if (posInOrder !== -1) {
+        currentLevel.order.splice(posInOrder + 1, 0, { type: 'category', index: newIndex });
+      } else {
+        currentLevel.order.push({ type: 'category', index: newIndex });
+      }
+      
       await this.saveConfig(this.config);
     }
   }
@@ -1244,7 +1322,18 @@ export class ExtensionController {
       
       console.log('📄 ADD PAGE - Nueva página:', newPage.name, 'ID:', newPage.id);
       
+      // Obtener el nuevo índice antes de agregar
+      const newIndex = currentLevel.pages.length;
       currentLevel.pages.push(newPage);
+      
+      // Actualizar el order para incluir la nueva página al final
+      if (!currentLevel.order) {
+        currentLevel.order = [];
+        (currentLevel.categories || []).forEach((_, idx) => {
+          currentLevel.order.push({ type: 'category', index: idx });
+        });
+      }
+      currentLevel.order.push({ type: 'page', index: newIndex });
       
       await this.saveConfig(this.config);
     });
@@ -1274,7 +1363,23 @@ export class ExtensionController {
       
       console.log('📁 ADD CATEGORY - Nueva carpeta:', newCategory.name, 'ID:', newCategory.id);
       
+      // Obtener el nuevo índice antes de agregar
+      const newIndex = currentLevel.categories.length;
       currentLevel.categories.push(newCategory);
+      
+      // Actualizar el order para incluir la nueva carpeta al final
+      if (!currentLevel.order) {
+        currentLevel.order = [];
+        // Primero agregar las categorías existentes (sin la nueva)
+        for (let i = 0; i < newIndex; i++) {
+          currentLevel.order.push({ type: 'category', index: i });
+        }
+        // Luego las páginas
+        (currentLevel.pages || []).forEach((_, idx) => {
+          currentLevel.order.push({ type: 'page', index: idx });
+        });
+      }
+      currentLevel.order.push({ type: 'category', index: newIndex });
       
       await this.saveConfig(this.config);
     });
@@ -4396,8 +4501,16 @@ export class ExtensionController {
     const hasDefaultToken = await this.notionService._getDefaultToken();
     const hasAnyToken = hasUserToken || hasDefaultToken;
     
-    // Caso 1: Master GM sin ningún token - debe configurar su token
-    if (this.isGM && !this.isCoGM && !hasAnyToken) {
+    // Caso 1: Co-GM o Player - SIEMPRE solicitar contenido del GM master
+    // No importa si hay token default, porque ese token es para demos, no para el vault del usuario
+    if (!this.isGM || this.isCoGM) {
+      log(`👤 ${this.isCoGM ? 'Co-GM' : 'Player'} - solicitando contenido al Master GM...`);
+      await this._requestNotionContentFromGM(page, pageId, notionContent);
+      return;
+    }
+    
+    // Caso 2: Master GM sin ningún token - debe configurar su token
+    if (!hasAnyToken) {
       log('⚠️ Master GM sin token de Notion');
       notionContent.innerHTML = `
         <div class="empty-state">
@@ -4411,17 +4524,8 @@ export class ExtensionController {
       `;
       return;
     }
-    
-    // Caso 2: Player o Co-GM sin token - solicitar contenido al GM
-    const needsContentFromGM = (!this.isGM || this.isCoGM) && !hasAnyToken;
-    
-    if (needsContentFromGM) {
-      log(`👤 ${this.isCoGM ? 'Co-GM' : 'Player'} sin token, solicitando contenido al Master GM...`);
-      await this._requestNotionContentFromGM(page, pageId, notionContent);
-      return;
-    }
 
-    // Caso 3: Usuario con token (propio o default) - renderizar normalmente
+    // Caso 3: Master GM con token (propio o default) - renderizar normalmente
     await this._renderNotionPageWithToken(page, pageId, notionContent, forceRefresh);
   }
 
