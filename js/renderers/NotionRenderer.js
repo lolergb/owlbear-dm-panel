@@ -680,6 +680,46 @@ export class NotionRenderer {
   }
 
   /**
+   * Renderiza una base de datos de Notion
+   * @param {Object} databaseBlock - Bloque de base de datos
+   * @returns {Promise<string>}
+   */
+  async renderDatabase(databaseBlock) {
+    try {
+      if (!this.notionService) {
+        throw new Error('NotionService no disponible');
+      }
+
+      const databaseId = databaseBlock.id;
+      const databaseTitle = databaseBlock.child_database?.title || 'Database';
+      
+      // Intentar obtener información de la base de datos para verificar si es accesible
+      // Si se puede obtener, significa que la base de datos se procesó correctamente
+      // durante la importación, así que no mostramos nada
+      try {
+        const dbPages = await this.notionService.fetchDatabasePages(databaseId);
+        
+        // Si se puede obtener información, la base de datos se procesó correctamente
+        // No mostramos nada porque las páginas ya están en el vault
+        if (dbPages && dbPages.length >= 0) {
+          log('✅ Base de datos procesada correctamente:', databaseTitle);
+          return ''; // No mostrar nada si se procesó correctamente
+        }
+      } catch (dbError) {
+        // Si hay un error al obtener la base de datos, mostrar mensaje de error
+        logWarn('Error al obtener información de base de datos:', dbError);
+        throw new Error('La base de datos no está accesible o no está compartida con tu integración de Notion');
+      }
+      
+      // Si llegamos aquí, no debería pasar, pero por seguridad retornamos vacío
+      return '';
+    } catch (error) {
+      logWarn('Error al renderizar base de datos:', error);
+      throw error; // Re-lanzar para que se maneje en renderBlocks
+    }
+  }
+
+  /**
    * Renderiza una tabla completa de Notion
    * @param {Object} tableBlock - Bloque de tabla
    * @returns {Promise<string>}
@@ -857,6 +897,24 @@ export class NotionRenderer {
             <div class="empty-state notion-table-placeholder">
               <div class="empty-state-icon">⚠️</div>
               <p class="empty-state-text">Error loading table</p>
+            </div>
+          `;
+        }
+        continue;
+      }
+
+      // Manejar bases de datos
+      if (type === 'child_database') {
+        try {
+          const dbHtml = await this.renderDatabase(block);
+          html += dbHtml;
+        } catch (error) {
+          log('❌ Error al renderizar base de datos:', error);
+          html += `
+            <div class="empty-state notion-database-placeholder">
+              <div class="empty-state-icon">⚠️</div>
+              <p class="empty-state-text">Error loading database</p>
+              <p class="empty-state-hint">${error.message || 'The database may not be accessible'}</p>
             </div>
           `;
         }

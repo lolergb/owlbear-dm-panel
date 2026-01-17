@@ -21,7 +21,7 @@
 .notion-page-cover {
   width: calc(100% + var(--spacing-xl)*2);
   max-width: calc(100% + var(--spacing-xl)*2);
-  min-height: 200px;
+  min-height: var(--max-height-image-container);
   margin: calc(var(--spacing-xl) * -1) calc(var(--spacing-xl) * -1) var(--spacing-xl);
   margin-top: calc(var(--spacing-xl) * -1);
   overflow: hidden;
@@ -32,7 +32,7 @@
 .notion-page-cover .notion-image-container {
   position: relative;
   width: 100%;
-  min-height: 200px;
+  min-height: var(--max-height-image-container);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -45,7 +45,7 @@
   display: block;
   object-fit: cover;
   object-position: center center;
-  max-height: 400px;
+  max-height: var(--max-height-image-container);
   cursor: pointer;
   opacity: 1 !important;
   transition: opacity 0.2s ease;

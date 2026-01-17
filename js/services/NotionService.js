@@ -21,6 +21,134 @@ export class NotionService {
     // Token de default cacheado
     this._defaultToken = null;
     this._defaultTokenFetched = false;
+    
+    // Configuración de rate limiting y reintentos
+    this._maxRetries = 3;
+    this._baseDelayMs = 1000; // 1 segundo base para backoff exponencial
+    this._maxDelayMs = 30000; // Máximo 30 segundos de espera
+    
+    // Sistema de cola para throttling de peticiones simultáneas
+    this._requestQueue = [];
+    this._activeRequests = 0;
+    this._maxConcurrentRequests = 3; // Máximo 3 peticiones simultáneas
+    this._minDelayBetweenRequests = 100; // Mínimo 100ms entre peticiones
+    this._lastRequestTime = 0;
+  }
+
+  /**
+   * Procesa la cola de peticiones de forma controlada
+   * Limita el número de peticiones simultáneas y el tiempo entre ellas
+   * @private
+   */
+  async _processQueue() {
+    // Procesar tantas peticiones como slots disponibles haya
+    while (this._activeRequests < this._maxConcurrentRequests && this._requestQueue.length > 0) {
+      // Obtener la siguiente petición de la cola
+      const request = this._requestQueue.shift();
+      
+      // Asegurar un delay mínimo entre peticiones
+      const timeSinceLastRequest = Date.now() - this._lastRequestTime;
+      if (timeSinceLastRequest < this._minDelayBetweenRequests) {
+        await new Promise(r => setTimeout(r, this._minDelayBetweenRequests - timeSinceLastRequest));
+      }
+      
+      this._activeRequests++;
+      this._lastRequestTime = Date.now();
+
+      // Ejecutar la petición de forma asíncrona (no bloquear el while)
+      this._executeRequest(request);
+    }
+  }
+
+  /**
+   * Ejecuta una petición individual y maneja el resultado
+   * @private
+   */
+  async _executeRequest({ url, options, resolve, reject, attempt }) {
+    try {
+      const response = await this._fetchWithRetryInternal(url, options, attempt);
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    } finally {
+      this._activeRequests--;
+      // Procesar la siguiente petición en la cola
+      this._processQueue();
+    }
+  }
+
+  /**
+   * Añade una petición a la cola y la procesa cuando sea posible
+   * @param {string} url - URL a consultar
+   * @param {Object} options - Opciones de fetch
+   * @param {number} attempt - Número de intento actual (0 = petición inicial)
+   * @returns {Promise<Response>}
+   * @private
+   */
+  async _fetchWithRetry(url, options = {}, attempt = 0) {
+    // Si es un reintento (attempt > 0), no pasar por la cola para evitar esperas innecesarias
+    // Solo las peticiones iniciales pasan por la cola para controlar el throttling
+    if (attempt > 0) {
+      return this._fetchWithRetryInternal(url, options, attempt);
+    }
+    
+    // Petición inicial: añadir a la cola
+    return new Promise((resolve, reject) => {
+      this._requestQueue.push({ url, options, resolve, reject, attempt });
+      this._processQueue();
+    });
+  }
+
+  /**
+   * Realiza una petición fetch con reintentos automáticos para errores 429 (rate limit)
+   * Implementa backoff exponencial y respeta el header Retry-After
+   * @param {string} url - URL a consultar
+   * @param {Object} options - Opciones de fetch
+   * @param {number} attempt - Número de intento actual (interno)
+   * @returns {Promise<Response>}
+   * @private
+   */
+  async _fetchWithRetryInternal(url, options = {}, attempt = 0) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Si es un 429 (Too Many Requests), reintentar con backoff
+      if (response.status === 429 && attempt < this._maxRetries) {
+        // Intentar obtener el tiempo de espera del header Retry-After
+        let delayMs = this._baseDelayMs * Math.pow(2, attempt); // Backoff exponencial
+        
+        const retryAfter = response.headers.get('Retry-After');
+        if (retryAfter) {
+          // Retry-After puede ser segundos o una fecha HTTP
+          const retryAfterSeconds = parseInt(retryAfter, 10);
+          if (!isNaN(retryAfterSeconds)) {
+            delayMs = retryAfterSeconds * 1000;
+          }
+        }
+        
+        // Limitar el delay máximo
+        delayMs = Math.min(delayMs, this._maxDelayMs);
+        
+        logWarn(`⏳ Rate limit (429) - Reintentando en ${delayMs / 1000}s (intento ${attempt + 1}/${this._maxRetries})`);
+        
+        // Esperar antes de reintentar
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        
+        // Reintentar directamente (sin pasar por la cola)
+        return this._fetchWithRetryInternal(url, options, attempt + 1);
+      }
+      
+      return response;
+    } catch (error) {
+      // Para errores de red, también reintentar
+      if (attempt < this._maxRetries && (error.name === 'TypeError' || error.message.includes('network'))) {
+        const delayMs = this._baseDelayMs * Math.pow(2, attempt);
+        logWarn(`⏳ Error de red - Reintentando en ${delayMs / 1000}s (intento ${attempt + 1}/${this._maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        return this._fetchWithRetryInternal(url, options, attempt + 1);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -199,7 +327,7 @@ export class NotionService {
       
       const apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(tokenToUse)}`;
       
-      const response = await fetch(apiUrl, {
+      const response = await this._fetchWithRetry(apiUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -273,7 +401,7 @@ export class NotionService {
 
       const apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(tokenToUse)}&type=page`;
       
-      const response = await fetch(apiUrl, {
+      const response = await this._fetchWithRetry(apiUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -341,7 +469,7 @@ export class NotionService {
       // para obtener hijos de bloques, pasando el blockId como pageId
       const apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(blockId)}&token=${encodeURIComponent(tokenToUse)}`;
       
-      const response = await fetch(apiUrl, {
+      const response = await this._fetchWithRetry(apiUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -379,7 +507,7 @@ export class NotionService {
       }
 
       // Hacer una llamada simple para verificar el token
-      const response = await fetch(`/.netlify/functions/notion-api?validate=true&token=${encodeURIComponent(userToken)}`);
+      const response = await this._fetchWithRetry(`/.netlify/functions/notion-api?validate=true&token=${encodeURIComponent(userToken)}`);
       
       return response.ok;
     } catch (e) {
@@ -412,7 +540,7 @@ export class NotionService {
         params.append('query', query);
       }
       
-      const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+      const response = await this._fetchWithRetry(`/.netlify/functions/notion-api?${params.toString()}`);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -464,7 +592,7 @@ export class NotionService {
         token: userToken
       });
       
-      const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+      const response = await this._fetchWithRetry(`/.netlify/functions/notion-api?${params.toString()}`);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -808,7 +936,7 @@ export class NotionService {
       // Obtener info de la página
       const apiUrl = `/.netlify/functions/notion-api?pageId=${encodeURIComponent(pageId)}&token=${encodeURIComponent(tokenToUse)}&type=page`;
       
-      const response = await fetch(apiUrl);
+      const response = await this._fetchWithRetry(apiUrl);
       if (!response.ok) {
         // 404 significa que la página no está compartida con la integración o no existe
         // No logear como error ya que es un caso esperado para mentions a páginas externas
@@ -857,7 +985,7 @@ export class NotionService {
         token: token
       });
       
-      const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+      const response = await this._fetchWithRetry(`/.netlify/functions/notion-api?${params.toString()}`);
       
       if (!response.ok) {
         logWarn('Error obteniendo info de DB:', response.status);
@@ -1344,7 +1472,7 @@ export class NotionService {
         token: tokenToUse
       });
       
-      const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+      const response = await this._fetchWithRetry(`/.netlify/functions/notion-api?${params.toString()}`);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

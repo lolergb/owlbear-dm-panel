@@ -2382,7 +2382,9 @@ function renderBlock(block) {
       return '<div class="notion-table-container" data-table-id="' + block.id + '">Loading table...</div>';
     
     case 'child_database':
-      return '<div class="notion-database-placeholder">[Base de datos - Requiere implementación adicional]</div>';
+      // Las bases de datos se manejan de forma especial en renderBlocks (similar a las tablas)
+      // Este caso no debería ejecutarse nunca, pero lo dejamos por seguridad
+      return '<div class="notion-database-placeholder" data-database-id="' + block.id + '">Loading database...</div>';
     
     case 'column_list':
       // Columnas: se procesan en renderBlocks de forma especial
@@ -2784,6 +2786,67 @@ async function renderBlocks(blocks, blockTypes = null, headingLevelOffset = 0, u
         const headingTag = `h${adjustedLevel}`;
         const headingText = renderRichText(block[`heading_${headingLevel}`]?.rich_text || block.toggle?.rich_text);
         html += `<details class="notion-toggle"><summary class="notion-toggle-summary"><${headingTag} class="notion-toggle-heading-inline-error">${headingText}</${headingTag}></summary><div class="notion-toggle-content">[Error loading content]</div></details>`;
+        continue;
+      }
+    }
+    
+    // Manejar bases de datos de forma especial
+    if (type === 'child_database') {
+      try {
+        const databaseId = block.id;
+        const databaseTitle = block.child_database?.title || 'Database';
+        
+        // Intentar obtener información de la base de datos para verificar si es accesible
+        // Si se puede obtener, significa que la base de datos se procesó correctamente
+        // durante la importación, así que no mostramos nada
+        try {
+          // Obtener token del usuario
+          const userToken = getUserToken();
+          if (!userToken) {
+            throw new Error('No hay token disponible');
+          }
+          
+          // Intentar obtener páginas de la base de datos
+          const params = new URLSearchParams({
+            action: 'database',
+            databaseId: databaseId,
+            token: userToken
+          });
+          
+          const response = await fetch(`/.netlify/functions/notion-api?${params.toString()}`);
+          
+          if (response.ok) {
+            // Si se puede obtener información, la base de datos se procesó correctamente
+            // No mostramos nada porque las páginas ya están en el vault
+            log('✅ Base de datos procesada correctamente:', databaseTitle);
+            continue; // No agregar nada al HTML
+          } else {
+            // Si hay un error, mostrar mensaje de error
+            const errorData = await response.json().catch(() => ({}));
+            const errorMsg = errorData.error || 'Error desconocido';
+            throw new Error(errorMsg);
+          }
+        } catch (dbError) {
+          // Si hay un error al obtener la base de datos, mostrar mensaje de error
+          logWarn('Error al obtener información de base de datos:', dbError);
+          html += `
+            <div class="empty-state notion-database-placeholder">
+              <div class="empty-state-icon">⚠️</div>
+              <p class="empty-state-text">Error loading database</p>
+              <p class="empty-state-hint">${dbError.message || 'The database may not be accessible or shared with your Notion integration'}</p>
+            </div>
+          `;
+        }
+        continue;
+      } catch (error) {
+        log('❌ Error al renderizar base de datos:', error);
+        html += `
+          <div class="empty-state notion-database-placeholder">
+            <div class="empty-state-icon">⚠️</div>
+            <p class="empty-state-text">Error loading database</p>
+            <p class="empty-state-hint">${error.message || 'An error occurred'}</p>
+          </div>
+        `;
         continue;
       }
     }
