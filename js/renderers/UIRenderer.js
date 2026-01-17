@@ -623,7 +623,9 @@ export class UIRenderer {
   _getParentFromPath(categoryPath) {
     if (!this.config) return null;
     let current = this.config;
-    for (const catName of categoryPath) {
+    for (const pathItem of categoryPath) {
+      // pathItem puede ser un objeto { id, name } o un string
+      const catName = typeof pathItem === 'object' ? pathItem.name : pathItem;
       const cat = (current.categories || []).find(c => c.name === catName);
       if (cat) current = cat;
       else return null;
@@ -638,7 +640,8 @@ export class UIRenderer {
   _getTotalPagesInCategory(categoryPath) {
     if (!this.config) return 0;
     let current = this.config;
-    for (const catName of categoryPath) {
+    for (const pathItem of categoryPath) {
+      const catName = typeof pathItem === 'object' ? pathItem.name : pathItem;
       const cat = (current.categories || []).find(c => c.name === catName);
       if (cat) current = cat;
       else return 0;
@@ -657,7 +660,8 @@ export class UIRenderer {
     let current = this.config;
     // Navegar hasta el padre (todos menos el último)
     for (let i = 0; i < categoryPath.length - 1; i++) {
-      const catName = categoryPath[i];
+      const pathItem = categoryPath[i];
+      const catName = typeof pathItem === 'object' ? pathItem.name : pathItem;
       const cat = (current.categories || []).find(c => c.name === catName);
       if (cat) current = cat;
       else return 0;
@@ -671,12 +675,14 @@ export class UIRenderer {
    */
   _getCategoryIndex(categoryPath) {
     if (!this.config || categoryPath.length === 0) return -1;
-    const catName = categoryPath[categoryPath.length - 1];
+    const lastItem = categoryPath[categoryPath.length - 1];
+    const catName = typeof lastItem === 'object' ? lastItem.name : lastItem;
     
     let current = this.config;
     // Navegar hasta el padre
     for (let i = 0; i < categoryPath.length - 1; i++) {
-      const name = categoryPath[i];
+      const pathItem = categoryPath[i];
+      const name = typeof pathItem === 'object' ? pathItem.name : pathItem;
       const cat = (current.categories || []).find(c => c.name === name);
       if (cat) current = cat;
       else return -1;
@@ -821,12 +827,31 @@ export class UIRenderer {
       // Para categorías, el padre es el path sin el último elemento
       const parentPath = categoryPath.slice(0, -1);
       const parent = this._getParentFromPath(parentPath);
+      const catIndex = this._getCategoryIndex(categoryPath);
+      
+      console.log('📂 DEBUG Menú categoría:', {
+        categoryName: category.name,
+        categoryPath,
+        parentPath,
+        parentFound: !!parent,
+        catIndex,
+        parentCategories: parent?.categories?.length || 0,
+        parentPages: parent?.pages?.length || 0,
+        parentOrder: parent?.order
+      });
+      
       if (parent) {
-        const catIndex = this._getCategoryIndex(categoryPath);
         const combinedOrder = this._getCombinedOrder(parent, parent?.pages || []);
         const posInOrder = combinedOrder.findIndex(o => o.type === 'category' && o.index === catIndex);
         canMoveUp = posInOrder > 0;
         canMoveDown = posInOrder >= 0 && posInOrder < combinedOrder.length - 1;
+        
+        console.log('📂 DEBUG Orden combinado:', {
+          combinedOrder,
+          posInOrder,
+          canMoveUp,
+          canMoveDown
+        });
       }
     } catch (e) {
       console.error('Error calculando orden para menú contextual de categoría:', e);
