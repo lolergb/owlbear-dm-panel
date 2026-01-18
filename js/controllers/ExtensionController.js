@@ -4679,6 +4679,9 @@ export class ExtensionController {
    * @private
    */
   async _renderNotionPageWithToken(page, pageId, notionContent, forceRefresh = false) {
+    // Asegurar que el config del NotionRenderer esté actualizado (para mentions)
+    this.notionRenderer.setDependencies({ config: this.config });
+    
     // Obtener info de la página (cover, título, icono) y bloques
     // Si forceRefresh, no usar caché para ninguno
     const pageInfo = await this.notionService.fetchPageInfo(pageId, !forceRefresh);
@@ -4748,6 +4751,8 @@ export class ExtensionController {
     // Guardar HTML en caché
     this.cacheService.saveHtmlToLocalCache(pageId, headerHtml + blocksHtml);
 
+    // Actualizar mentions y adjuntar handlers
+    this._updateMentionsInContent(notionContent);
     // Attach event handlers para imágenes (incluyendo cover)
     this._attachImageHandlers(notionContent);
   }
@@ -4912,6 +4917,8 @@ export class ExtensionController {
       if (cachedHtml) {
         log('📦 Usando HTML del caché local');
         notionContent.innerHTML = cachedHtml;
+        // Re-procesar mentions para asegurar que estén actualizados con el config actual
+        this._updateMentionsInContent(notionContent);
         this._attachImageHandlers(notionContent);
         return;
       }
@@ -4930,6 +4937,8 @@ export class ExtensionController {
       notionContent.innerHTML = html;
       // Guardar en caché local para próximas visitas
       this.cacheService.saveHtmlToLocalCache(pageId, html);
+      // Actualizar mentions y adjuntar handlers
+      this._updateMentionsInContent(notionContent);
       this._attachImageHandlers(notionContent);
     } else {
       // No se recibió respuesta del GM
@@ -5489,6 +5498,53 @@ export class ExtensionController {
     
     // También adjuntar handlers para mentions
     this._attachMentionHandlers(targetContainer);
+  }
+
+  /**
+   * Actualiza los mentions en el contenido cacheado para hacerlos clickeables si están en el vault
+   * @private
+   */
+  _updateMentionsInContent(container = null) {
+    const targetContainer = container || document.getElementById('notion-content');
+    if (!targetContainer || !this.config) return;
+
+    // Buscar todos los mentions que están como texto plano (notion-mention--plain)
+    // Ahora todos los mentions tienen data-mention-page-id gracias al renderer actualizado
+    const plainMentions = targetContainer.querySelectorAll('.notion-mention--plain[data-mention-page-id]');
+    
+    let updatedCount = 0;
+    plainMentions.forEach(mention => {
+      const mentionedPageId = mention.dataset.mentionPageId;
+      if (!mentionedPageId) return;
+
+      // Verificar si la página ahora está en el vault
+      const pageInVault = this.config.findPageByNotionId(mentionedPageId);
+      if (!pageInVault) return;
+
+      // Verificar visibilidad para players/Co-GMs
+      if ((!this.isGM || this.isCoGM) && pageInVault.visibleToPlayers !== true) {
+        return; // No hacer clickeable si no es visible
+      }
+
+      // Convertir a mention clickeable
+      const displayName = mention.textContent || mention.dataset.mentionPageName || 'Page';
+      const pageUrl = pageInVault.url || '';
+      
+      mention.className = 'notion-mention notion-mention--link';
+      mention.setAttribute('data-mention-page-id', mentionedPageId);
+      mention.setAttribute('data-mention-page-name', displayName);
+      mention.setAttribute('data-mention-page-url', pageUrl);
+      mention.setAttribute('role', 'button');
+      mention.setAttribute('tabindex', '0');
+      
+      updatedCount++;
+    });
+    
+    if (updatedCount > 0) {
+      log(`🔗 ${updatedCount} mention(s) actualizado(s) a clickeable(s) desde caché`);
+      // Re-adjuntar handlers para los nuevos mentions clickeables
+      this._attachMentionHandlers(targetContainer);
+    }
   }
 
   /**

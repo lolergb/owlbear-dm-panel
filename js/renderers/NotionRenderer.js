@@ -95,17 +95,17 @@ export class NotionRenderer {
       return `<span class="notion-mention notion-mention--disabled" aria-disabled="true">${displayName}</span>`;
     }
     
-    // Si no hay config, renderizar como texto plano
+    // Si no hay config, renderizar como texto plano (pero con data-mention-page-id para actualización posterior)
     if (!this.config) {
-      return `<span class="notion-mention notion-mention--plain">${displayName}</span>`;
+      return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${displayName.replace(/"/g, '&quot;')}">${displayName}</span>`;
     }
     
     // Buscar si la página está en el vault
     const pageInVault = this.config.findPageByNotionId(mentionedPageId);
     
-    // Si la página no está en el vault, renderizar como texto plano (caso edge)
+    // Si la página no está en el vault, renderizar como texto plano (pero con data para actualización posterior)
     if (!pageInVault) {
-      return `<span class="notion-mention notion-mention--plain">${displayName}</span>`;
+      return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${displayName.replace(/"/g, '&quot;')}">${displayName}</span>`;
     }
     
     // Para players y Co-GMs: verificar si la página es visible
@@ -113,8 +113,8 @@ export class NotionRenderer {
     if ((!this.isGM || this.isCoGM) && this.isPageVisibleCallback) {
       const isVisible = this.isPageVisibleCallback(pageInVault);
       if (!isVisible) {
-        // Página no visible: texto plano sin indicación
-        return `<span class="notion-mention notion-mention--plain">${displayName}</span>`;
+        // Página no visible: texto plano sin indicación (pero con data para actualización posterior)
+        return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${displayName.replace(/"/g, '&quot;')}">${displayName}</span>`;
       }
     }
     
