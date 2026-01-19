@@ -4698,7 +4698,7 @@ export class ExtensionController {
     // No importa si hay token default, porque ese token es para demos, no para el vault del usuario
     if (!this.isGM || this.isCoGM) {
       console.log(`👤 ${this.isCoGM ? 'Co-GM' : 'Player'} - usando broadcast, NO API de Notion`);
-      await this._requestNotionContentFromGM(page, pageId, notionContent);
+      await this._requestNotionContentFromGM(page, pageId, notionContent, forceRefresh);
       return;
     }
     

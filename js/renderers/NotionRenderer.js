@@ -42,11 +42,17 @@ export class NotionRenderer {
 
   /**
    * Configura el modo de renderizado
+   * Solo actualiza los valores que se pasan explícitamente
    * @param {Object} options - Opciones de renderizado
    */
-  setRenderingOptions({ isInModal = false, useCache = true }) {
-    this.isRenderingInModal = isInModal;
-    this.useCache = useCache;
+  setRenderingOptions(options = {}) {
+    if (options.isInModal !== undefined) {
+      this.isRenderingInModal = options.isInModal;
+    }
+    if (options.useCache !== undefined) {
+      this.useCache = options.useCache;
+      log(`🔧 NotionRenderer.useCache configurado a: ${this.useCache}`);
+    }
   }
 
   /**
@@ -740,6 +746,7 @@ export class NotionRenderer {
       }
 
       // Obtener las filas de la tabla (respetar useCache para refresh)
+      log(`📊 renderTable: obteniendo filas para tabla ${tableBlock.id}, useCache=${this.useCache}`);
       const rows = await this.notionService.fetchBlocks(tableBlock.id, this.useCache);
       
       if (!rows || rows.length === 0) {

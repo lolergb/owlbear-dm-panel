@@ -300,7 +300,7 @@ export class NotionService {
       }
       log('⚠️ No hay caché para:', pageId, '- se pedirá a la API');
     } else if (!useCache) {
-      log('🔄 Recarga forzada - ignorando caché para:', pageId);
+      log('🔄 Recarga forzada - ignorando caché para:', pageId, '(se obtendrá de la API)');
     }
 
     try {
