@@ -2718,6 +2718,7 @@ export class ExtensionController {
     const downloadJsonBtn = document.getElementById('download-json-btn');
     const patreonBtn = document.getElementById('patreon-btn');
     const feedbackBtn = document.getElementById('feedback-btn');
+    const clearLocalDataBtn = document.getElementById('clear-local-data-btn');
 
     // Mostrar token actual en el input y enmascarado
     const currentToken = this.storageService.getUserToken() || '';
@@ -2932,6 +2933,44 @@ export class ExtensionController {
       feedbackBtn.dataset.listenerAdded = 'true';
       feedbackBtn.addEventListener('click', () => {
         window.open('https://www.notion.so/DM-Panel-Roadmap-2d8d4856c90e8088825df40c3be24393?source=copy_link', '_blank', 'noopener,noreferrer');
+      });
+    }
+
+    // Clear Local Data
+    if (clearLocalDataBtn && !clearLocalDataBtn.dataset.listenerAdded) {
+      clearLocalDataBtn.dataset.listenerAdded = 'true';
+      clearLocalDataBtn.addEventListener('click', async () => {
+        const confirmed = confirm(
+          '⚠️ Clear all local data?\n\n' +
+          'This will remove:\n' +
+          '• Cached vault configuration\n' +
+          '• Cached page content\n' +
+          '• UI preferences (collapsed folders, etc.)\n\n' +
+          'Your Notion token will NOT be removed.\n\n' +
+          'The page will reload after clearing.'
+        );
+        
+        if (confirmed) {
+          try {
+            // Clear localStorage (except token)
+            this.storageService.clearAllLocalData();
+            
+            // Clear cache services
+            if (this.cacheService) {
+              this.cacheService.clearLocalCache();
+            }
+            
+            this.uiRenderer.showSuccessToast('Local data cleared', 'Reloading page...');
+            
+            // Reload page after a brief delay
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } catch (error) {
+            logError('Error clearing local data:', error);
+            this.uiRenderer.showErrorToast('Error', 'Could not clear local data. Please try again.');
+          }
+        }
       });
     }
 

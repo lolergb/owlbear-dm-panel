@@ -398,6 +398,57 @@ export class StorageService {
     }
     return keys;
   }
+
+  /**
+   * Limpia todos los datos locales excepto el token de usuario
+   * Útil para resolver problemas con datos corruptos o desactualizados
+   */
+  clearAllLocalData() {
+    try {
+      const keysToRemove = [];
+      
+      // Recopilar todas las claves de GM Vault excepto el token
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key !== GLOBAL_TOKEN_KEY) {
+          // Solo eliminar claves relacionadas con GM Vault
+          if (key.startsWith(STORAGE_KEY_PREFIX) || 
+              key.startsWith('notion_') || 
+              key.startsWith('gm_vault_') ||
+              key.startsWith('gmvault_') ||
+              key.includes('collapse') ||
+              key.includes('cache')) {
+            keysToRemove.push(key);
+          }
+        }
+      }
+      
+      // Eliminar las claves recopiladas
+      for (const key of keysToRemove) {
+        localStorage.removeItem(key);
+        log('🗑️ Eliminado:', key);
+      }
+      
+      // También limpiar sessionStorage relacionado
+      const sessionKeysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.startsWith('notion_') || key.startsWith('gm_vault_'))) {
+          sessionKeysToRemove.push(key);
+        }
+      }
+      
+      for (const key of sessionKeysToRemove) {
+        sessionStorage.removeItem(key);
+      }
+      
+      log(`✅ Limpiados ${keysToRemove.length} items de localStorage y ${sessionKeysToRemove.length} de sessionStorage`);
+      return true;
+    } catch (e) {
+      logError('Error al limpiar datos locales:', e);
+      return false;
+    }
+  }
 }
 
 export default StorageService;
