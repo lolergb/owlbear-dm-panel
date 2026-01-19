@@ -1,6 +1,9 @@
-# Features Pendientes / Mejoras Futuras
+# ⚠️ DEPRECADO - Features Pendientes / Mejoras Futuras
 
-Este documento lista las features que podrían implementarse en el futuro, basándose en comparación con el código original y funcionalidades de Notion.
+> **Este documento está deprecado y ya no se mantiene.**  
+> La información sobre features pendientes está desactualizada.  
+> Para información actual sobre el estado del proyecto, consulta `README.md` y `docs/DEVELOPMENT.md`.  
+> Este documento se mantiene solo para referencia histórica.
 
 ## Tipos de Bloques de Notion Pendientes
 
