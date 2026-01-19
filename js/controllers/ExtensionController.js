@@ -4732,6 +4732,9 @@ export class ExtensionController {
     // Asegurar que el config del NotionRenderer esté actualizado (para mentions)
     this.notionRenderer.setDependencies({ config: this.config });
     
+    // Configurar useCache para bloques anidados (tablas, toggles, etc.)
+    this.notionRenderer.setRenderingOptions({ useCache: !forceRefresh });
+    
     // Obtener info de la página (cover, título, icono) y bloques
     // Si forceRefresh, no usar caché para ninguno
     const pageInfo = await this.notionService.fetchPageInfo(pageId, !forceRefresh);
@@ -4851,6 +4854,9 @@ export class ExtensionController {
     } = options;
 
     try {
+      // Configurar useCache para bloques anidados (tablas, toggles, etc.)
+      this.notionRenderer.setRenderingOptions({ useCache });
+      
       // Obtener info de la página (cover, título, icono) y bloques
       const pageInfo = await this.notionService.fetchPageInfo(pageId, useCache);
       const blocks = await this.notionService.fetchBlocks(pageId, useCache);

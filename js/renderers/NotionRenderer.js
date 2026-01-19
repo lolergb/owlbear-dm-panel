@@ -23,6 +23,9 @@ export class NotionRenderer {
     this.isGM = true;
     // Flag para indicar si el usuario es Co-GM (GM promovido, solo lectura)
     this.isCoGM = false;
+    // Flag para usar caché al obtener bloques hijos (tablas, toggles, etc.)
+    // Se configura antes de llamar a renderBlocks
+    this.useCache = true;
   }
 
   /**
@@ -41,8 +44,9 @@ export class NotionRenderer {
    * Configura el modo de renderizado
    * @param {Object} options - Opciones de renderizado
    */
-  setRenderingOptions({ isInModal = false }) {
+  setRenderingOptions({ isInModal = false, useCache = true }) {
     this.isRenderingInModal = isInModal;
+    this.useCache = useCache;
   }
 
   /**
@@ -735,8 +739,8 @@ export class NotionRenderer {
         return '<div class="notion-table-placeholder">[Tabla - NotionService no disponible]</div>';
       }
 
-      // Obtener las filas de la tabla
-      const rows = await this.notionService.fetchBlocks(tableBlock.id);
+      // Obtener las filas de la tabla (respetar useCache para refresh)
+      const rows = await this.notionService.fetchBlocks(tableBlock.id, this.useCache);
       
       if (!rows || rows.length === 0) {
         return `
@@ -963,7 +967,7 @@ export class NotionRenderer {
     let toggleContent = '';
 
     if (block.has_children && this.notionService) {
-      const children = await this.notionService.fetchChildBlocks(block.id);
+      const children = await this.notionService.fetchChildBlocks(block.id, this.useCache);
       if (children.length > 0) {
         toggleContent = await this.renderBlocks(children, typesArray, headingLevelOffset);
       }
@@ -993,7 +997,7 @@ export class NotionRenderer {
     let toggleContent = '';
 
     if (block.has_children && this.notionService) {
-      const children = await this.notionService.fetchChildBlocks(block.id);
+      const children = await this.notionService.fetchChildBlocks(block.id, this.useCache);
       if (children.length > 0) {
         toggleContent = await this.renderBlocks(children, typesArray, headingLevelOffset);
       }
@@ -1023,7 +1027,7 @@ export class NotionRenderer {
     let childrenContent = '';
 
     if (block.has_children && this.notionService) {
-      const children = await this.notionService.fetchChildBlocks(block.id);
+      const children = await this.notionService.fetchChildBlocks(block.id, this.useCache);
       if (children.length > 0) {
         childrenContent = await this.renderBlocks(children, typesArray, headingLevelOffset);
       }
@@ -1050,7 +1054,7 @@ export class NotionRenderer {
 
     // Buscar columnas como hijos
     if (columnListBlock.has_children && this.notionService) {
-      const children = await this.notionService.fetchChildBlocks(columnListBlock.id);
+      const children = await this.notionService.fetchChildBlocks(columnListBlock.id, this.useCache);
       columns = children.filter(b => b.type === 'column');
     }
 
@@ -1071,7 +1075,7 @@ export class NotionRenderer {
     const columnHtmls = await Promise.all(columns.map(async (col) => {
       let content = '';
       if (col.has_children && this.notionService) {
-        const children = await this.notionService.fetchChildBlocks(col.id);
+        const children = await this.notionService.fetchChildBlocks(col.id, this.useCache);
         content = await this.renderBlocks(children, typesArray, headingLevelOffset);
       }
       
@@ -1128,8 +1132,8 @@ export class NotionRenderer {
         log('📌 Synced block (original) - cargando hijos de:', blockIdToFetch);
       }
 
-      // Obtener los bloques hijos
-      const children = await this.notionService.fetchChildBlocks(blockIdToFetch);
+      // Obtener los bloques hijos (respetar useCache para refresh)
+      const children = await this.notionService.fetchChildBlocks(blockIdToFetch, this.useCache);
       
       if (!children || children.length === 0) {
         return '';
