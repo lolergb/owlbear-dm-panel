@@ -3445,9 +3445,23 @@ export class ExtensionController {
       // Obtener config actual y convertir a formato items[]
       const currentConfig = this.config || { categories: [], pages: [] };
       const configJson = currentConfig.toJSON ? currentConfig.toJSON() : currentConfig;
-      const existingInItemsFormat = this.configParser.toItemsFormat(configJson);
-      const existingCategories = existingInItemsFormat.categories || [];
+      log(`Current config JSON:`, JSON.stringify(configJson).substring(0, 500));
+      
+      // Detectar formato de la config actual
+      const currentFormat = this.configParser.detectFormat(configJson);
+      log(`Current config format: ${currentFormat}`);
+      
+      let existingCategories;
+      if (currentFormat === 'items') {
+        // Ya está en formato items[], usar directamente
+        existingCategories = configJson.categories || [];
+      } else {
+        // Formato legacy, convertir a items[]
+        const existingInItemsFormat = this.configParser.toItemsFormat(configJson);
+        existingCategories = existingInItemsFormat.categories || [];
+      }
       const existingPages = configJson.pages || [];
+      log(`Existing: ${existingCategories.length} categories, ${existingPages.length} pages`);
 
       let finalCategories;
       let finalPages;
@@ -3461,8 +3475,12 @@ export class ExtensionController {
         
         case 'merge':
           // Combinar: añadir nuevas, actualizar duplicadas por nombre
+          log(`Merge: existing=${existingCategories.length} categories, imported=${importedCategories.length} categories`);
+          log(`Existing categories:`, JSON.stringify(existingCategories.map(c => ({ name: c.name, items: c.items?.length || 0 }))));
           finalCategories = this._mergeCategories(existingCategories, importedCategories);
           finalPages = this._mergeRootPages(existingPages, importedPages);
+          log(`Merged result: ${finalCategories.length} categories`);
+          log(`Merged categories:`, JSON.stringify(finalCategories.map(c => ({ name: c.name, items: c.items?.length || 0 }))));
           break;
         
         case 'replace':
@@ -3476,7 +3494,9 @@ export class ExtensionController {
           finalPages = importedPages;
       }
 
+      log(`Saving config with ${finalCategories.length} categories, ${finalPages.length} pages`);
       await this.saveConfig({ categories: finalCategories, pages: finalPages });
+      log('Config saved successfully');
       
       // Track analytics
       this.analyticsService.trackJSONImported(importedPagesCount);
