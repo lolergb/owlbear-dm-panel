@@ -3641,9 +3641,14 @@ export class ExtensionController {
                 );
               }
               if (existingItemIndex < 0) {
-                existingItemIndex = existingCat.items.findIndex(i => 
-                  i.type === 'page' && (i.name === newItem.name || i.url === newItem.url)
-                );
+                existingItemIndex = existingCat.items.findIndex(i => {
+                  if (i.type !== 'page') return false;
+                  // Comparar por nombre
+                  if (i.name === newItem.name) return true;
+                  // Comparar por URL solo si AMBAS tienen URL (evita undefined === undefined)
+                  if (i.url && newItem.url && i.url === newItem.url) return true;
+                  return false;
+                });
               }
               
               if (existingItemIndex >= 0) {
@@ -3690,7 +3695,13 @@ export class ExtensionController {
         existingIndex = result.findIndex(p => p.id === newPage.id);
       }
       if (existingIndex < 0) {
-        existingIndex = result.findIndex(p => p.name === newPage.name || p.url === newPage.url);
+        existingIndex = result.findIndex(p => {
+          // Comparar por nombre
+          if (p.name === newPage.name) return true;
+          // Comparar por URL solo si AMBAS tienen URL (evita undefined === undefined)
+          if (p.url && newPage.url && p.url === newPage.url) return true;
+          return false;
+        });
       }
       
       if (existingIndex >= 0) {
