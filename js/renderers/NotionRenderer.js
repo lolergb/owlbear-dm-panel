@@ -98,16 +98,16 @@ export class NotionRenderer {
    */
   _renderPageMention(text) {
     const mentionedPageId = text.mention?.page?.id;
-    const displayName = text.plain_text || 'Page';
+    const apiDisplayName = text.plain_text || 'Page';
     
     // Si estamos dentro de un modal, los mentions NO son clickeables (evita navegación infinita)
     if (this.isRenderingInModal) {
-      return `<span class="notion-mention notion-mention--disabled" aria-disabled="true">${displayName}</span>`;
+      return `<span class="notion-mention notion-mention--disabled" aria-disabled="true">${apiDisplayName}</span>`;
     }
     
     // Si no hay config, renderizar como texto plano (pero con data-mention-page-id para actualización posterior)
     if (!this.config) {
-      return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${displayName.replace(/"/g, '&quot;')}">${displayName}</span>`;
+      return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${apiDisplayName.replace(/"/g, '&quot;')}">${apiDisplayName}</span>`;
     }
     
     // Buscar si la página está en el vault
@@ -115,8 +115,12 @@ export class NotionRenderer {
     
     // Si la página no está en el vault, renderizar como texto plano (pero con data para actualización posterior)
     if (!pageInVault) {
-      return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${displayName.replace(/"/g, '&quot;')}">${displayName}</span>`;
+      return `<span class="notion-mention notion-mention--plain" data-mention-page-id="${mentionedPageId}" data-mention-page-name="${apiDisplayName.replace(/"/g, '&quot;')}">${apiDisplayName}</span>`;
     }
+    
+    // Usar el nombre del vault si está disponible, ya que la API a veces devuelve "Untitled"
+    // especialmente en tablas y otros bloques anidados
+    const displayName = pageInVault.name || apiDisplayName;
     
     // Para players y Co-GMs: verificar si la página es visible
     // Co-GM también debe respetar la visibilidad (es GM promovido pero solo lectura)
