@@ -3423,10 +3423,24 @@ export class ExtensionController {
    */
   async _applyJsonImport(importedConfig, importMode, importedPagesCount) {
     try {
-      // Convertir imported config a formato items[] si está en legacy
-      const importedInItemsFormat = this.configParser.toItemsFormat(importedConfig);
-      const importedCategories = importedInItemsFormat.categories || [];
+      // Detectar formato del JSON importado
+      const format = this.configParser.detectFormat(importedConfig);
+      log(`_applyJsonImport: detected format="${format}", mode="${importMode}"`);
+      
+      // Si ya está en formato items[], usarlo directamente; si es legacy, convertir
+      let importedCategories;
+      if (format === 'items') {
+        // Ya está en formato items[], usar directamente
+        importedCategories = importedConfig.categories || [];
+        log(`Using items format directly: ${importedCategories.length} categories`);
+      } else {
+        // Formato legacy, convertir a items[]
+        const importedInItemsFormat = this.configParser.toItemsFormat(importedConfig);
+        importedCategories = importedInItemsFormat.categories || [];
+        log(`Converted from legacy format: ${importedCategories.length} categories`);
+      }
       const importedPages = importedConfig.pages || [];
+      log(`Imported categories:`, JSON.stringify(importedCategories.map(c => ({ name: c.name, items: c.items?.length || 0 }))));
 
       // Obtener config actual y convertir a formato items[]
       const currentConfig = this.config || { categories: [], pages: [] };
