@@ -6756,8 +6756,10 @@ export class ExtensionController {
           
           const pageUrl = item.metadata[`${METADATA_KEY}/pageUrl`];
           const pageName = item.metadata[`${METADATA_KEY}/pageName`] || 'Linked page';
+          const pageId = item.metadata[`${METADATA_KEY}/pageId`];
           
-          if (pageUrl) {
+          // Abrir si hay pageUrl o pageId (páginas de Obsidian pueden no tener URL)
+          if (pageUrl || pageId) {
             // Abrir el panel de la extensión
             await this.OBR.action.open();
             
@@ -6766,7 +6768,7 @@ export class ExtensionController {
             
             // Trackear y abrir la página
             this.analyticsService.trackPageViewedFromToken(pageName);
-            await this._openLinkedPage(pageUrl, pageName);
+            await this._openLinkedPage(pageUrl, pageName, pageId);
           }
         }
       });
@@ -6946,46 +6948,71 @@ export class ExtensionController {
 
   /**
    * Abre una página vinculada desde un token
-   * @param {string} url - URL de la página
+   * @param {string} url - URL de la página (puede ser null para páginas de Obsidian)
    * @param {string} name - Nombre de la página
+   * @param {string} pageId - ID de la página (prioritario para búsqueda)
    * @private
    */
-  async _openLinkedPage(url, name) {
+  async _openLinkedPage(url, name, pageId = null) {
     // Buscar la página en la configuración para obtener todos sus datos
     let foundPage = null;
     
-    const findPage = (category) => {
-      if (!category || foundPage) return;
-      
-      // Buscar en páginas de esta categoría
-      const pages = category.pages || [];
-      for (const page of pages) {
-        if (page.url === url) {
-          foundPage = page;
-          return;
-        }
-      }
-      
-      // Buscar en subcategorías
-      const subcategories = category.categories || [];
-      for (const subcat of subcategories) {
-        findPage(subcat);
-      }
-    };
+    // Si tenemos pageId, buscar directamente por ID (más confiable)
+    if (pageId && this.config) {
+      foundPage = this.config.findPageById(pageId);
+      log(`🔍 Buscando página por ID: ${pageId}`, foundPage ? '✅ Encontrada' : '❌ No encontrada');
+    }
     
-    // Buscar en todas las categorías raíz
-    if (this.config && this.config.categories) {
-      for (const cat of this.config.categories) {
-        findPage(cat);
-        if (foundPage) break;
+    // Si no encontramos por ID, buscar por URL o nombre
+    if (!foundPage) {
+      const findPage = (category) => {
+        if (!category || foundPage) return;
+        
+        // Buscar en páginas de esta categoría
+        const pages = category.pages || [];
+        for (const page of pages) {
+          // Convertir a instancia de Page si es necesario
+          const pageInstance = page instanceof Page ? page : Page.fromJSON(page);
+          
+          // Buscar por URL si hay URL
+          if (url && pageInstance.url === url) {
+            foundPage = pageInstance;
+            return;
+          }
+          // O buscar por nombre si no hay URL (páginas de Obsidian)
+          if (!url && pageInstance.name === name) {
+            foundPage = pageInstance;
+            return;
+          }
+        }
+        
+        // Buscar en subcategorías
+        const subcategories = category.categories || [];
+        for (const subcat of subcategories) {
+          findPage(subcat);
+        }
+      };
+      
+      // Buscar en todas las categorías raíz
+      if (this.config && this.config.categories) {
+        for (const cat of this.config.categories) {
+          findPage(cat);
+          if (foundPage) break;
+        }
       }
     }
     
     // Si encontramos la página, usarla; sino crear una básica
-    const page = foundPage || { name, url, visibleToPlayers: false, blockTypes: null };
-    
-    // Abrir la página
-    await this.openPage(page, [], 0);
+    if (foundPage) {
+      log(`📖 Abriendo página encontrada: ${foundPage.name} (ID: ${foundPage.id})`);
+      // Convertir a instancia de Page si es necesario
+      const pageInstance = foundPage instanceof Page ? foundPage : Page.fromJSON(foundPage);
+      await this.openPage(pageInstance, [], 0);
+    } else {
+      log(`⚠️ Página no encontrada, creando básica: ${name}`);
+      const page = new Page(name, url || null, { visibleToPlayers: false, blockTypes: null });
+      await this.openPage(page, [], 0);
+    }
   }
 
   /**
