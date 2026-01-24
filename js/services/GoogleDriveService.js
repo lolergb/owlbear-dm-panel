@@ -1,11 +1,17 @@
 /**
  * @fileoverview Servicio para interactuar con Google Drive API
  * 
- * Permite seleccionar una carpeta y generar el vault automáticamente
+ * Permite autenticarse con Google, listar carpetas y generar el vault
  * basándose en la estructura de carpetas y documentos en Drive.
  */
 
-import { log, logError } from '../utils/logger.js';
+import { log, logError, logWarn } from '../utils/logger.js';
+
+/**
+ * Client ID de Google OAuth (puede ser configurado o usar uno público)
+ * Si quieres usar tu propio Client ID, cámbialo aquí o en constants.js
+ */
+const GOOGLE_CLIENT_ID = null; // null = usar el del servidor o uno por defecto
 
 /**
  * Servicio para interactuar con Google Drive
@@ -14,18 +20,16 @@ export class GoogleDriveService {
   constructor() {
     // Referencia a OBR (se inyecta)
     this.OBR = null;
-    // API Key de Google (se configura)
-    this.apiKey = null;
-    // Client ID para OAuth (se configura)
-    this.clientId = null;
+    // Client ID para OAuth (puede venir de constantes o servidor)
+    this.clientId = GOOGLE_CLIENT_ID;
     // Token de acceso OAuth
     this.accessToken = null;
     // ID de la carpeta seleccionada
     this.selectedFolderId = null;
-    // Google Picker API cargada
-    this.pickerApiLoaded = false;
     // Google API client cargado
     this.gapiLoaded = false;
+    // Google Identity Services cargado
+    this.gisLoaded = false;
   }
 
   /**
@@ -37,74 +41,74 @@ export class GoogleDriveService {
   }
 
   /**
-   * Configura las credenciales de Google
-   * @param {string} apiKey - API Key de Google
-   * @param {string} clientId - Client ID de OAuth
-   */
-  setCredentials(apiKey, clientId) {
-    this.apiKey = apiKey;
-    this.clientId = clientId;
-  }
-
-  /**
-   * Obtiene las credenciales de Google desde el servidor
-   * @returns {Promise<Object>} - {apiKey, clientId} o null si no están configuradas
-   */
-  async getCredentialsFromServer() {
-    try {
-      const response = await fetch('/.netlify/functions/get-google-drive-credentials');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.apiKey && data.clientId) {
-          this.setCredentials(data.apiKey, data.clientId);
-          log('✅ Credenciales de Google Drive obtenidas del servidor');
-          return { apiKey: data.apiKey, clientId: data.clientId };
-        }
-      }
-      return null;
-    } catch (error) {
-      logError('Error obteniendo credenciales de Google Drive:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Carga las APIs de Google necesarias
+   * Carga Google Identity Services y Google API Client
    * @returns {Promise<void>}
    */
   async loadGoogleAPIs() {
-    if (this.pickerApiLoaded && this.gapiLoaded) {
+    if (this.gapiLoaded && this.gisLoaded) {
       return;
     }
 
-    // Cargar Google API Client primero
+    // Cargar Google Identity Services
+    if (!window.google || !window.google.accounts) {
+      await this._loadScript('https://accounts.google.com/gsi/client');
+      this.gisLoaded = true;
+      log('✅ Google Identity Services cargado');
+    }
+
+    // Cargar Google API Client
     if (!window.gapi) {
       await this._loadScript('https://apis.google.com/js/api.js');
     }
 
     return new Promise((resolve, reject) => {
-      // Cargar Picker API usando gapi.load
-      if (!this.pickerApiLoaded) {
-        window.gapi.load('picker', () => {
-          // Verificar que Google Picker esté disponible
-          if (!window.google || !window.google.picker) {
-            reject(new Error('Google Picker API no está disponible después de cargar'));
-            return;
+      window.gapi.load('client', async () => {
+        try {
+          // Obtener Client ID (del servidor o usar uno por defecto)
+          if (!this.clientId) {
+            this.clientId = await this._getClientId();
           }
-          this.pickerApiLoaded = true;
-          log('✅ Google Picker API cargada');
-          this._loadGapiClient().then(() => {
-            this.gapiLoaded = true;
-            resolve();
-          }).catch(reject);
-        });
-      } else {
-        this._loadGapiClient().then(() => {
+
+          if (!this.clientId) {
+            throw new Error('No se pudo obtener Client ID de Google');
+          }
+
+          await window.gapi.client.init({
+            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+          });
+          
           this.gapiLoaded = true;
+          log('✅ Google API Client inicializado');
           resolve();
-        }).catch(reject);
-      }
+        } catch (error) {
+          logError('Error inicializando Google API Client:', error);
+          reject(error);
+        }
+      });
     });
+  }
+
+  /**
+   * Obtiene el Client ID del servidor o usa uno por defecto
+   * @returns {Promise<string>}
+   * @private
+   */
+  async _getClientId() {
+    try {
+      const response = await fetch('/.netlify/functions/get-google-drive-credentials');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.clientId) {
+          return data.clientId;
+        }
+      }
+    } catch (error) {
+      logWarn('No se pudo obtener Client ID del servidor:', error);
+    }
+    
+    // Si no hay en el servidor, podrías usar un Client ID público aquí
+    // Por ahora retornamos null para que falle claramente
+    return null;
   }
 
   /**
@@ -131,130 +135,68 @@ export class GoogleDriveService {
   }
 
   /**
-   * Carga el cliente de Google API
-   * @private
-   */
-  async _loadGapiClient() {
-    // Verificar que las credenciales estén configuradas
-    if (!this.apiKey || !this.clientId) {
-      throw new Error('Credenciales de Google no configuradas. Por favor, configura API Key y Client ID.');
-    }
-
-    return new Promise((resolve, reject) => {
-      window.gapi.load('client:auth2', async () => {
-        try {
-          await window.gapi.client.init({
-            apiKey: this.apiKey,
-            clientId: this.clientId,
-            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-            scope: 'https://www.googleapis.com/auth/drive.readonly'
-          });
-          log('✅ Google API Client inicializado');
-          resolve();
-        } catch (error) {
-          logError('Error inicializando Google API Client:', error);
-          reject(error);
-        }
-      });
-    });
-  }
-
-  /**
-   * Autentica al usuario con Google
+   * Inicia sesión con Google usando Google Identity Services
    * @returns {Promise<string>} - Token de acceso
    */
-  async authenticate() {
+  async signInWithGoogle() {
     try {
       await this.loadGoogleAPIs();
-      
-      // Verificar que gapi.auth2 esté disponible
-      if (!window.gapi || !window.gapi.auth2) {
-        throw new Error('Google Auth2 no está disponible. Verifica que las credenciales estén configuradas correctamente.');
+
+      if (!window.google || !window.google.accounts) {
+        throw new Error('Google Identity Services no está disponible');
       }
-      
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      if (!authInstance) {
-        throw new Error('No se pudo conectar con Google. Verifica que el Client ID sea correcto y que el origen esté autorizado.');
-      }
-      
-      // Verificar si ya está autenticado
-      const isSignedIn = authInstance.isSignedIn.get();
-      if (isSignedIn) {
-        const user = authInstance.currentUser.get();
-        this.accessToken = user.getAuthResponse().access_token;
-        log('✅ Ya autenticado con Google Drive');
-        return this.accessToken;
-      }
-      
-      // Iniciar sesión
-      const user = await authInstance.signIn({
-        prompt: 'select_account' // Permite elegir cuenta
+
+      return new Promise((resolve, reject) => {
+        window.google.accounts.oauth2.initTokenClient({
+          client_id: this.clientId,
+          scope: 'https://www.googleapis.com/auth/drive.readonly',
+          callback: (response) => {
+            if (response.error) {
+              logError('Error en autenticación:', response.error);
+              reject(new Error(response.error));
+              return;
+            }
+            this.accessToken = response.access_token;
+            log('✅ Autenticado con Google Drive');
+            resolve(this.accessToken);
+          }
+        }).requestAccessToken();
       });
-      this.accessToken = user.getAuthResponse().access_token;
-      log('✅ Autenticado con Google Drive');
-      return this.accessToken;
     } catch (error) {
-      logError('Error en autenticación:', error);
-      
-      // Mejorar mensajes de error para el usuario
-      if (error.error === 'popup_closed_by_user') {
-        throw new Error('Autenticación cancelada. Por favor, intenta de nuevo.');
-      } else if (error.error === 'access_denied') {
-        throw new Error('Acceso denegado. Asegúrate de dar permisos a la aplicación.');
-      } else if (error.message && error.message.includes('Credenciales')) {
-        throw new Error('Error en las credenciales. Verifica el Client ID en la configuración.');
-      }
-      
+      logError('Error iniciando sesión con Google:', error);
       throw error;
     }
   }
 
   /**
-   * Abre el selector de Google Drive para seleccionar una carpeta
-   * @returns {Promise<string>} - ID de la carpeta seleccionada
+   * Lista todas las carpetas del usuario en Google Drive
+   * @returns {Promise<Array>} - Array de carpetas {id, name}
    */
-  async selectFolder() {
+  async listFolders() {
     try {
-      await this.loadGoogleAPIs();
-      
-      // Verificar que Google Picker esté disponible
-      if (!window.google || !window.google.picker) {
-        throw new Error('Google Picker API no está disponible');
-      }
-      
       if (!this.accessToken) {
-        await this.authenticate();
+        throw new Error('No estás autenticado. Inicia sesión primero.');
       }
 
-      return new Promise((resolve, reject) => {
-        const picker = new window.google.picker.PickerBuilder()
-          .setOAuthToken(this.accessToken)
-          .setDeveloperKey(this.apiKey)
-          .setCallback((data) => {
-            const action = data[window.google.picker.Response.ACTION];
-            
-            if (action === window.google.picker.Action.PICKED) {
-              const folder = data[window.google.picker.Response.DOCUMENTS][0];
-              this.selectedFolderId = folder.id;
-              log(`✅ Carpeta seleccionada: ${folder.name} (${folder.id})`);
-              resolve(folder.id);
-            } else if (action === window.google.picker.Action.CANCEL) {
-              log('⚠️ Selección de carpeta cancelada por el usuario');
-              reject(new Error('Selección cancelada'));
-            } else {
-              log('⚠️ Acción desconocida en Google Picker:', action);
-              reject(new Error('Error al seleccionar carpeta'));
-            }
-          })
-          .addView(window.google.picker.ViewId.FOLDERS)
-          .setSelectableMimeTypes('application/vnd.google-apps.folder')
-          .enableFeature(window.google.picker.Feature.NAV_HIDDEN)
-          .build();
-        
-        picker.setVisible(true);
+      // Configurar el token en el cliente
+      window.gapi.client.setToken({ access_token: this.accessToken });
+
+      const response = await window.gapi.client.drive.files.list({
+        q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
+        fields: 'files(id, name)',
+        pageSize: 1000,
+        orderBy: 'name'
       });
+
+      const folders = (response.result.files || []).map(f => ({
+        id: f.id,
+        name: f.name
+      }));
+
+      log(`✅ ${folders.length} carpetas encontradas`);
+      return folders;
     } catch (error) {
-      logError('Error seleccionando carpeta:', error);
+      logError('Error listando carpetas:', error);
       throw error;
     }
   }
@@ -269,10 +211,12 @@ export class GoogleDriveService {
     try {
       log(`📁 Listando contenido de: ${folderName} (${folderId})`);
       
-      // Verificar que el cliente esté inicializado
-      if (!window.gapi || !window.gapi.client || !window.gapi.client.drive) {
-        throw new Error('Google API Client no está inicializado. Asegúrate de que las credenciales estén configuradas.');
+      if (!this.accessToken) {
+        throw new Error('No estás autenticado');
       }
+
+      // Configurar el token en el cliente
+      window.gapi.client.setToken({ access_token: this.accessToken });
       
       const response = await window.gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false`,

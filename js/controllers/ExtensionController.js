@@ -1674,8 +1674,8 @@ export class ExtensionController {
 
     // Google Drive Service
     this.googleDriveService.setOBR(this.OBR);
-    // Las credenciales se obtienen del servidor cuando se necesiten
-    // (solo si hay OWNER_TOKEN)
+    // Las credenciales se obtienen del servidor automáticamente
+    // No se guardan en localStorage - siempre se obtienen del servidor
 
     // Image Cache Service - inicializar en background
     this.imageCacheService.init().then(() => {
@@ -3161,72 +3161,38 @@ export class ExtensionController {
         return;
       }
 
-      // Verificar si ya tiene credenciales guardadas
-      let apiKey = localStorage.getItem('google_drive_api_key');
-      let clientId = localStorage.getItem('google_drive_client_id');
-      
-      // Si no tiene credenciales, intentar obtenerlas del servidor primero
-      if (!apiKey || !clientId) {
-        this._showFeedback('🔄 Obteniendo credenciales...');
-        const serverCredentials = await this.googleDriveService.getCredentialsFromServer();
-        if (serverCredentials) {
-          apiKey = serverCredentials.apiKey;
-          clientId = serverCredentials.clientId;
-          // Guardar en localStorage para futuras sesiones
-          localStorage.setItem('google_drive_api_key', apiKey);
-          localStorage.setItem('google_drive_client_id', clientId);
-        }
-      }
-      
-      // Si aún no hay credenciales, mostrar modal simple para configurarlas
-      if (!apiKey || !clientId) {
-        const credentials = await this._showGoogleDriveCredentialsModal();
-        if (!credentials) {
-          return; // Usuario canceló
-        }
-        apiKey = credentials.apiKey;
-        clientId = credentials.clientId;
-        // Guardar en localStorage
-        localStorage.setItem('google_drive_api_key', apiKey);
-        localStorage.setItem('google_drive_client_id', clientId);
-      }
-      
-      // Configurar credenciales
-      this.googleDriveService.setCredentials(apiKey, clientId);
-      
-      // Reinicializar el servicio para cargar las APIs
-      this.googleDriveService.pickerApiLoaded = false;
-      this.googleDriveService.gapiLoaded = false;
-
       // Cargar APIs de Google
       this._showFeedback('🔄 Cargando Google Drive...');
       await this.googleDriveService.loadGoogleAPIs();
 
-      // Autenticar con Google
+      // Iniciar sesión con Google
       this._showFeedback('🔐 Iniciando sesión con Google...');
       try {
-        await this.googleDriveService.authenticate();
+        await this.googleDriveService.signInWithGoogle();
         this._showFeedback('✅ Sesión iniciada correctamente');
       } catch (authError) {
-        if (authError.message.includes('cancelada')) {
+        if (authError.message.includes('cancelada') || authError.message.includes('popup_closed')) {
           this._showFeedback('❌ Inicio de sesión cancelado');
           return;
         }
         throw authError;
       }
 
-      // Seleccionar carpeta
-      this._showFeedback('📁 Selecciona la carpeta "GM vault" en la ventana que se abrirá...');
-      let folderId;
-      try {
-        folderId = await this.googleDriveService.selectFolder();
-        this._showFeedback('✅ Carpeta seleccionada');
-      } catch (selectError) {
-        if (selectError.message.includes('cancelada')) {
-          this._showFeedback('❌ Selección de carpeta cancelada');
-          return;
-        }
-        throw selectError;
+      // Listar carpetas
+      this._showFeedback('📁 Obteniendo lista de carpetas...');
+      const folders = await this.googleDriveService.listFolders();
+      
+      if (!folders || folders.length === 0) {
+        this._showFeedback('❌ No se encontraron carpetas en tu Google Drive');
+        alert('No se encontraron carpetas en tu Google Drive.\n\nAsegúrate de tener al menos una carpeta en tu Drive.');
+        return;
+      }
+
+      // Mostrar modal para seleccionar carpeta
+      const folderId = await this._showFolderSelectorModal(folders);
+      if (!folderId) {
+        this._showFeedback('❌ Selección de carpeta cancelada');
+        return;
       }
 
       // Generar vault desde la carpeta
@@ -3277,108 +3243,92 @@ export class ExtensionController {
       // Mostrar alerta solo para errores críticos
       if (!error.message.includes('cancelada')) {
         setTimeout(() => {
-          alert(`${userMessage}\n\nSi el problema persiste, verifica:\n• Que las APIs estén habilitadas en Google Cloud Console\n• Que el origen esté autorizado\n• Que las credenciales sean correctas`);
+          alert(`${userMessage}\n\nSi el problema persiste, contacta al administrador.`);
         }, 500);
       }
     }
   }
 
   /**
-   * Muestra modal para configurar credenciales de Google Drive
-   * Solo se muestra la primera vez (o si el usuario quiere cambiarlas)
-   * @returns {Promise<Object|null>} - {apiKey, clientId} o null si se cancela
+   * Muestra modal para seleccionar una carpeta de Google Drive
+   * @param {Array} folders - Array de carpetas {id, name}
+   * @returns {Promise<string|null>} - ID de la carpeta seleccionada o null si se cancela
    * @private
    */
-  async _showGoogleDriveCredentialsModal() {
+  async _showFolderSelectorModal(folders) {
     return new Promise((resolve) => {
+      const foldersList = folders.map(folder => {
+        const folderName = folder.name.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return `<button type="button" class="folder-item" data-folder-id="${folder.id}">
+          <span class="folder-icon">📁</span>
+          <span class="folder-name">${folderName}</span>
+        </button>`;
+      }).join('');
+
       const modalContent = `
         <div class="form">
-          <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
-            <p style="margin: 0 0 8px 0; font-weight: 600; color: #1565c0;">ℹ️ Configuración inicial (solo una vez)</p>
-            <p style="margin: 0; font-size: 13px; color: #1565c0; line-height: 1.6;">
-              Para usar Google Drive, necesitas crear credenciales en Google Cloud Console. 
-              Solo necesitas hacerlo una vez y se guardarán automáticamente.
-            </p>
+          <p class="settings__description" style="margin-bottom: 16px;">
+            Selecciona la carpeta de Google Drive que contiene tu vault:
+          </p>
+          <div class="folder-selector" style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 8px;">
+            ${foldersList || '<p style="text-align: center; color: #999; padding: 20px;">No hay carpetas disponibles</p>'}
           </div>
-          <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-            <p style="margin: 0 0 12px 0; font-weight: 600; color: #333;">📋 Pasos rápidos (5 minutos)</p>
-            <ol style="margin: 0; padding-left: 20px; color: #666; line-height: 1.8; font-size: 13px;">
-              <li>Abre <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: #1976d2; font-weight: 600;">Google Cloud Console → Credenciales</a></li>
-              <li>Haz clic en <strong>"+ CREAR CREDENCIALES"</strong> → <strong>"ID de cliente de OAuth"</strong></li>
-              <li>Selecciona <strong>"Aplicación web"</strong> y dale un nombre (ej: "GM Vault")</li>
-              <li>En <strong>"Orígenes autorizados"</strong>, añade: <code style="background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${window.location.origin}</code></li>
-              <li>Copia el <strong>ID de cliente</strong> (xxxxx.apps.googleusercontent.com) y pégalo abajo</li>
-              <li>Para la API Key, haz clic en <strong>"+ CREAR CREDENCIALES"</strong> → <strong>"Clave de API"</strong></li>
-              <li>Habilita <strong>Google Drive API</strong> y <strong>Google Picker API</strong> en la <a href="https://console.cloud.google.com/apis/library" target="_blank" style="color: #1976d2;">Biblioteca de APIs</a></li>
-            </ol>
-            <p style="margin: 12px 0 0 0; font-size: 12px; color: #999;">
-              💡 <strong>Tip:</strong> Puedes usar un proyecto existente o crear uno nuevo. Todo es gratuito.
-            </p>
-          </div>
-          <div class="form__field">
-            <label class="form__label" for="google-api-key">
-              🔑 API Key de Google
-              <span style="font-size: 12px; color: #999; font-weight: normal;">(empieza con "AIza...")</span>
-            </label>
-            <input type="text" id="google-api-key" class="input input--mono" placeholder="AIzaSyC..." style="font-family: monospace;" />
-          </div>
-          <div class="form__field">
-            <label class="form__label" for="google-client-id">
-              🆔 Client ID de OAuth
-              <span style="font-size: 12px; color: #999; font-weight: normal;">(termina en .apps.googleusercontent.com)</span>
-            </label>
-            <input type="text" id="google-client-id" class="input input--mono" placeholder="123456789-xxxxx.apps.googleusercontent.com" style="font-family: monospace;" />
-          </div>
-          <div class="form__actions">
-            <button type="button" id="google-credentials-cancel" class="btn btn--ghost btn--flex">Cancelar</button>
-            <button type="button" id="google-credentials-save" class="btn btn--primary btn--flex">Guardar y continuar</button>
+          <div class="form__actions" style="margin-top: 16px;">
+            <button type="button" id="folder-selector-cancel" class="btn btn--ghost btn--flex">Cancelar</button>
           </div>
         </div>
+        <style>
+          .folder-item {
+            width: 100%;
+            padding: 12px;
+            margin: 4px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fff;
+            cursor: pointer;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+          }
+          .folder-item:hover {
+            background: #f5f5f5;
+            border-color: #2196f3;
+          }
+          .folder-item:active {
+            background: #e3f2fd;
+          }
+          .folder-icon {
+            font-size: 20px;
+          }
+          .folder-name {
+            flex: 1;
+            font-weight: 500;
+            color: #333;
+          }
+        </style>
       `;
 
       const modal = this.modalManager.showCustom({
-        title: '⚙️ Configurar Google Drive (solo una vez)',
+        title: '📁 Seleccionar carpeta de Google Drive',
         content: modalContent
       });
 
-      const cancelBtn = modal.querySelector('#google-credentials-cancel');
-      const saveBtn = modal.querySelector('#google-credentials-save');
-      const apiKeyInput = modal.querySelector('#google-api-key');
-      const clientIdInput = modal.querySelector('#google-client-id');
-
-      // Cargar valores guardados si existen
-      const savedApiKey = localStorage.getItem('google_drive_api_key');
-      const savedClientId = localStorage.getItem('google_drive_client_id');
-      if (savedApiKey) apiKeyInput.value = savedApiKey;
-      if (savedClientId) clientIdInput.value = savedClientId;
+      const cancelBtn = modal.querySelector('#folder-selector-cancel');
+      const folderItems = modal.querySelectorAll('.folder-item');
 
       cancelBtn.addEventListener('click', () => {
         this.modalManager.close();
         resolve(null);
       });
 
-      saveBtn.addEventListener('click', () => {
-        const apiKey = apiKeyInput.value.trim();
-        const clientId = clientIdInput.value.trim();
-
-        if (!apiKey || !clientId) {
-          this._showFeedback('❌ Por favor, completa ambos campos');
-          return;
-        }
-
-        // Validación básica
-        if (!apiKey.startsWith('AIza')) {
-          this._showFeedback('⚠️ El API Key parece incorrecto (debe empezar con "AIza")');
-          return;
-        }
-
-        if (!clientId.includes('.apps.googleusercontent.com')) {
-          this._showFeedback('⚠️ El Client ID parece incorrecto (debe terminar en .apps.googleusercontent.com)');
-          return;
-        }
-
-        this.modalManager.close();
-        resolve({ apiKey, clientId });
+      folderItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const folderId = item.dataset.folderId;
+          this.modalManager.close();
+          resolve(folderId);
+        });
       });
     });
   }

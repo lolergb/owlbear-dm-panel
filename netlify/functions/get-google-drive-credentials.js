@@ -1,8 +1,7 @@
 /**
- * Netlify Function para obtener las credenciales de Google Drive
+ * Netlify Function para obtener el Client ID de Google Drive
  * Solo disponible cuando hay OWNER_TOKEN (verificado en el cliente)
- * Controlado por variables de entorno:
- * - GM_VAULT_GOOGLE_API_KEY: API Key de Google
+ * Controlado por variable de entorno:
  * - GM_VAULT_GOOGLE_CLIENT_ID: Client ID de OAuth
  */
 
@@ -32,12 +31,11 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    // Obtener las credenciales desde variables de entorno
-    const apiKey = process.env.GM_VAULT_GOOGLE_API_KEY;
+    // Obtener el Client ID desde variable de entorno
     const clientId = process.env.GM_VAULT_GOOGLE_CLIENT_ID;
     
-    // Si no hay credenciales configuradas, retornar null
-    if (!apiKey || !clientId) {
+    // Si no hay Client ID configurado, retornar null
+    if (!clientId) {
       return {
         statusCode: 200,
         headers: {
@@ -45,14 +43,13 @@ exports.handler = async (event, context) => {
           ...CORS_HEADERS
         },
         body: JSON.stringify({ 
-          apiKey: null,
           clientId: null,
-          error: 'Google Drive credentials not configured'
+          error: 'Google Drive Client ID not configured'
         })
       };
     }
     
-    // Retornar las credenciales
+    // Retornar el Client ID
     return {
       statusCode: 200,
       headers: {
@@ -60,18 +57,16 @@ exports.handler = async (event, context) => {
         ...CORS_HEADERS
       },
       body: JSON.stringify({ 
-        apiKey,
         clientId
       })
     };
   } catch (error) {
-    console.error('Error getting Google Drive credentials:', error);
+    console.error('Error getting Google Drive Client ID:', error);
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
       body: JSON.stringify({ 
         error: error.message || 'Internal server error',
-        apiKey: null,
         clientId: null
       })
     };
