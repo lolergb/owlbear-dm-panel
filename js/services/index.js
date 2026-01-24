@@ -7,6 +7,4 @@ export { StorageService } from './StorageService.js';
 export { NotionService } from './NotionService.js';
 export { BroadcastService } from './BroadcastService.js';
 export { ImageCacheService, getImageCacheService } from './ImageCacheService.js';
-// GoogleDriveService - deshabilitado temporalmente
-// export { GoogleDriveService } from './GoogleDriveService.js';
 

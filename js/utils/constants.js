@@ -94,9 +94,6 @@ export const NOTION_BLOCK_TYPES = [
 // ============================================
 // FEATURE FLAGS
 // ============================================
-// Google Drive functionality - deshabilitada temporalmente
-// export const ENABLE_GOOGLE_DRIVE = true;
-// export const GOOGLE_DRIVE_CLIENT_ID = null;
 
 // ============================================
 // EXPORT AGRUPADO
