@@ -3165,14 +3165,33 @@ export class ExtensionController {
       this._showFeedback('🔄 Cargando Google Drive...');
       await this.googleDriveService.loadGoogleAPIs();
 
+      // Verificar si hay Client ID configurado
+      let clientId = localStorage.getItem('google_drive_client_id');
+      if (!clientId) {
+        // Pedir Client ID al usuario (solo la primera vez)
+        clientId = await this._askForGoogleClientId();
+        if (!clientId) {
+          this._showFeedback('❌ Client ID requerido para continuar');
+          return;
+        }
+        // Guardar en localStorage
+        localStorage.setItem('google_drive_client_id', clientId);
+      }
+
       // Iniciar sesión con Google
       this._showFeedback('🔐 Iniciando sesión con Google...');
       try {
-        await this.googleDriveService.signInWithGoogle();
+        await this.googleDriveService.signInWithGoogle(clientId);
         this._showFeedback('✅ Sesión iniciada correctamente');
       } catch (authError) {
         if (authError.message.includes('cancelada') || authError.message.includes('popup_closed')) {
           this._showFeedback('❌ Inicio de sesión cancelado');
+          return;
+        } else if (authError.message.includes('Client ID')) {
+          // Si el Client ID no funciona, pedirlo de nuevo
+          localStorage.removeItem('google_drive_client_id');
+          this._showFeedback('❌ Client ID inválido');
+          alert('El Client ID no es válido. Por favor, configura uno correcto.');
           return;
         }
         throw authError;
@@ -3323,12 +3342,81 @@ export class ExtensionController {
         resolve(null);
       });
 
-      folderItems.forEach(item => {
-        item.addEventListener('click', () => {
-          const folderId = item.dataset.folderId;
-          this.modalManager.close();
-          resolve(folderId);
+          folderItems.forEach(item => {
+            item.addEventListener('click', () => {
+              const folderId = item.dataset.folderId;
+              this.modalManager.close();
+              resolve(folderId);
+            });
+          });
         });
+      }
+
+  /**
+   * Pide al usuario que ingrese su Client ID de Google OAuth
+   * @returns {Promise<string|null>} - Client ID o null si se cancela
+   * @private
+   */
+  async _askForGoogleClientId() {
+    return new Promise((resolve) => {
+      const modalContent = `
+        <div class="form">
+          <div style="background: #e3f2fd; padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #2196f3;">
+            <p style="margin: 0 0 8px 0; font-weight: 600; color: #1565c0;">ℹ️ Configuración inicial (solo una vez)</p>
+            <p style="margin: 0; font-size: 13px; color: #1565c0; line-height: 1.6;">
+              Para usar Google Drive, necesitas un Client ID de Google OAuth.
+              <br><br>
+              <strong>Pasos rápidos:</strong><br>
+              1. Ve a <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color: #1976d2; font-weight: 600;">Google Cloud Console → Credenciales</a><br>
+              2. Haz clic en <strong>"+ CREAR CREDENCIALES"</strong> → <strong>"ID de cliente de OAuth"</strong><br>
+              3. Selecciona <strong>"Aplicación web"</strong><br>
+              4. En <strong>"Orígenes autorizados"</strong>, añade: <code style="background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${window.location.origin}</code><br>
+              5. Copia el <strong>Client ID</strong> (termina en .apps.googleusercontent.com) y pégalo abajo
+            </p>
+          </div>
+          <div class="form__field">
+            <label class="form__label" for="google-client-id-input">
+              🆔 Client ID de Google OAuth
+              <span style="font-size: 12px; color: #999; font-weight: normal;">(termina en .apps.googleusercontent.com)</span>
+            </label>
+            <input type="text" id="google-client-id-input" class="input input--mono" placeholder="123456789-xxxxx.apps.googleusercontent.com" style="font-family: monospace;" />
+          </div>
+          <div class="form__actions">
+            <button type="button" id="client-id-cancel" class="btn btn--ghost btn--flex">Cancelar</button>
+            <button type="button" id="client-id-save" class="btn btn--primary btn--flex">Guardar y continuar</button>
+          </div>
+        </div>
+      `;
+
+      const modal = this.modalManager.showCustom({
+        title: '⚙️ Configurar Google Drive (solo una vez)',
+        content: modalContent
+      });
+
+      const cancelBtn = modal.querySelector('#client-id-cancel');
+      const saveBtn = modal.querySelector('#client-id-save');
+      const clientIdInput = modal.querySelector('#google-client-id-input');
+
+      cancelBtn.addEventListener('click', () => {
+        this.modalManager.close();
+        resolve(null);
+      });
+
+      saveBtn.addEventListener('click', () => {
+        const clientId = clientIdInput.value.trim();
+
+        if (!clientId) {
+          this._showFeedback('❌ Por favor, ingresa el Client ID');
+          return;
+        }
+
+        if (!clientId.includes('.apps.googleusercontent.com')) {
+          this._showFeedback('⚠️ El Client ID parece incorrecto (debe terminar en .apps.googleusercontent.com)');
+          return;
+        }
+
+        this.modalManager.close();
+        resolve(clientId);
       });
     });
   }

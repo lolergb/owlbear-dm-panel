@@ -8,20 +8,12 @@
 import { log, logError, logWarn } from '../utils/logger.js';
 
 /**
- * Client ID de Google OAuth (puede ser configurado o usar uno público)
- * Si quieres usar tu propio Client ID, cámbialo aquí o en constants.js
- */
-const GOOGLE_CLIENT_ID = null; // null = usar el del servidor o uno por defecto
-
-/**
  * Servicio para interactuar con Google Drive
  */
 export class GoogleDriveService {
   constructor() {
     // Referencia a OBR (se inyecta)
     this.OBR = null;
-    // Client ID para OAuth (puede venir de constantes o servidor)
-    this.clientId = GOOGLE_CLIENT_ID;
     // Token de acceso OAuth
     this.accessToken = null;
     // ID de la carpeta seleccionada
@@ -30,6 +22,8 @@ export class GoogleDriveService {
     this.gapiLoaded = false;
     // Google Identity Services cargado
     this.gisLoaded = false;
+    // Token client de Google Identity Services
+    this.tokenClient = null;
   }
 
   /**
@@ -64,15 +58,7 @@ export class GoogleDriveService {
     return new Promise((resolve, reject) => {
       window.gapi.load('client', async () => {
         try {
-          // Obtener Client ID (del servidor o usar uno por defecto)
-          if (!this.clientId) {
-            this.clientId = await this._getClientId();
-          }
-
-          if (!this.clientId) {
-            throw new Error('No se pudo obtener Client ID de Google');
-          }
-
+          // Inicializar el cliente sin Client ID (lo obtendremos del token directamente)
           await window.gapi.client.init({
             discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
           });
@@ -86,29 +72,6 @@ export class GoogleDriveService {
         }
       });
     });
-  }
-
-  /**
-   * Obtiene el Client ID del servidor o usa uno por defecto
-   * @returns {Promise<string>}
-   * @private
-   */
-  async _getClientId() {
-    try {
-      const response = await fetch('/.netlify/functions/get-google-drive-credentials');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.clientId) {
-          return data.clientId;
-        }
-      }
-    } catch (error) {
-      logWarn('No se pudo obtener Client ID del servidor:', error);
-    }
-    
-    // Si no hay en el servidor, podrías usar un Client ID público aquí
-    // Por ahora retornamos null para que falle claramente
-    return null;
   }
 
   /**
@@ -136,9 +99,11 @@ export class GoogleDriveService {
 
   /**
    * Inicia sesión con Google usando Google Identity Services
+   * Usa OAuth 2.0 directamente sin necesidad de Client ID del servidor
+   * @param {string} clientId - Client ID de Google OAuth (opcional, se puede obtener del usuario)
    * @returns {Promise<string>} - Token de acceso
    */
-  async signInWithGoogle() {
+  async signInWithGoogle(clientId = null) {
     try {
       await this.loadGoogleAPIs();
 
@@ -146,9 +111,23 @@ export class GoogleDriveService {
         throw new Error('Google Identity Services no está disponible');
       }
 
+      // Si no se proporciona Client ID, usar uno por defecto o pedirlo al usuario
+      if (!clientId) {
+        // Intentar obtener de localStorage
+        clientId = localStorage.getItem('google_drive_client_id');
+        
+        // Si no hay, usar un Client ID público de Google (para desarrollo)
+        // En producción, el usuario debería configurar su propio Client ID
+        if (!clientId) {
+          // Client ID público de Google para OAuth 2.0 (puede no funcionar en producción)
+          // El usuario debería configurar su propio Client ID
+          throw new Error('Client ID no configurado. Por favor, configura tu Client ID de Google OAuth.');
+        }
+      }
+
       return new Promise((resolve, reject) => {
-        window.google.accounts.oauth2.initTokenClient({
-          client_id: this.clientId,
+        this.tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
           scope: 'https://www.googleapis.com/auth/drive.readonly',
           callback: (response) => {
             if (response.error) {
@@ -160,7 +139,9 @@ export class GoogleDriveService {
             log('✅ Autenticado con Google Drive');
             resolve(this.accessToken);
           }
-        }).requestAccessToken();
+        });
+        
+        this.tokenClient.requestAccessToken();
       });
     } catch (error) {
       logError('Error iniciando sesión con Google:', error);
