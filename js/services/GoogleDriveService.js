@@ -37,6 +37,31 @@ export class GoogleDriveService {
   }
 
   /**
+   * Obtiene el Client ID de Google OAuth desde la configuración del servidor
+   * @returns {Promise<string>} - Client ID
+   * @private
+   */
+  async _getClientId() {
+    try {
+      // Intentar obtener desde la función de Netlify
+      const response = await fetch('/.netlify/functions/get-google-drive-credentials');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.clientId) {
+          log('✅ Client ID obtenido desde configuración del servidor');
+          return data.clientId;
+        }
+      }
+      
+      // Si no está disponible en el servidor, lanzar error
+      throw new Error('Google OAuth Client ID no está configurado en el servidor');
+    } catch (error) {
+      logError('Error obteniendo Client ID:', error);
+      throw new Error('No se pudo obtener el Client ID de Google OAuth. Por favor, contacta al administrador.');
+    }
+  }
+
+  /**
    * Carga Google Identity Services y Google API Client
    * @returns {Promise<void>}
    */
@@ -118,13 +143,9 @@ export class GoogleDriveService {
         throw new Error('Google Identity Services no está disponible');
       }
 
-      // Obtener Client ID de localStorage si no se proporciona
+      // Obtener Client ID desde configuración del servidor si no se proporciona
       if (!clientId) {
-        clientId = localStorage.getItem('google_drive_client_id');
-        
-        if (!clientId) {
-          throw new Error('Client ID no configurado. Por favor, configura tu Client ID de Google OAuth.');
-        }
+        clientId = await this._getClientId();
       }
 
       // Usar Google Identity Services Token Model (recomendado por Google)
