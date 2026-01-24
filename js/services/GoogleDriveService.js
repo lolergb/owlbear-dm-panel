@@ -140,6 +140,14 @@ export class GoogleDriveService {
             // El access token se obtiene directamente del callback
             // No se necesita client secret para aplicaciones JavaScript
             this.accessToken = response.access_token;
+            
+            // Configurar el token en el cliente de Google API una vez
+            // Esto hará que todas las peticiones futuras incluyan el token automáticamente
+            // en el header Authorization: Bearer <token>
+            if (window.gapi && window.gapi.client) {
+              window.gapi.client.setToken({ access_token: this.accessToken });
+            }
+            
             log('✅ Autenticado con Google Drive usando OAuth 2.0');
             resolve(this.accessToken);
           }
@@ -158,6 +166,9 @@ export class GoogleDriveService {
    * Lista todas las carpetas del usuario en Google Drive
    * Usa el access token OAuth 2.0 para autenticar las peticiones a la API
    * 
+   * El token se envía automáticamente en el header Authorization: Bearer <token>
+   * según la especificación OAuth 2.0: https://developers.google.com/identity/protocols/oauth2
+   * 
    * @returns {Promise<Array>} - Array de carpetas {id, name}
    */
   async listFolders() {
@@ -166,11 +177,13 @@ export class GoogleDriveService {
         throw new Error('No estás autenticado. Inicia sesión primero.');
       }
 
-      // Configurar el token OAuth 2.0 en el cliente de Google API
-      // El token se envía automáticamente en el header Authorization
-      window.gapi.client.setToken({ access_token: this.accessToken });
+      // Asegurar que el token esté configurado (por si acaso)
+      if (window.gapi && window.gapi.client) {
+        window.gapi.client.setToken({ access_token: this.accessToken });
+      }
 
       // Llamar a Google Drive API usando el token OAuth 2.0
+      // El token se envía automáticamente en el header Authorization
       const response = await window.gapi.client.drive.files.list({
         q: "mimeType='application/vnd.google-apps.folder' and trashed=false",
         fields: 'files(id, name)',
@@ -205,9 +218,12 @@ export class GoogleDriveService {
         throw new Error('No estás autenticado');
       }
 
-      // Configurar el token en el cliente
-      window.gapi.client.setToken({ access_token: this.accessToken });
+      // Asegurar que el token esté configurado (por si acaso)
+      if (window.gapi && window.gapi.client) {
+        window.gapi.client.setToken({ access_token: this.accessToken });
+      }
       
+      // Llamar a Google Drive API - el token se envía automáticamente
       const response = await window.gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false`,
         fields: 'files(id, name, mimeType, webViewLink, webContentLink)',
