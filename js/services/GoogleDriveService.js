@@ -281,10 +281,12 @@ export class GoogleDriveService {
   /**
    * Lista todos los archivos dentro de una carpeta específica
    * Itera a través de todos los archivos (no subcarpetas) en la carpeta
+   * Lee metadatos completos: id, name, mimeType, size, modifiedTime, createdTime, url, etc.
    * 
    * @param {string} folderId - ID de la carpeta
    * @param {string} [folderName] - Nombre de la carpeta (para logging)
-   * @returns {Promise<Array>} - Array de archivos {id, name, mimeType, url}
+   * @returns {Promise<Array>} - Array de archivos con metadatos completos:
+   *   {id, name, mimeType, size, modifiedTime, createdTime, url, thumbnailLink, iconLink}
    */
   async listFilesInFolder(folderId, folderName = 'unknown') {
     try {
@@ -304,9 +306,10 @@ export class GoogleDriveService {
       }
       
       // Listar solo archivos (no carpetas) dentro de esta carpeta
+      // Incluir metadatos completos: id, name, mimeType, size, modifiedTime, createdTime, webViewLink, webContentLink
       const response = await window.gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false and mimeType!='application/vnd.google-apps.folder'`,
-        fields: 'files(id, name, mimeType, webViewLink, webContentLink)',
+        fields: 'files(id, name, mimeType, size, modifiedTime, createdTime, webViewLink, webContentLink, thumbnailLink, iconLink)',
         pageSize: 1000,
         orderBy: 'name'
       });
@@ -320,7 +323,12 @@ export class GoogleDriveService {
         id: f.id,
         name: f.name,
         mimeType: f.mimeType,
-        url: f.webViewLink || f.webContentLink || this._generateFileUrl(f.id, f.mimeType)
+        size: f.size ? parseInt(f.size, 10) : null, // Tamaño en bytes
+        modifiedTime: f.modifiedTime || null, // Fecha de modificación ISO 8601
+        createdTime: f.createdTime || null, // Fecha de creación ISO 8601
+        url: f.webViewLink || f.webContentLink || this._generateFileUrl(f.id, f.mimeType),
+        thumbnailLink: f.thumbnailLink || null, // URL de miniatura (si disponible)
+        iconLink: f.iconLink || null // URL del icono (si disponible)
       }));
 
       log(`  📄 ${files.length} archivos encontrados en ${folderName}`);
@@ -343,9 +351,15 @@ export class GoogleDriveService {
 
   /**
    * Lista recursivamente el contenido de una carpeta (carpetas y archivos)
+   * Navega recursivamente por todo el árbol de carpetas y lee metadatos completos de archivos
+   * 
    * @param {string} folderId - ID de la carpeta
    * @param {string} [folderName] - Nombre de la carpeta (para logging)
-   * @returns {Promise<Object>} - Estructura con carpetas y archivos
+   * @returns {Promise<Object>} - Estructura recursiva con carpetas y archivos:
+   *   {
+   *     folders: [{id, name, mimeType, contents: {...}}],
+   *     files: [{id, name, mimeType, size, modifiedTime, createdTime, url, ...}]
+   *   }
    */
   async listFolderContents(folderId, folderName = 'root') {
     try {
@@ -365,9 +379,10 @@ export class GoogleDriveService {
       }
       
       // Llamar a Google Drive API - el token se envía automáticamente
+      // Incluir metadatos completos para archivos y carpetas
       const response = await window.gapi.client.drive.files.list({
         q: `'${folderId}' in parents and trashed=false`,
-        fields: 'files(id, name, mimeType, webViewLink, webContentLink)',
+        fields: 'files(id, name, mimeType, size, modifiedTime, createdTime, webViewLink, webContentLink, thumbnailLink, iconLink)',
         pageSize: 1000,
         orderBy: 'name'
       });
@@ -398,7 +413,12 @@ export class GoogleDriveService {
           id: f.id,
           name: f.name,
           mimeType: f.mimeType,
-          url: f.webViewLink || f.webContentLink || this._generateFileUrl(f.id, f.mimeType)
+          size: f.size ? parseInt(f.size, 10) : null,
+          modifiedTime: f.modifiedTime || null,
+          createdTime: f.createdTime || null,
+          url: f.webViewLink || f.webContentLink || this._generateFileUrl(f.id, f.mimeType),
+          thumbnailLink: f.thumbnailLink || null,
+          iconLink: f.iconLink || null
         }))
       };
 
@@ -527,18 +547,24 @@ export class GoogleDriveService {
       categories: []
     };
 
-    // Procesar archivos directamente en esta carpeta
-    if (structure.files && structure.files.length > 0) {
-      for (const file of structure.files) {
-        if (this._isSupportedFileType(file.mimeType)) {
-          category.pages.push({
-            name: file.name,
-            url: file.url || this._generateFileUrl(file.id, file.mimeType),
-            visibleToPlayers: false
-          });
+        // Procesar archivos directamente en esta carpeta
+        // Los metadatos se leen pero solo se usan name y url para el vault
+        if (structure.files && structure.files.length > 0) {
+          for (const file of structure.files) {
+            if (this._isSupportedFileType(file.mimeType)) {
+              // Crear página con metadatos básicos (compatible con formato GM Vault)
+              // Los metadatos adicionales (size, modifiedTime, etc.) están disponibles en file
+              // pero no se incluyen en el vault final para mantener compatibilidad
+              category.pages.push({
+                name: file.name,
+                url: file.url || this._generateFileUrl(file.id, file.mimeType),
+                visibleToPlayers: false
+                // Nota: Los metadatos completos (size, modifiedTime, etc.) están en file
+                // pero no se incluyen en el vault para mantener compatibilidad con el formato existente
+              });
+            }
+          }
         }
-      }
-    }
 
     // Procesar subcarpetas recursivamente
     if (structure.folders && structure.folders.length > 0) {
@@ -569,13 +595,19 @@ export class GoogleDriveService {
       };
 
       // Procesar archivos directamente en esta carpeta
+      // Los metadatos se leen pero solo se usan name y url para el vault
       if (folder.contents && folder.contents.files) {
         for (const file of folder.contents.files) {
           if (this._isSupportedFileType(file.mimeType)) {
+            // Crear página con metadatos básicos (compatible con formato GM Vault)
+            // Los metadatos adicionales (size, modifiedTime, etc.) están disponibles en file
+            // pero no se incluyen en el vault final para mantener compatibilidad
             category.pages.push({
               name: file.name,
               url: file.url || this._generateFileUrl(file.id, file.mimeType),
               visibleToPlayers: false
+              // Nota: Los metadatos completos (size, modifiedTime, etc.) están en file
+              // pero no se incluyen en el vault para mantener compatibilidad con el formato existente
             });
           }
         }
@@ -595,14 +627,20 @@ export class GoogleDriveService {
     }
 
     // Procesar archivos en la raíz (si no están dentro de carpetas)
+    // Los metadatos se leen pero solo se usan name y url para el vault
     const rootPages = [];
     if (structure.files) {
       for (const file of structure.files) {
         if (this._isSupportedFileType(file.mimeType)) {
+          // Crear página con metadatos básicos (compatible con formato GM Vault)
+          // Los metadatos adicionales (size, modifiedTime, etc.) están disponibles en file
+          // pero no se incluyen en el vault final para mantener compatibilidad
           rootPages.push({
             name: file.name,
             url: file.url || this._generateFileUrl(file.id, file.mimeType),
             visibleToPlayers: false
+            // Nota: Los metadatos completos (size, modifiedTime, etc.) están en file
+            // pero no se incluyen en el vault para mantener compatibilidad con el formato existente
           });
         }
       }

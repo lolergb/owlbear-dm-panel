@@ -4,7 +4,7 @@
  * Orquesta todos los servicios, renderers y componentes de la aplicación.
  */
 
-import { log, logError, setOBRReference, setGetTokenFunction, initDebugMode, getUserRole, isDebugMode } from '../utils/logger.js';
+import { log, logError, logWarn, setOBRReference, setGetTokenFunction, initDebugMode, getUserRole, isDebugMode } from '../utils/logger.js';
 import { filterVisiblePages } from '../utils/helpers.js';
 import { BROADCAST_CHANNEL_REQUEST_FULL_VAULT, BROADCAST_CHANNEL_RESPONSE_FULL_VAULT, OWNER_TIMEOUT, METADATA_KEY, ENABLE_GOOGLE_DRIVE } from '../utils/constants.js';
 
@@ -3167,15 +3167,45 @@ export class ExtensionController {
 
       // Verificar si hay Client ID configurado
       let clientId = localStorage.getItem('google_drive_client_id');
+      
+      // Validar que el Client ID tenga el formato correcto
+      if (clientId) {
+        if (!clientId.includes('.apps.googleusercontent.com')) {
+          logWarn('⚠️ Client ID guardado tiene formato incorrecto, eliminándolo');
+          localStorage.removeItem('google_drive_client_id');
+          clientId = null;
+        } else {
+          // Validar formato más estricto
+          const clientIdPattern = /^\d+-[\w-]+\.apps\.googleusercontent\.com$/;
+          if (!clientIdPattern.test(clientId.trim())) {
+            logWarn('⚠️ Client ID guardado no pasa validación de formato, eliminándolo');
+            localStorage.removeItem('google_drive_client_id');
+            clientId = null;
+          } else {
+            clientId = clientId.trim(); // Limpiar espacios
+          }
+        }
+      }
+      
       if (!clientId) {
         // Pedir Client ID al usuario (solo la primera vez)
+        this._showFeedback('⚙️ Configuración inicial requerida');
         clientId = await this._askForGoogleClientId();
         if (!clientId) {
           this._showFeedback('❌ Client ID requerido para continuar');
+          log('⚠️ Usuario canceló la configuración del Client ID');
           return;
         }
-        // Guardar en localStorage
-        localStorage.setItem('google_drive_client_id', clientId);
+        // El Client ID ya se guardó en el método _askForGoogleClientId cuando el usuario hizo clic en "Guardar"
+        // Solo verificar que sea válido
+        if (!clientId || !clientId.includes('.apps.googleusercontent.com')) {
+          logError('⚠️ Client ID proporcionado no tiene formato válido');
+          this._showFeedback('❌ Client ID inválido');
+          return;
+        }
+        log('✅ Client ID configurado y guardado');
+      } else {
+        log('✅ Client ID encontrado en localStorage');
       }
 
       // Iniciar sesión con Google
@@ -3187,11 +3217,24 @@ export class ExtensionController {
         if (authError.message.includes('cancelada') || authError.message.includes('popup_closed')) {
           this._showFeedback('❌ Inicio de sesión cancelado');
           return;
-        } else if (authError.message.includes('Client ID')) {
-          // Si el Client ID no funciona, pedirlo de nuevo
+        } else if (authError.message.includes('Client ID') || authError.message.includes('invalid_client')) {
+          // Si el Client ID no funciona, eliminarlo y mostrar mensaje
+          logError('⚠️ Client ID inválido o error de autenticación:', authError);
           localStorage.removeItem('google_drive_client_id');
-          this._showFeedback('❌ Client ID inválido');
-          alert('El Client ID no es válido. Por favor, configura uno correcto.');
+          this._showFeedback('❌ Error de autenticación');
+          
+          // Mostrar mensaje más específico
+          let errorMsg = 'El Client ID no es válido o hay un error de configuración.\n\n';
+          errorMsg += 'Verifica:\n';
+          errorMsg += '• Que el Client ID sea correcto\n';
+          errorMsg += '• Que el origen esté autorizado en Google Cloud Console\n';
+          errorMsg += '• Que Google Drive API esté habilitada\n\n';
+          errorMsg += '¿Quieres configurar un nuevo Client ID?';
+          
+          if (confirm(errorMsg)) {
+            // Intentar de nuevo
+            return this._importFromGoogleDrive();
+          }
           return;
         }
         throw authError;
@@ -3430,9 +3473,47 @@ export class ExtensionController {
           return;
         }
 
+        // Validar formato básico del Client ID
+        const clientIdPattern = /^\d+-[\w-]+\.apps\.googleusercontent\.com$/;
+        if (!clientIdPattern.test(clientId)) {
+          this._showFeedback('⚠️ El formato del Client ID no es válido. Debe ser: número-texto.apps.googleusercontent.com');
+          return;
+        }
+
+        // Guardar inmediatamente en localStorage para evitar que aparezca de nuevo
+        try {
+          localStorage.setItem('google_drive_client_id', clientId);
+          log('✅ Client ID guardado en localStorage:', clientId.substring(0, 30) + '...');
+          
+          // Verificar que se guardó correctamente
+          const saved = localStorage.getItem('google_drive_client_id');
+          if (saved !== clientId) {
+            logError('❌ Error: El Client ID no se guardó correctamente en localStorage');
+            this._showFeedback('❌ Error al guardar el Client ID. Por favor, intenta de nuevo.');
+            return;
+          }
+          
+          log('✅ Verificación: Client ID guardado correctamente');
+        } catch (storageError) {
+          logError('❌ Error al guardar en localStorage:', storageError);
+          this._showFeedback('❌ Error al guardar. Por favor, verifica que localStorage esté disponible.');
+          return;
+        }
+        
         this.modalManager.close();
         resolve(clientId);
       });
+      
+      // Permitir cerrar con Escape
+      const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+          log('⚠️ Usuario presionó Escape, cancelando configuración');
+          this.modalManager.close();
+          window.removeEventListener('keydown', handleEscape);
+          resolve(null);
+        }
+      };
+      window.addEventListener('keydown', handleEscape);
     });
   }
 
