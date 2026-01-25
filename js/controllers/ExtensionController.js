@@ -2675,6 +2675,8 @@ export class ExtensionController {
     const exportVaultForm = allForms[1]; // Segunda sección: Export vault
     const feedbackForm = allForms[2]; // Tercera sección: Feedback
     const loadJsonBtn = document.getElementById('load-json-btn');
+    const loadUrlBtn = document.getElementById('load-url-btn');
+    const vaultUrlInput = document.getElementById('vault-url-input');
 
     log('⚙️ Settings - isGM:', this.isGM, '| isCoGM:', this.isCoGM);
 
@@ -2690,16 +2692,26 @@ export class ExtensionController {
       if (notionTokenForm) notionTokenForm.style.display = 'none';
       if (exportVaultForm) exportVaultForm.style.display = '';
       if (feedbackForm) feedbackForm.style.display = '';
-      // Ocultar botón "Load vault" para Co-GM (solo lectura)
+      // Ocultar botones de carga para Co-GM (solo lectura)
       if (loadJsonBtn) loadJsonBtn.style.display = 'none';
+      if (loadUrlBtn) loadUrlBtn.style.display = 'none';
+      if (vaultUrlInput) {
+        const urlField = vaultUrlInput.closest('.form__field');
+        if (urlField) urlField.style.display = 'none';
+      }
     } else {
       // Master GM: mostrar todas las secciones
       log('⚙️ Mostrando settings para Master GM (todas las secciones)');
       allForms.forEach(form => {
         form.style.display = '';
       });
-      // Asegurar que Load vault esté visible para Master GM
+      // Asegurar que botones de carga estén visibles para Master GM
       if (loadJsonBtn) loadJsonBtn.style.display = '';
+      if (loadUrlBtn) loadUrlBtn.style.display = '';
+      if (vaultUrlInput) {
+        const urlField = vaultUrlInput.closest('.form__field');
+        if (urlField) urlField.style.display = '';
+      }
       
       // Mostrar botón Import from Notion solo si hay token guardado
       const importNotionBtn = document.getElementById('import-notion-btn');
@@ -2828,6 +2840,8 @@ export class ExtensionController {
     const saveBtn = document.getElementById('save-token');
     const clearBtn = document.getElementById('clear-token');
     const loadJsonBtn = document.getElementById('load-json-btn');
+    const loadUrlBtn = document.getElementById('load-url-btn');
+    const vaultUrlInput = document.getElementById('vault-url-input');
     const downloadJsonBtn = document.getElementById('download-json-btn');
     const patreonBtn = document.getElementById('patreon-btn');
     const feedbackBtn = document.getElementById('feedback-btn');
@@ -2953,6 +2967,80 @@ export class ExtensionController {
         document.body.appendChild(fileInput);
         fileInput.click();
         document.body.removeChild(fileInput);
+      });
+    }
+
+    // Cargar desde URL
+    const loadFromUrl = async () => {
+      const url = vaultUrlInput ? vaultUrlInput.value.trim() : '';
+      if (!url) {
+        alert('Please enter a URL');
+        return;
+      }
+
+      // Validar que sea una URL válida
+      try {
+        new URL(url);
+      } catch (e) {
+        alert('Please enter a valid URL');
+        return;
+      }
+
+      // Mostrar indicador de carga
+      if (loadUrlBtn) {
+        loadUrlBtn.disabled = true;
+        loadUrlBtn.textContent = 'Loading...';
+      }
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const importedConfig = await response.json();
+        
+        if (!importedConfig.categories) {
+          throw new Error('Invalid config: missing categories');
+        }
+        
+        // Contar páginas actuales e importadas
+        const currentConfig = this.config || { categories: [] };
+        const configForCount = currentConfig.toJSON ? currentConfig.toJSON() : currentConfig;
+        const currentPagesCount = this._countPagesInConfig(configForCount);
+        const importedPagesCount = this._countPagesInConfig(importedConfig);
+        
+        log(`Load from URL: currentPages=${currentPagesCount}, importedPages=${importedPagesCount}`);
+        
+        // Extraer nombre del vault de la URL para mostrar en el modal
+        const urlObj = new URL(url);
+        const vaultName = urlObj.pathname.split('/').pop() || 'vault';
+        
+        // Mostrar modal con opciones de importación
+        await this._showLoadJsonOptionsModal(importedConfig, currentPagesCount, importedPagesCount, vaultName);
+        
+      } catch (err) {
+        alert('❌ Error loading from URL: ' + err.message);
+      } finally {
+        if (loadUrlBtn) {
+          loadUrlBtn.disabled = false;
+          loadUrlBtn.textContent = 'Load from URL';
+        }
+      }
+    };
+
+    if (loadUrlBtn && !loadUrlBtn.dataset.listenerAdded) {
+      loadUrlBtn.dataset.listenerAdded = 'true';
+      loadUrlBtn.addEventListener('click', loadFromUrl);
+    }
+
+    // Permitir cargar con Enter en el input
+    if (vaultUrlInput && !vaultUrlInput.dataset.listenerAdded) {
+      vaultUrlInput.dataset.listenerAdded = 'true';
+      vaultUrlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && loadUrlBtn && !loadUrlBtn.disabled) {
+          loadFromUrl();
+        }
       });
     }
 
