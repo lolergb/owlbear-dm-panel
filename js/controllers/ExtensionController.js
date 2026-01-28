@@ -4323,6 +4323,36 @@ export class ExtensionController {
       onPageMove: (page, categoryPath, pageIndex, direction) => {
         this._handlePageMove(page, categoryPath, pageIndex, direction);
       },
+      onPageDuplicate: (page, categoryPath, pageIndex) => {
+        this._handlePageDuplicate(page, categoryPath, pageIndex);
+      },
+      // Categorías
+      onCategoryEdit: (category, categoryPath) => {
+        this._handleCategoryEdit(category, categoryPath);
+      },
+      onCategoryDelete: (category, categoryPath) => {
+        this._handleCategoryDelete(category, categoryPath);
+      },
+      onCategoryMove: (category, categoryPath, direction) => {
+        this._handleCategoryMove(category, categoryPath, direction);
+      },
+      onCategoryDuplicate: (category, categoryPath) => {
+        this._handleCategoryDuplicate(category, categoryPath);
+      },
+      onAddPage: (categoryPath, roomId) => {
+        this._handleAddPage(categoryPath, roomId);
+      },
+      onAddCategory: (categoryPath, roomId) => {
+        this._handleAddCategory(categoryPath, roomId);
+      },
+      onShowModal: (type, options) => {
+        if (type === 'edit-page' && options.page && options.categoryPath !== undefined) {
+          // Usar el modal de edición completo con selector de carpeta
+          this._showEditPageModalFromList(options.page, options.categoryPath, options.pageIndex);
+        } else {
+          this._showModalForm(options.title, options.fields, options.onSubmit);
+        }
+      }
     });
 
     // Escuchar mensajes postMessage de páginas cargadas en iframes (páginas de Obsidian)
@@ -4357,37 +4387,6 @@ export class ExtensionController {
           }
         } catch (error) {
           logError('❌ Error al abrir modal desde postMessage:', error);
-        }
-      }
-    });
-      onPageDuplicate: (page, categoryPath, pageIndex) => {
-        this._handlePageDuplicate(page, categoryPath, pageIndex);
-      },
-      // Categorías
-      onCategoryEdit: (category, categoryPath) => {
-        this._handleCategoryEdit(category, categoryPath);
-      },
-      onCategoryDelete: (category, categoryPath) => {
-        this._handleCategoryDelete(category, categoryPath);
-      },
-      onCategoryMove: (category, categoryPath, direction) => {
-        this._handleCategoryMove(category, categoryPath, direction);
-      },
-      onCategoryDuplicate: (category, categoryPath) => {
-        this._handleCategoryDuplicate(category, categoryPath);
-      },
-      onAddPage: (categoryPath, roomId) => {
-        this._handleAddPage(categoryPath, roomId);
-      },
-      onAddCategory: (categoryPath, roomId) => {
-        this._handleAddCategory(categoryPath, roomId);
-      },
-      onShowModal: (type, options) => {
-        if (type === 'edit-page' && options.page && options.categoryPath !== undefined) {
-          // Usar el modal de edición completo con selector de carpeta
-          this._showEditPageModalFromList(options.page, options.categoryPath, options.pageIndex);
-        } else {
-          this._showModalForm(options.title, options.fields, options.onSubmit);
         }
       }
     });
