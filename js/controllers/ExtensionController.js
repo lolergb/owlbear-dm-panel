@@ -4390,14 +4390,39 @@ export class ExtensionController {
       // Mostrar imagen en modal desde iframe de Obsidian Tunnel
       if (event.data && event.data.type === 'showImageModal') {
         const { imageUrl, caption } = event.data;
-        log('🔍 Solicitud de mostrar imagen en modal:', { imageUrl, caption });
+        log('🔍 Solicitud de mostrar imagen en modal OBR:', { imageUrl, caption });
+        log('🔍 OBR disponible:', !!this.OBR);
+        log('🔍 OBR.modal disponible:', !!(this.OBR && this.OBR.modal));
         
         if (imageUrl) {
           try {
-            await this._showImageModal(imageUrl, caption || '');
-            log('✅ Modal de imagen abierto');
+            // Usar directamente OBR.modal.open para asegurar que se abre en ventana de OBR
+            if (this.OBR && this.OBR.modal) {
+              const currentPath = window.location.pathname;
+              const baseDir = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+              const baseUrl = window.location.origin + baseDir;
+              
+              const viewerUrl = new URL('html/image-viewer.html', baseUrl);
+              viewerUrl.searchParams.set('url', encodeURIComponent(imageUrl));
+              if (caption) {
+                viewerUrl.searchParams.set('caption', encodeURIComponent(caption));
+              }
+              
+              log('🔍 Abriendo OBR.modal con URL:', viewerUrl.toString());
+              await this.OBR.modal.open({
+                id: 'notion-image-viewer',
+                url: viewerUrl.toString(),
+                height: 800,
+                width: 1200
+              });
+              log('✅ Modal OBR abierto correctamente');
+            } else {
+              logError('❌ OBR.modal no disponible, abriendo en nueva ventana');
+              window.open(imageUrl, '_blank', 'noopener,noreferrer');
+            }
           } catch (error) {
             logError('❌ Error al abrir modal de imagen:', error);
+            window.open(imageUrl, '_blank', 'noopener,noreferrer');
           }
         }
         return;
