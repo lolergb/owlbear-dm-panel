@@ -6363,14 +6363,31 @@ export class ExtensionController {
       // Caso 2: Página con URL externa (Obsidian Tunnel) - cargar en iframe
       else if (page.url && !page.getNotionPageId()) {
         log('🔗 Mention: página con URL externa, cargando en iframe:', page.url);
-        content.innerHTML = `
-          <iframe 
-            src="${page.url}" 
-            class="mention-modal__iframe"
-            style="width: 100%; height: 100%; border: none; min-height: 500px;"
-            title="${displayName}"
-          ></iframe>
-        `;
+        const iframe = document.createElement('iframe');
+        iframe.src = page.url;
+        iframe.className = 'mention-modal__iframe';
+        iframe.style.cssText = 'width: 100%; height: 100%; border: none; min-height: 500px;';
+        iframe.title = displayName;
+        
+        // Cuando el iframe cargue, enviar información sobre el rol del usuario
+        iframe.onload = () => {
+          try {
+            // Enviar mensaje al iframe indicando si es Player (no GM)
+            const isPlayer = !this.isGM;
+            iframe.contentWindow.postMessage({
+              type: 'setUserRole',
+              isPlayer: isPlayer,
+              isGM: this.isGM,
+              isCoGM: this.isCoGM
+            }, '*');
+            log('📤 Enviado rol de usuario al iframe:', { isPlayer, isGM: this.isGM, isCoGM: this.isCoGM });
+          } catch (error) {
+            logError('❌ Error enviando rol al iframe:', error);
+          }
+        };
+        
+        content.innerHTML = '';
+        content.appendChild(iframe);
         return;
       }
       // Caso 3: Página de Notion (necesita API o broadcast)
