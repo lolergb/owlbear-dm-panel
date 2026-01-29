@@ -4392,17 +4392,14 @@ export class ExtensionController {
         const { imageUrl, caption } = event.data;
         log('🖼️ Solicitud de compartir imagen recibida:', { imageUrl, caption });
         
-        // Permitir compartir a GM y coGM (cualquiera que no sea Player)
-        const canShare = this.isGM || this.isCoGM;
-        if (imageUrl && canShare) {
+        // Permitir compartir a todos (GM, coGM y Players)
+        if (imageUrl) {
           try {
             await this._shareImageToPlayers(imageUrl, caption || '');
             log('✅ Imagen compartida con éxito');
           } catch (error) {
             logError('❌ Error al compartir imagen:', error);
           }
-        } else if (!canShare) {
-          logWarn('⚠️ Solo el GM o coGM puede compartir imágenes');
         }
         return;
       }
