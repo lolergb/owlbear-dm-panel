@@ -4387,6 +4387,22 @@ export class ExtensionController {
         return;
       }
       
+      // Mostrar imagen en modal desde iframe de Obsidian Tunnel
+      if (event.data && event.data.type === 'showImageModal') {
+        const { imageUrl, caption } = event.data;
+        log('🔍 Solicitud de mostrar imagen en modal:', { imageUrl, caption });
+        
+        if (imageUrl) {
+          try {
+            await this._showImageModal(imageUrl, caption || '');
+            log('✅ Modal de imagen abierto');
+          } catch (error) {
+            logError('❌ Error al abrir modal de imagen:', error);
+          }
+        }
+        return;
+      }
+      
       // Compartir imagen desde iframe de Obsidian Tunnel
       if (event.data && event.data.type === 'shareImage') {
         const { imageUrl, caption } = event.data;
