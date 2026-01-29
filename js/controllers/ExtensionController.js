@@ -6961,7 +6961,7 @@ export class ExtensionController {
       // Obtener la URL base para los iconos
       const baseUrl = window.location.origin;
       
-      // Menú: Vincular página (GM y Players)
+      // Menú: Vincular página (solo GM)
       await this.OBR.contextMenu.create({
         id: `${METADATA_KEY}/link-page`,
         icons: [
@@ -6970,7 +6970,7 @@ export class ExtensionController {
             label: 'Link page',
             filter: {
               every: [{ key: 'layer', value: 'CHARACTER' }],
-              roles: ['GM', 'PLAYER']
+              roles: ['GM']
             }
           }
         ],
@@ -7017,6 +7017,23 @@ export class ExtensionController {
           
           // Abrir si hay pageUrl o pageId (páginas de Obsidian pueden no tener URL)
           if (pageUrl || pageId) {
+            // Verificar acceso para Players y Co-GMs
+            if (!this.isGM || this.isCoGM) {
+              // Buscar la página en el vault para verificar visibilidad
+              let page = this.config?.findPageById(pageId);
+              if (!page && pageUrl) {
+                page = this.config?.findPageByUrl(pageUrl);
+              }
+              
+              // Si la página existe pero no es visible para players, mostrar mensaje
+              if (page && !page.visibleToPlayers) {
+                await this.OBR.action.open();
+                await new Promise(resolve => setTimeout(resolve, 100));
+                this._showFeedback('🔒 This page is not available');
+                return;
+              }
+            }
+            
             // Abrir el panel de la extensión
             await this.OBR.action.open();
             
@@ -7030,7 +7047,7 @@ export class ExtensionController {
         }
       });
       
-      // Menú: Desvincular página (GM y Players)
+      // Menú: Desvincular página (solo GM)
       await this.OBR.contextMenu.create({
         id: `${METADATA_KEY}/unlink-page`,
         icons: [
@@ -7042,7 +7059,7 @@ export class ExtensionController {
                 { key: 'layer', value: 'CHARACTER' },
                 { key: ['metadata', `${METADATA_KEY}/pageUrl`], value: undefined, operator: '!=' }
               ],
-              roles: ['GM', 'PLAYER']
+              roles: ['GM']
             }
           }
         ],
@@ -7104,12 +7121,6 @@ export class ExtensionController {
           const pageData = category.pages[item.index];
           // Asegurar que es una instancia de Page para tener acceso al id
           const page = pageData instanceof Page ? pageData : Page.fromJSON(pageData);
-          
-          // Para Players y Co-GMs, solo mostrar páginas visibles
-          if ((!this.isGM || this.isCoGM) && !page.visibleToPlayers) {
-            return; // Saltar páginas no visibles para players
-          }
-          
           allPages.push({
             id: page.id,
             name: page.name,
