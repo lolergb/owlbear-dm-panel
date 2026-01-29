@@ -4360,6 +4360,28 @@ export class ExtensionController {
       // Validar origen (opcional, pero recomendado para seguridad)
       // Por ahora aceptamos cualquier origen ya que las URLs pueden variar
       
+      // Responder a consulta de rol de usuario desde iframes de Obsidian Tunnel
+      if (event.data && event.data.type === 'queryUserRole') {
+        const isPlayer = !this.isGM;
+        log('📨 Consulta de rol recibida, respondiendo:', { isPlayer, isGM: this.isGM, isCoGM: this.isCoGM });
+        
+        // Responder al iframe que preguntó
+        if (event.source) {
+          try {
+            event.source.postMessage({
+              type: 'setUserRole',
+              isPlayer: isPlayer,
+              isGM: this.isGM,
+              isCoGM: this.isCoGM
+            }, '*');
+            log('✅ Rol enviado al iframe');
+          } catch (error) {
+            logError('❌ Error enviando rol al iframe:', error);
+          }
+        }
+        return;
+      }
+      
       if (event.data && event.data.type === 'openMentionModal') {
         const { pageId, pageName, pageUrl } = event.data;
         
