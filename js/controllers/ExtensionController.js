@@ -4357,6 +4357,11 @@ export class ExtensionController {
 
     // Escuchar mensajes postMessage de páginas cargadas en iframes (páginas de Obsidian)
     window.addEventListener('message', async (event) => {
+      // Log para debug de todos los mensajes recibidos
+      if (event.data && typeof event.data === 'object' && event.data.type) {
+        log('📬 Mensaje postMessage recibido:', event.data.type, event.data);
+      }
+      
       // Validar origen (opcional, pero recomendado para seguridad)
       // Por ahora aceptamos cualquier origen ya que las URLs pueden variar
       
