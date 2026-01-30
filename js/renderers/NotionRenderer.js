@@ -122,15 +122,16 @@ export class NotionRenderer {
     // especialmente en tablas y otros bloques anidados
     const displayName = pageInVault.name || apiDisplayName;
     
-    // Para players y Co-GMs: verificar si la página es visible
+    // Para players: verificar si la página es visible
+    // GM Master y Co-GM pueden ver todo, solo players tienen restricciones
     // Los mentions son SIEMPRE clickeables para que puedan ver el mensaje de "página no disponible"
     // La verificación de acceso real se hace en _openMentionedPage
-    const isVisibleForPlayer = (!this.isGM || this.isCoGM) && this.isPageVisibleCallback 
+    const isVisibleForPlayer = !this.isGM && this.isPageVisibleCallback 
       ? this.isPageVisibleCallback(pageInVault) 
       : true;
     
-    // Clase adicional para indicar visualmente páginas con acceso restringido
-    const lockedClass = (!this.isGM || this.isCoGM) && !isVisibleForPlayer ? ' notion-mention--locked' : '';
+    // Clase adicional para indicar visualmente páginas con acceso restringido (solo para players)
+    const lockedClass = !this.isGM && !isVisibleForPlayer ? ' notion-mention--locked' : '';
     
     // Página en vault: renderizar como enlace clickeable (incluso si no visible, para mostrar mensaje)
     return `<span 

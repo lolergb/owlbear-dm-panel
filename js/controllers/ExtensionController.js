@@ -4499,6 +4499,16 @@ export class ExtensionController {
           }
           
           if (page) {
+            // Verificar acceso: Solo players tienen restricciones
+            // GM Master y Co-GM pueden ver todas las páginas
+            if (!this.isGM) {
+              if (!page.visibleToPlayers) {
+                log('🚫 Acceso denegado a página no visible para players:', pageId);
+                this._showFeedback('🔒 This page is not available');
+                return;
+              }
+            }
+            
             log('✅ Página encontrada, abriendo modal:', page);
             await this._showMentionPageModal(page, pageName || page.name);
           } else {
@@ -6139,9 +6149,9 @@ export class ExtensionController {
       const pageInVault = this.config.findPageByNotionId(mentionedPageId);
       if (!pageInVault) return;
 
-      // Verificar visibilidad para players/Co-GMs
-      if ((!this.isGM || this.isCoGM) && pageInVault.visibleToPlayers !== true) {
-        return; // No hacer clickeable si no es visible
+      // Verificar visibilidad solo para players (GM Master y Co-GM pueden ver todo)
+      if (!this.isGM && pageInVault.visibleToPlayers !== true) {
+        return; // No hacer clickeable si no es visible para players
       }
 
       // Convertir a mention clickeable
@@ -6244,9 +6254,9 @@ export class ExtensionController {
         return;
       }
       
-      // Verificar acceso: Players y Co-GMs solo pueden ver páginas con visibleToPlayers = true
-      // Master GM puede ver todas las páginas
-      if (!this.isGM || this.isCoGM) {
+      // Verificar acceso: Solo players tienen restricciones
+      // GM Master y Co-GM pueden ver todas las páginas
+      if (!this.isGM) {
         if (!page.visibleToPlayers) {
           log('🚫 Acceso denegado a página no visible para players:', pageId);
           this._showFeedback('🔒 This page is not available');
