@@ -2735,13 +2735,8 @@
   margin-bottom: var(--spacing-md);
 }
 
-/* Ensure mentions inside modal are not interactive */
-.mention-modal__notion-content .notion-mention--link {
-  background-color: rgba(150, 122, 204, 0.1);
-  color: var(--color-text-secondary);
-  cursor: default;
-  pointer-events: none;
-}
+/* Mentions inside modal - keep them interactive */
+/* (removed: pointer-events: none that blocked clicks) */
 
 /* =============================================
    NOTION DATABASE PROPERTIES
