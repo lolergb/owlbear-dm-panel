@@ -4155,9 +4155,9 @@ try {
       const currentRoomConfig = getPagesJSONFromLocalStorage(roomId);
       let defaultConfig = getPagesJSONFromLocalStorage('default');
       
-      // Solo cargar room metadata para players
+      // Cargar room metadata para players y como fallback para Co-GMs
       let roomMetadataConfig = null;
-      if (!isGM) {
+      if (!isGM || isCoGM) {
         roomMetadataConfig = await loadPagesFromRoomMetadata();
       }
       
