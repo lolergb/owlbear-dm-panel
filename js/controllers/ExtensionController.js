@@ -6140,22 +6140,31 @@ export class ExtensionController {
     if (!targetContainer || !this.config) return;
 
     // Buscar todos los mentions que están como texto plano (notion-mention--plain)
-    // Ahora todos los mentions tienen data-mention-page-id gracias al renderer actualizado
-    const plainMentions = targetContainer.querySelectorAll('.notion-mention--plain[data-mention-page-id]');
+    // Incluir mentions con data-mention-page-id O data-mention-page-name
+    const plainMentions = targetContainer.querySelectorAll('.notion-mention--plain[data-mention-page-id], .notion-mention--plain[data-mention-page-name]');
     
     let updatedCount = 0;
     plainMentions.forEach(mention => {
       const mentionedPageId = mention.dataset.mentionPageId;
-      if (!mentionedPageId) return;
+      const mentionedPageName = mention.dataset.mentionPageName;
+      
+      if (!mentionedPageId && !mentionedPageName) return;
 
-      // Verificar si la página ahora está en el vault
-      const pageInVault = this.config.findPageByNotionId(mentionedPageId);
-      if (!pageInVault) return;
-
-      // Verificar visibilidad solo para players (GM Master y Co-GM pueden ver todo)
-      if (!this.isGM && pageInVault.visibleToPlayers !== true) {
-        return; // No hacer clickeable si no es visible para players
+      // Buscar la página en el vault:
+      // 1. Por Notion ID (para contenido de Notion)
+      // 2. Por ID interno (para contenido de Obsidian con IDs generados)
+      // 3. Por nombre (fallback para Obsidian)
+      let pageInVault = null;
+      if (mentionedPageId) {
+        pageInVault = this.config.findPageByNotionId(mentionedPageId);
+        if (!pageInVault) {
+          pageInVault = this.config.findPageById(mentionedPageId);
+        }
       }
+      if (!pageInVault && mentionedPageName) {
+        pageInVault = this.config.findPageByName(mentionedPageName);
+      }
+      if (!pageInVault) return;
 
       // Convertir a mention clickeable
       // Priorizar nombre del vault sobre el textContent ya que la API a veces devuelve "Untitled"
@@ -6163,7 +6172,13 @@ export class ExtensionController {
       const displayName = pageInVault.name || apiDisplayName;
       const pageUrl = pageInVault.url || '';
       
-      mention.className = 'notion-mention notion-mention--link';
+      // Verificar visibilidad solo para players (GM Master y Co-GM pueden ver todo)
+      // Para GMs: siempre visible
+      // Para players: solo si visibleToPlayers === true
+      const isVisibleForPlayer = this.isGM || pageInVault.visibleToPlayers === true;
+      const lockedClass = !this.isGM && !isVisibleForPlayer ? ' notion-mention--locked' : '';
+      
+      mention.className = 'notion-mention notion-mention--link' + lockedClass;
       mention.setAttribute('data-mention-page-id', mentionedPageId);
       mention.setAttribute('data-mention-page-name', displayName);
       mention.setAttribute('data-mention-page-url', pageUrl);
